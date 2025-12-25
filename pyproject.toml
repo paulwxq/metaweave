@@ -1,0 +1,44 @@
+[project]
+name = "metaweave"
+version = "0.1.0"
+description = "Database metadata generation and enhancement platform"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "click>=8.1.7",
+  "dashscope>=1.14.0",
+  "langchain-core>=1.2.2",
+  "langchain-community>=0.4.1",
+  "langchain-openai>=0.2.0",
+  "neo4j>=5.15.0",
+  "numpy>=2.3.4",
+  "pandas>=2.1.3",
+  "pgvector>=0.2.0",
+  "psycopg[binary]>=3.1.0",
+  "psycopg-pool>=3.2.7",
+  "pymilvus>=2.6.5",
+  "python-dotenv>=1.0.0",
+  "PyYAML>=6.0.0",
+  "tqdm>=4.66.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.4.2",
+  "pytest-asyncio>=0.24.0",
+  "pytest-cov>=4.1.0",
+  "black>=23.0.0",
+  "ruff>=0.1.0",
+]
+
+[project.scripts]
+metaweave = "metaweave.cli.main:cli"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["metaweave*", "services*"]
+exclude = ["tests*", "docs*", "output*", "cache*", "logs*"]

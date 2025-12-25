@@ -1,0 +1,390 @@
+你是一个数据库关系分析专家。请分析以下两个表及其采样数据，判断它们之间是否存在关联关系（外键/引用关系），并输出可能的关联字段映射。
+
+## 重要说明（请严格遵守）
+
+### 关于数据可靠性
+1) 我提供的 JSON 来自 "json" 步骤（完整画像），包含以下信息层级：
+   - 🟢 高可靠：table_profile.physical_constraints（物理主键/外键/唯一约束）
+   - 🟢 高可靠：column_profiles.*.semantic_analysis（7种语义角色 + 置信度 + 推断依据）
+   - 🟢 高可靠：table_profile.table_category + confidence（表类型分类 + 置信度）
+   - 🟡 中可靠：table_profile.*_table_info（fact/dim/bridge 特定信息，如 dimensions、surrogate_key 等）
+   - 🔴 低可靠：table_profile.logical_keys（基于采样的逻辑主键推断，受样本量影响，可能不准确）
+   - 🔴 低可靠：column_profiles.*.structure_flags.is_unique（基于采样统计的"数据唯一"，非数据库约束）
+
+2) 样例数据（sample_records）使用规则：
+   - 可用于验证值域匹配，但必须考虑样本量限制
+   - 如果 sample_records.total_rows < 100，降低值域匹配的权重
+   - 样例数据匹配率 < 50% 时不建议输出关联
+   - 样本可能是随机抽样，不要将偶然匹配当成确定关系
+
+### 关于输出要求
+- 你的输出必须只包含 JSON（不得包含 Markdown 代码块标记、解释文字、自然语言）
+- 严格符合下方"输出格式"章节的 JSON Schema
+
+---
+
+## 表 1: {table1_name}
+```json
+{table1_json}
+```
+
+## 表 2: {table2_name}
+```json
+{table2_json}
+```
+
+---
+
+## 关联判断方法（优先级从高到低）
+
+请按照以下优先级顺序进行判断，优先级高的证据更可靠：
+
+### 优先级 1：物理约束已声明（可信度 ★★★★★）
+**判断条件**：
+- table_profile.physical_constraints.foreign_keys 中已明确声明外键关系
+
+**处理方式**：
+- 直接输出该关联，无需进一步验证
+- 这是最可靠的关联来源
+
+---
+
+### 优先级 2：语义角色 + 表类型 + 命名匹配（可信度 ★★★★☆）
+**必须同时满足以下所有条件**：
+1. ✅ 两端字段的 semantic_analysis.semantic_role = "identifier"
+2. ✅ 两端字段的 semantic_analysis.semantic_confidence >= 0.85
+3. ✅ 字段名高度匹配：
+   - 完全相同（如 customer_id ↔ customer_id）
+   - 或高度相似（如 store_id ↔ shop_id，通过 comment 确认语义相同）
+4. ✅ 数据类型兼容（integer ↔ integer，varchar ↔ varchar，bigint ↔ integer 等）
+5. ✅ 表类型符合典型模式（见下方"典型关联模式"章节）
+
+**加分项**（可选，但能提升置信度）：
+- semantic_analysis.inference_basis 包含 "pk_constraint" 或 "fk_constraint"
+- role_specific_info.identifier_info 存在且 naming_pattern 匹配
+- 样例数据值域包含关系支持（subset_rate >= 80%）
+
+---
+
+### 优先级 3：命名 + 类型 + 值域匹配（可信度 ★★★☆☆）
+**必须同时满足以下所有条件**：
+1. ✅ 字段名相似（如 store_id ↔ id，但 id 字段在 dim_store 表中）
+2. ✅ 数据类型兼容
+3. ✅ 样例数据值域包含关系：subset_rate >= 80%
+   - 计算方法见下方"样例数据匹配方法"章节
+4. ✅ to 端字段的 statistics.unique_count <= from 端字段的 unique_count
+5. ⚠️ 至少一端字段的 semantic_role = "identifier"（如果两端都不是 identifier，降低置信度）
+
+**注意**：
+- 这种情况需要更谨慎，建议标记为"中等置信度"
+- 如果表类型不符合典型模式（如 dim → fact），进一步降低置信度
+
+---
+
+### 优先级 4：仅值域强匹配（可信度 ★★☆☆☆）
+**必须同时满足以下所有条件**：
+1. ✅ 样例数据值域交集匹配率 >= 90%
+2. ✅ 业务语义关联（两端字段的 comment 中有相关描述，如 "客户编号" ↔ "顾客ID"）
+3. ✅ 数据类型兼容
+4. ⚠️ 样本量足够（sample_records.total_rows >= 100）
+
+**警告**：
+- 这种情况可信度较低，容易出现误判
+- 如果命名完全无关，不建议输出
+- 建议标记为"低置信度"，需人工确认
+
+---
+
+## 典型关联模式（利用表类型信息）
+
+基于 table_profile.table_category 和 *_table_info，可以识别以下典型模式：
+
+### 模式 A：Fact → Dim（事实表引用维度表）★★★★★
+**特征**：
+- 表A: table_category = "dim"
+- 表A 有主键（physical_constraints.primary_key 或 dim_table_info.surrogate_key/natural_key）
+- 表B: table_category = "fact"
+- 表B.fact_table_info.dimensions 包含某字段
+- 表B 的该字段与表A的主键匹配（命名/类型/值域）
+
+**输出方向**：
+- from_table = 表A（维度表，被引用方）
+- to_table = 表B（事实表，引用方）
+
+**置信度提升**：+0.2（这是最常见的关联模式）
+
+---
+
+### 模式 B：Bridge → Dim/Fact（桥接表连接两个表）★★★★☆
+**特征**：
+- 表A: table_category = "bridge"
+- 表A.bridge_table_info.foreign_key_pairs 包含字段列表
+- 表B 的主键与表A的某个外键字段匹配
+
+**输出方向**：
+- from_table = 表B（被引用的 Dim 或 Fact）
+- to_table = 表A（桥接表）
+
+**注意**：
+- 桥接表通常连接两端，应该输出 2 个关联（如果输入只有两个表，可能只能识别一端）
+
+---
+
+### 模式 C：Dim → Dim（维度层级关系）★★★☆☆
+**特征**：
+- 表A: table_category = "dim"
+- 表B: table_category = "dim"
+- 表B 的某个非主键 identifier 字段与表A的主键匹配
+- 表B.dim_table_info.attributes 包含该字段
+
+**输出方向**：
+- from_table = 表A（父级维度，如 province）
+- to_table = 表B（子级维度，如 city）
+
+**语义**：
+- 这是层级关系（如 城市 → 省份，产品 → 类别）
+
+---
+
+### 不太可能的模式（降低置信度或不输出）❌
+- Dim → Fact：维度表引用事实表（罕见，除非是特殊的聚合场景）
+- Metric ↔ Metric：semantic_role 为 "metric" 的字段互相关联（通常不合理）
+- Audit ↔ Audit：semantic_role 为 "audit" 的字段（如 created_at）作为业务关联（罕见）
+
+---
+
+## 样例数据匹配方法（具体计算步骤）
+
+### 步骤 1：提取值集合
+```
+values_A = 从 table1.sample_records.records 中提取候选字段的所有值，去重
+values_B = 从 table2.sample_records.records 中提取候选字段的所有值，去重
+```
+
+### 步骤 2：计算匹配率
+```
+intersection = values_A ∩ values_B  （交集）
+交集匹配率 = len(intersection) / min(len(values_A), len(values_B))
+包含关系率 = len(values_B ∩ values_A) / len(values_B)
+```
+
+### 步骤 3：判断标准
+- **交集匹配率 >= 80%**：强匹配（值域高度重合）
+- **包含关系率 >= 90%**：B 的值是 A 的子集（B 引用 A，典型的外键模式）
+- **交集匹配率 50%-80%**：中等匹配（需要结合其他证据，如命名、语义角色）
+- **交集匹配率 < 50%**：弱匹配（不建议输出）
+
+### 步骤 4：样本量检查（重要！）
+如果：
+- sample_records.total_rows < 100：样本量不足，降低值域匹配的权重
+- 某字段的 statistics.unique_count 远大于样本数（如 unique_count=10000，但只有50条样本）：
+  说明值域覆盖不足，样例匹配可能不可靠，降低权重
+
+### 示例判断
+```
+表A.customer_id：样例值 = [1, 2, 3, 5, 8, 10]
+表B.cust_id：样例值 = [1, 2, 3]
+
+计算：
+intersection = [1, 2, 3]
+交集匹配率 = 3 / min(6, 3) = 3/3 = 100%
+包含关系率 = 3 / 3 = 100%
+
+结论：
+✅ B.cust_id 的值完全是 A.customer_id 的子集
+✅ 很可能 B.cust_id 引用 A.customer_id（外键关系）
+✅ 输出方向：from_table=表A, to_table=表B
+```
+
+---
+
+## 复合键判断标准
+
+### 何时考虑复合键？
+只在以下情况下考虑复合键（2-4列组合）：
+
+1. **单列匹配都不满足高置信度**（优先级2以上的条件都不满足）
+2. **表类型提示**：
+   - table_category = "bridge"（桥接表通常有复合主键）
+   - fact_table_info.grain 包含多列（事实表的粒度是复合的）
+3. **逻辑主键提示**（谨慎使用）：
+   - logical_keys.candidate_primary_keys 中存在复合键
+   - 但必须同时满足其他证据（命名、类型、值域）
+
+### 复合键匹配要求（全部满足）
+1. ✅ 两边列数必须一致（2列 ↔ 2列，3列 ↔ 3列）
+2. ✅ 每一列都满足：
+   - semantic_role 兼容（identifier ↔ identifier 最佳）
+   - 数据类型兼容
+   - 命名相似或语义关联（通过 comment 确认）
+3. ✅ 样例数据组合值域匹配：
+   - 将多列组合为元组（如 (order_id, product_id)）
+   - 计算组合后的交集匹配率或包含率
+   - 要求匹配率 >= 70%
+
+### 复合键示例
+```
+表A（订单明细）：
+- 列1: order_id (semantic_role=identifier)
+- 列2: product_id (semantic_role=identifier)
+- 样例组合值：[(1001, A01), (1001, A02), (1002, A01)]
+
+表B（库存）：
+- 列1: order_no (semantic_role=identifier)
+- 列2: item_id (semantic_role=identifier)
+- 样例组合值：[(1001, A01), (1002, A01)]
+
+判断：
+✅ 列数一致（2列 ↔ 2列）
+✅ order_id ≈ order_no（命名相似，都是 identifier）
+✅ product_id ≈ item_id（语义关联，都是 identifier）
+✅ 组合值包含率 = 2/2 = 100%
+→ 输出复合关联
+```
+
+---
+
+## 不应输出的情况（负面清单）❌
+
+请**不要**输出关联，如果遇到以下情况：
+
+1. **仅基于 logical_keys 推断**：
+   - 只有 logical_keys 提示，但没有其他证据（命名、类型、值域、语义角色）
+   - logical_keys 可能不准确，不能单独作为依据
+
+2. **字段语义角色不合理**：
+   - 两端字段的 semantic_role 都是 "metric"（度量字段通常不用于关联）
+   - 两端字段的 semantic_role 都是 "audit"（审计字段如 created_at 通常不用于业务关联）
+   - 除非有明确的 physical_constraints.foreign_keys 证明
+
+3. **样例数据匹配率过低**：
+   - 交集匹配率 < 50%
+   - 且没有其他强证据支持
+
+4. **命名和语义完全无关**：
+   - 字段名完全不相似（如 amount ↔ status）
+   - comment 中的业务含义也无关联
+   - 样例数据恰好有重叠值（可能是巧合）
+
+5. **语义置信度过低**：
+   - semantic_confidence < 0.7（推断可靠性低）
+   - 且没有物理约束支持
+
+6. **表类型模式不合理**：
+   - 维度表引用事实表（dim → fact，罕见）
+   - 且没有物理约束或强语义证据
+
+---
+
+## 输出格式（必须严格遵守）
+
+你必须返回一个 JSON 对象，且仅包含一个顶层字段：`relationships`
+
+`relationships` 是一个数组，数组里每个元素是一个关系对象。
+
+### 关系对象结构（两种类型）
+
+#### A. 单列关联（type = "single_column"）
+```json
+{
+  "type": "single_column",
+  "from_table": {
+    "schema": "<schema_name>",
+    "table": "<table_name>"
+  },
+  "to_table": {
+    "schema": "<schema_name>",
+    "table": "<table_name>"
+  },
+  "from_column": "<column_name>",
+  "to_column": "<column_name>"
+}
+```
+
+#### B. 多列关联（type = "composite"）
+```json
+{
+  "type": "composite",
+  "from_table": {
+    "schema": "<schema_name>",
+    "table": "<table_name>"
+  },
+  "to_table": {
+    "schema": "<schema_name>",
+    "table": "<table_name>"
+  },
+  "from_columns": ["<col1>", "<col2>"],
+  "to_columns": ["<col1>", "<col2>"]
+}
+```
+
+**注意**：`from_columns` 和 `to_columns` 的数组长度必须一致，且顺序一一对应。
+
+---
+
+### 方向约定（请严格遵守）
+
+如果你认为存在"被引用表（字典/维表/主数据）"与"引用表（事实/明细/记录）"的关系：
+
+- **from_table** = 被引用表（更像主表/字典/维表的一方，通常提供稳定编码/ID）
+- **to_table** = 引用表（更像事实/明细/事件的一方，包含外键字段）
+
+字段方向同理：
+- **from_column(s)** = 被引用列（通常是主键或唯一键）
+- **to_column(s)** = 引用列（通常是外键）
+
+**示例**：
+- dim_customer.customer_id（主键）被 fact_sales.customer_id（外键）引用
+- → from_table = dim_customer, to_table = fact_sales
+
+---
+
+### 额外约束
+
+1. **字段存在性检查**：
+   - 不要输出不存在的表名或列名
+   - 所有输出的表名和列名必须能在输入 JSON 中找到对应项
+
+2. **去重**：
+   - 同一对表的同一组字段映射不要重复输出
+   - 例如：A.id ↔ B.user_id 只输出一次，不要重复
+
+3. **数量限制**：
+   - 最多输出 **5 个**最可能的关系
+   - 按可信度/优先级从高到低排序
+
+4. **双向关系处理**：
+   - 关联关系是有方向的（from → to）
+   - 不要同时输出 A→B 和 B→A（选择一个正确的方向）
+
+---
+
+### 无关联情况
+
+如果你判断两表**没有可信关联关系**，请输出：
+
+```json
+{
+  "relationships": []
+}
+```
+
+**判断"无关联"的情况**：
+- 所有优先级的判断条件都不满足
+- 或只有优先级4（仅值域匹配）且置信度很低
+- 或表类型模式明显不合理（如 metric ↔ metric）
+
+---
+
+## 最终提醒
+
+1. ✅ 优先信任物理约束（foreign_keys）
+2. ✅ 充分利用语义角色（semantic_role）和表类型（table_category）
+3. ✅ 样例数据只是辅助验证，注意样本量限制
+4. ✅ 逻辑主键（logical_keys）仅作弱参考，不能单独作为依据
+5. ✅ 按优先级从高到低判断，优先输出高可信度关联
+6. ✅ 输出必须是纯 JSON，不包含任何 Markdown 或解释文字
+
+---
+
+请只返回 JSON，不要包含其他内容。

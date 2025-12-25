@@ -1,0 +1,189 @@
+你是数据库关系分析专家。分析以下两表，判断是否存在关联关系（外键/引用），输出关联字段映射。
+
+## 输入数据说明
+
+提供的 JSON 来自完整表画像（json 步骤），包含：
+- physical_constraints：物理主键/外键/唯一约束（最可靠）
+- semantic_analysis：列语义角色（7种）+ 置信度 + 推断依据（高可靠）
+- table_category + confidence：表类型分类（fact/dim/bridge/unknown，高可靠）
+- *_table_info：表类型特定信息（中可靠）
+- logical_keys：基于采样的逻辑主键推断（低可靠，仅作弱参考）
+- structure_flags.is_unique：基于采样的唯一性统计（低可靠，非数据库约束）
+
+样例数据（sample_records）：用于验证值域匹配，但受样本量限制；样本匹配率<50%时不建议输出。
+
+---
+
+## 表 1: {table1_name}
+```json
+{table1_json}
+```
+
+## 表 2: {table2_name}
+```json
+{table2_json}
+```
+
+---
+
+## 关联判断优先级（从高到低）
+
+### 优先级1：物理约束已声明
+- 条件：physical_constraints.foreign_keys 中已明确声明
+- 处理：直接输出，无需验证
+
+### 优先级2：语义角色 + 表类型 + 命名
+必须同时满足：
+1. 两端 semantic_role = "identifier" 且 semantic_confidence ≥ 0.85
+2. 字段名高度匹配（完全相同或相似且 comment 语义相同）
+3. 数据类型兼容
+4. 表类型符合典型模式（见下方）
+
+加分项：inference_basis 包含约束信息、样例值域包含率≥80%
+
+### 优先级3：命名 + 类型 + 值域
+必须同时满足：
+1. 字段名相似（如 store_id ↔ id，但 id 在 dim_store 表中）
+2. 数据类型兼容
+3. 样例值域包含率≥80%（计算：len(values_B ∩ values_A) / len(values_B)）
+4. to 端 unique_count ≤ from 端 unique_count
+5. 至少一端 semantic_role = "identifier"
+
+注意：需更谨慎，置信度中等；若表类型不符典型模式则降低置信度。
+
+### 优先级4：仅值域强匹配
+必须同时满足：
+1. 样例值域交集率≥90%（计算：len(intersection) / min(len(A), len(B))）
+2. 业务语义关联（comment 相关描述）
+3. 数据类型兼容
+4. 样本量≥100
+
+警告：可信度低，命名无关则不输出。
+
+---
+
+## 典型关联模式
+
+基于 table_category 和 *_table_info 识别：
+
+**A. Fact → Dim**（最常见）
+- 表A: table_category="dim" 有主键（physical_constraints.primary_key 或 dim_table_info.surrogate_key/natural_key）
+- 表B: table_category="fact"，fact_table_info.dimensions 包含某字段
+- 表B 该字段与表A主键匹配（命名/类型/值域）
+- 方向：from=维度表, to=事实表
+
+**B. Bridge → Dim/Fact**
+- 表A: table_category="bridge"，bridge_table_info.foreign_key_pairs 包含字段
+- 表B 主键与表A外键字段匹配
+- 方向：from=被引用表, to=桥接表
+
+**C. Dim → Dim**（层级关系）
+- 表A、B: 都是 table_category="dim"
+- 表B 非主键 identifier 字段与表A主键匹配
+- 方向：from=父级维度（如省份）, to=子级维度（如城市）
+
+**不合理模式**：Dim→Fact、Metric↔Metric、Audit↔Audit（降低置信度或不输出）
+
+---
+
+## 复合键判断
+
+仅在以下情况考虑（2-4列组合）：
+1. 单列匹配都不满足高置信度
+2. table_category="bridge" 或 fact_table_info.grain 包含多列
+3. logical_keys 存在复合候选（谨慎使用，需其他证据）
+
+要求：
+- 两边列数一致，每列都满足：semantic_role 兼容、类型兼容、命名相似
+- 组合值域匹配率≥70%（将多列组合为元组计算）
+
+---
+
+## 不应输出的情况
+
+1. 仅基于 logical_keys 推断，无其他证据
+2. 两端 semantic_role 都是 "metric" 或 "audit"（除非有物理约束）
+3. 样例匹配率<50% 且无其他强证据
+4. 命名和 comment 语义完全无关
+5. semantic_confidence < 0.7 且无物理约束
+6. 表类型模式不合理（如 dim→fact）且无强证据
+
+---
+
+## 值域匹配计算
+
+```
+values_A = 从 table1.sample_records 提取字段值，去重
+values_B = 从 table2.sample_records 提取字段值，去重
+
+交集匹配率 = len(values_A ∩ values_B) / min(len(values_A), len(values_B))
+包含关系率 = len(values_B ∩ values_A) / len(values_B)
+```
+
+判断标准：
+- 包含率≥90%：强包含（B引用A，典型外键）
+- 交集率≥80%：强匹配
+- 交集率50%-80%：中等匹配（需其他证据）
+- 交集率<50%：不建议输出
+
+样本量检查：
+- total_rows < 100：降低值域匹配权重
+- unique_count 远大于样本数：值域覆盖不足，降低权重
+
+---
+
+## 输出格式
+
+必须返回纯 JSON（不含 Markdown 标记/解释文字），仅包含 `relationships` 字段。
+
+### 单列关联
+```json
+{
+  "type": "single_column",
+  "from_table": {"schema": "<schema>", "table": "<table>"},
+  "to_table": {"schema": "<schema>", "table": "<table>"},
+  "from_column": "<column>",
+  "to_column": "<column>"
+}
+```
+
+### 多列关联
+```json
+{
+  "type": "composite",
+  "from_table": {"schema": "<schema>", "table": "<table>"},
+  "to_table": {"schema": "<schema>", "table": "<table>"},
+  "from_columns": ["<col1>", "<col2>"],
+  "to_columns": ["<col1>", "<col2>"]
+}
+```
+
+**方向约定**：
+- from_table/column(s)：被引用方（主表/维表，通常有主键）
+- to_table/column(s)：引用方（事实/明细，通常有外键）
+
+**约束**：
+- 表名/列名必须在输入 JSON 中存在
+- 去重（同一组映射只输出一次）
+- 最多输出5个，按可信度从高到低排序
+- 不输出双向关系（只选一个正确方向）
+
+### 无关联
+```json
+{
+  "relationships": []
+}
+```
+
+---
+
+## 核心原则
+
+1. 优先信任 physical_constraints.foreign_keys
+2. 充分利用 semantic_role 和 table_category
+3. 样例数据仅辅助验证，注意样本量限制
+4. logical_keys 仅作弱参考，不能单独作依据
+5. 按优先级从高到低判断
+6. 输出纯 JSON，不含任何其他内容
+
+请只返回 JSON，不要包含其他内容。

@@ -1,0 +1,102 @@
+你是一名数据仓库建模专家，请根据我提供的两个表的结构和样例数据，判断它们之间是否存在关联关系（外键/引用关系），并识别最可能的关联字段。
+
+注意：两个表之间可能存在一个或多个关联关系（例如通过不同的字段关联），但请只返回最可能的关系，最多 3 个。
+
+## 表 1: {table1_name}
+```json
+{table1_json}
+```
+
+## 表 2: {table2_name}
+```json
+{table2_json}
+```
+
+## 背景知识
+
+### 关于提供的 JSON 数据
+这些 JSON 来自完整的表画像分析，包含：
+- **physical_constraints**：数据库物理约束（主键、外键、唯一约束），这是最可靠的信息
+- **semantic_analysis**：列的语义角色分析（identifier/metric/datetime/audit/enum/description/attribute），附带置信度
+- **table_category**：表类型分类（fact/dim/bridge/unknown），附带置信度
+- **statistics**：基于采样数据的统计信息（uniqueness、null_rate、value_distribution 等）
+- **sample_records**：样例数据记录
+- **logical_keys**：基于采样推断的逻辑主键候选（可能不准确，仅供参考）
+
+### 典型的关联模式
+- **Fact → Dim**：事实表引用维度表（最常见），例如订单表的 customer_id 引用客户维度表的主键
+- **Bridge → Dim/Fact**：桥接表连接其他表，通常包含两个或多个外键
+- **Dim → Dim**：维度层级关系，例如城市维度表的 province_id 引用省份维度表
+- **不太常见**：Dim → Fact（维度表引用事实表，罕见）、Metric ↔ Metric（度量字段互相引用，通常不合理）
+
+### 判断提示（非强制要求）
+你可以综合考虑以下线索：
+1. **物理约束**：如果 physical_constraints.foreign_keys 已明确声明，直接输出即可
+2. **字段命名**：相同或相似的字段名（如 customer_id ↔ customer_id，或 store_id ↔ shop_id）
+3. **语义角色**：semantic_role 为 "identifier" 的字段更可能用于关联
+4. **数据类型**：兼容的数据类型（integer ↔ integer，varchar ↔ varchar）
+5. **样例数据值域**：一个表的字段值是否是另一个表字段值的子集（暗示外键关系）
+6. **表类型关系**：fact 表通常引用 dim 表，bridge 表通常连接两个其他表
+7. **业务语义**：字段注释（comment）中的业务含义是否相关
+
+### 注意事项
+- logical_keys 是基于采样推断的，可能不准确，不要完全依赖它
+- statistics 中的 uniqueness 和 is_unique 也是基于采样的，可能受样本量影响
+- sample_records 可以帮助验证值域匹配，但样本可能不完整
+- 不要强行输出关系，如果不确定就返回空数组
+
+## 任务
+请综合以上信息，运用你的数据库建模常识，判断这两个表之间是否存在关联关系：
+1. 如果存在关联，识别关联的字段（可能是单列或多列组合）
+2. 确定关联方向（from_table 是被引用方，to_table 是引用方）
+3. 如果不存在明显的关联关系，返回空数组
+
+## 输出格式（JSON）
+
+### 单列关联示例
+```json
+{
+  "relationships": [
+    {
+      "type": "single_column",
+      "from_table": {"schema": "public", "table": "dim_customer"},
+      "to_table": {"schema": "public", "table": "fact_sales"},
+      "from_column": "customer_id",
+      "to_column": "customer_id",
+      "reason": "事实表引用维度表的客户ID，字段名完全匹配，类型兼容，样例数据值域包含关系明显"
+    }
+  ]
+}
+```
+
+### 多列关联示例
+```json
+{
+  "relationships": [
+    {
+      "type": "composite",
+      "from_table": {"schema": "public", "table": "dim_product"},
+      "to_table": {"schema": "public", "table": "fact_inventory"},
+      "from_columns": ["category_id", "product_id"],
+      "to_columns": ["category_id", "product_id"],
+      "reason": "库存表通过类别ID和产品ID组合引用产品维度表，构成复合外键"
+    }
+  ]
+}
+```
+
+### 无关联示例
+```json
+{
+  "relationships": []
+}
+```
+
+**约束**：
+- 表名和列名必须在输入 JSON 中存在
+- 最多输出 3 个最可能的关系
+- from_table/column(s) 是被引用方（通常有主键），to_table/column(s) 是引用方（通常有外键）
+- 多列关联时，from_columns 和 to_columns 的数组长度必须一致
+- 每个关系必须包含 reason 字段，简要说明判断依据
+
+请只返回 JSON，不要包含其他内容。

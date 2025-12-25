@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>output/json vs output/json_llm：指标差异与计算方式（干货版）</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --code-bg: #f3f4f6;
+      --table-head: #f9fafb;
+      --link: #2563eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b1220;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --border: #1f2937;
+        --code-bg: #0f172a;
+        --table-head: #0f172a;
+        --link: #60a5fa;
+      }
+    }
+
+    html, body { background: var(--bg); color: var(--fg); }
+    body {
+      margin: 0;
+      font: 14px/1.6 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    main {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 24px 10px 60px;
+    }
+    h1, h2, h3, h4 { line-height: 1.25; margin: 22px 0 10px; }
+    h1 { font-size: 24px; }
+    h2 { font-size: 18px; }
+    h3 { font-size: 16px; }
+    p { margin: 10px 0; }
+    a { color: var(--link); }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: var(--code-bg);
+      padding: 0.15em 0.35em;
+      border-radius: 6px;
+      font-size: 0.95em;
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 12px;
+      overflow: auto;
+    }
+    pre code { background: transparent; padding: 0; }
+
+    .table-wrap {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 12px 0 18px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      min-width: 880px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 10px;
+      vertical-align: top;
+      text-align: left;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    thead th {
+      background: var(--table-head);
+      font-weight: 600;
+    }
+    tbody tr:last-child td { border-bottom: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>output/json vs output/json_llm：指标差异与计算方式（干货版）</h1>
+<p>对比范围：<code>output/json/*.json</code> vs <code>output/json_llm/*.json</code>（按文件名一一对应，本次共 13 对文件）。</p>
+<h2>1) 谁比谁“多了哪些指标/字段”（JSON 独有）</h2>
+<div class="table-wrap"><table><thead><tr><th>指标路径（字段）</th><th><code>output/json</code></th><th><code>output/json_llm</code></th><th>该指标如何计算/产生（核心口径）</th></tr></thead><tbody><tr><td><code>column_profiles.*.semantic_analysis</code>（<code>semantic_role</code>/<code>semantic_confidence</code>/<code>inference_basis</code>）</td><td>✅</td><td>❌</td><td>规则引擎列语义分类：在 <code>metaweave/core/metadata/profiler.py</code> 中按优先级依次识别 <code>audit → datetime → identifier → description → enum(仅简单双值) → metric → attribute</code>；输入包含列名模式匹配、数据类型、结构约束（PK/FK/唯一/索引、复合成员）与采样统计（如 <code>uniqueness</code>、<code>unique_count</code> 等）；<code>inference_basis</code> 记录命中规则（如 <code>audit_pattern:*</code>、<code>metric_pattern:*</code>、<code>numeric_type</code>、<code>fallback_attribute</code>）。</td></tr><tr><td><code>column_profiles.*.role_specific_info</code>（<code>identifier_info</code>/<code>metric_info</code>/<code>datetime_info</code>/<code>enum_info</code>/<code>audit_info</code>/<code>description_info</code>/<code>primary_key_info</code>/<code>foreign_key_info</code>/<code>index_info</code>）</td><td>✅</td><td>❌</td><td>基于 <code>semantic_analysis.semantic_role</code> + 物理约束进一步展开的“角色细节”：例如 <code>identifier_info.is_surrogate = not is_foreign_key</code>；<code>metric_info</code> 的 <code>metric_category</code> 由列名关键词判定并给出建议聚合；<code>primary_key_info</code>/<code>foreign_key_info</code>/<code>index_info</code> 来自约束/索引元数据。实现见 <code>metaweave/core/metadata/models.py#ColumnProfile.to_dict</code> 与 <code>metaweave/core/metadata/profiler.py</code>。</td></tr><tr><td><code>table_profile.confidence</code></td><td>✅</td><td>❌</td><td>表类型置信度（0~1）：规则分类输出的一部分，基于列语义统计（metric/identifier/datetime 数量）、FK 数量、表名模式、表注释关键词等加权计算；实现见 <code>metaweave/core/metadata/profiler.py#_classify_table</code>。</td></tr><tr><td><code>table_profile.inference_basis</code></td><td>✅</td><td>❌</td><td>表类型判定依据列表（如 <code>fact_has_metric</code>、<code>dim_has_primary_key</code>、<code>bridge_fk_threshold</code> 等），由 <code>_classify_table</code> 在命中条件时写入。</td></tr><tr><td><code>table_profile.column_statistics</code>（<code>identifier_count</code>/<code>metric_count</code>/<code>datetime_count</code>/<code>audit_count</code>/<code>attribute_count</code>/<code>primary_key_count</code>/<code>foreign_key_count</code>…）</td><td>✅</td><td>❌</td><td>由列级 <code>semantic_role</code> + 结构约束汇总计数；实现见 <code>metaweave/core/metadata/profiler.py#_calculate_column_summary</code>。</td></tr><tr><td><code>table_profile.fact_table_info</code> / <code>dim_table_info</code> / <code>bridge_table_info</code></td><td>✅</td><td>❌</td><td>表类型特定信息：<code>fact</code> 输出 <code>grain/metrics/dimensions/time_dimension</code>；<code>dim</code> 输出 <code>natural_key/surrogate_key/attributes</code>；<code>bridge</code> 输出 <code>foreign_key_pairs/weight_columns</code>；构造逻辑见 <code>metaweave/core/metadata/profiler.py#_profile_table</code>。</td></tr><tr><td><code>table_profile.logical_keys.candidate_primary_keys[]</code>（<code>columns</code>/<code>confidence_score</code>/<code>uniqueness</code>/<code>null_rate</code>）</td><td>✅</td><td>❌</td><td>逻辑主键候选（仅在“无物理主键”时尝试）：先筛选满足 <code>uniqueness==1.0 &amp;&amp; null_rate==0.0</code> 的单列/复合列组合，再计算置信度并保留最小候选键；置信度：<code>0.3*name_score + 0.4*uniqueness + 0.2*(1-null_rate) + 0.1*type_score</code>。实现见 <code>metaweave/core/metadata/logical_key_detector.py</code> 与 <code>metaweave/utils/data_utils.py#calculate_uniqueness/calculate_null_rate</code>。</td></tr></tbody></table></div>
+<h2>2) 同名指标但“计算方式不同 / 口径不同”（重点）</h2>
+<div class="table-wrap"><table><thead><tr><th>指标路径（字段）</th><th><code>output/json</code> 口径</th><th><code>output/json_llm</code> 口径</th><th>本次目录的可观测差异</th></tr></thead><tbody><tr><td><code>table_info.comment</code> / <code>table_info.comment_source</code></td><td>来自 DDL 解析（本次 <code>comment_source</code> 全为 <code>ddl</code>）。<code>json</code> 步骤走 <code>MetadataGenerator._process_table_from_ddl</code>。</td><td>以数据库系统注释为主（<code>comment_source=db</code>）；若缺失且启用注释生成，则用 LLM 补齐并标记 <code>llm_generated</code>（见 <code>LLMJsonGenerator._merge_and_save</code>）。</td><td>表注释来源：<code>json</code>=13×<code>ddl</code>；<code>json_llm</code>=9×<code>db</code> + 4×<code>llm_generated</code>。列注释来源：<code>json</code>=60×<code>ddl</code>；<code>json_llm</code>=41×<code>db</code> + 19×<code>llm_generated</code>。</td></tr><tr><td><code>table_info.total_rows</code> / <code>sample_records.total_rows</code></td><td>会额外执行 <code>SELECT COUNT(*)</code> 回填 <code>metadata.row_count</code>，再写入 <code>total_rows</code>（见 <code>metaweave/core/metadata/generator.py#_process_table_from_ddl</code>）。</td><td>直接使用 <code>MetadataExtractor</code> 得到的 <code>metadata.row_count</code>；该路径不做 <code>COUNT(*)</code>，默认常为 0（见 <code>metaweave/core/metadata/llm_json_generator.py#_build_simplified_json/_build_sample_records</code>）。</td><td>本次 <code>json</code> 目录 13/13 表 <code>total_rows&gt;0</code>；<code>json_llm</code> 目录 0/13 表 <code>total_rows&gt;0</code>（全部为 0）。</td></tr><tr><td><code>table_profile.table_category</code></td><td>规则引擎分类（输出同时包含 <code>confidence</code>/<code>inference_basis</code>）。</td><td>**每张表都会被 LLM 结果覆盖**（无 <code>confidence</code>/<code>inference_basis</code>）。</td><td>表类型不一致 3 张：<code>public.employee.json</code>（<code>fact→dim</code>）、<code>public.order_header.json</code>（<code>dim→fact</code>）、<code>public.order_item.json</code>（<code>bridge→fact</code>）。</td></tr><tr><td><code>column_profiles.*.structure_flags.is_unique</code></td><td>基于采样统计判断“数据唯一”（<code>uniqueness==1.0</code>）且**不存在唯一约束**时置为 <code>true</code>；见 <code>metaweave/core/metadata/profiler.py#_is_unique</code> 与 <code>StructureFlags(is_unique=...)</code>。</td><td>固定为 <code>false</code>（仅保留“唯一约束/复合唯一约束成员”的标记）；见 <code>metaweave/core/metadata/llm_json_generator.py#_build_structure_flags</code>。</td><td>本次 <code>json</code> 有 23/60 列 <code>is_unique=true</code>；<code>json_llm</code> 为 0/60。</td></tr></tbody></table></div>
+<h2>3) 两边一致但常被拿来当“指标”的统计口径（用于理解上面差异）</h2>
+<div class="table-wrap"><table><thead><tr><th>指标路径（字段）</th><th>计算方式（两边一致）</th><th>实现位置</th></tr></thead><tbody><tr><td><code>column_profiles.*.statistics.uniqueness</code></td><td><code>unique_count / sample_count</code>（四舍五入到 4 位小数）。</td><td><code>metaweave/utils/data_utils.py#calculate_uniqueness</code></td></tr><tr><td><code>column_profiles.*.statistics.null_rate</code></td><td><code>包含空值的行数 / sample_count</code>（对单列等价于 <code>null_count/sample_count</code>，四舍五入到 4 位）。</td><td><code>metaweave/utils/data_utils.py#calculate_null_rate</code></td></tr><tr><td><code>column_profiles.*.statistics.*</code>（<code>sample_count/unique_count/null_count/min/max/mean/...</code>）</td><td>基于采样 DataFrame：<code>sample_count=len(col)</code>、<code>unique_count=nunique()</code>、<code>null_count=isnull().sum()</code>；数值列补充 <code>min/max/mean</code>；字符串列补充长度统计；低基数补充 <code>value_distribution</code>。</td><td><code>metaweave/utils/data_utils.py#get_column_statistics</code></td></tr></tbody></table></div>
+  </main>
+</body>
+</html>
