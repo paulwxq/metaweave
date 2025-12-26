@@ -13,6 +13,7 @@ pymilvus>=2.6.5
 python-dotenv>=1.0.0
 PyYAML>=6.0.0
 tqdm>=4.66.1
+pytest>=9.0.2
 
 [dev]
 pytest>=8.4.2

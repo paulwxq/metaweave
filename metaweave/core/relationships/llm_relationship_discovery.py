@@ -217,14 +217,18 @@ class LLMRelationshipDiscovery:
         self.llm_service = LLMService(llm_config)
 
         output_config = config.get("output", {})
-        json_llm_dir = output_config.get("json_llm_directory", "output/json_llm")
-        self.json_llm_dir = Path(json_llm_dir)
+        # 优先读取 json_directory，fallback 到 output_dir/json
+        json_dir = output_config.get("json_directory")
+        if not json_dir:
+            output_dir = output_config.get("output_dir", "output")
+            json_dir = f"{output_dir}/json"
+        self.json_dir = Path(json_dir)
         
         # 读取 rel_id_salt 配置（与现有管道保持一致）
         rel_id_salt = output_config.get("rel_id_salt", "")
         
         # 复用 MetadataRepository 提取物理外键（包含 cardinality、relationship_id）
-        self.repo = MetadataRepository(self.json_llm_dir, rel_id_salt=rel_id_salt)
+        self.repo = MetadataRepository(self.json_dir, rel_id_salt=rel_id_salt)
         
         # 读取决策阈值配置
         decision_config = self.rel_config.get("decision", {})
@@ -259,8 +263,12 @@ class LLMRelationshipDiscovery:
         self.cross_domain = cross_domain
         self.db_domains_config = db_domains_config or {}
         
-    def discover(self) -> Dict:
-        """同步入口：发现关联关系。"""
+    def discover(self) -> tuple[List[Relation], int, Dict[str, Any]]:
+        """同步入口：发现关联关系。
+
+        Returns:
+            (关系列表, 被拒绝数量, 额外统计信息)
+        """
 
         start_time = time.time()
         logger.info("=" * 60)
@@ -304,8 +312,12 @@ class LLMRelationshipDiscovery:
             start_time,
         )
 
-    async def discover_async(self) -> Dict:
-        """异步入口，适用于已有事件循环的环境。"""
+    async def discover_async(self) -> tuple[List[Relation], int, Dict[str, Any]]:
+        """异步入口，适用于已有事件循环的环境。
+
+        Returns:
+            (关系列表, 被拒绝数量, 额外统计信息)
+        """
 
         start_time = time.time()
         logger.info("=" * 60)
@@ -347,7 +359,7 @@ class LLMRelationshipDiscovery:
         )
     
     def _load_tables_and_foreign_keys(self):
-        logger.info(f"阶段1: 加载 json_llm 文件，目录: {self.json_llm_dir}")
+        logger.info(f"阶段1: 加载 json 文件，目录: {self.json_dir}")
         tables = self._load_all_tables()
         logger.info(f"已加载 {len(tables)} 张表的元数据")
 
@@ -492,7 +504,12 @@ class LLMRelationshipDiscovery:
         fk_relationship_ids: Set[str],
         llm_candidates: List[Dict],
         start_time: float,
-    ) -> Dict:
+    ) -> tuple[List[Relation], int, Dict[str, Any]]:
+        """完成关系发现，返回 Relation 对象列表和统计信息
+
+        Returns:
+            (关系列表, 被拒绝数量, 额外统计信息)
+        """
         logger.info("阶段4: 过滤已有物理外键（基于 relationship_id）")
         filtered_candidates = self._filter_existing_fks(llm_candidates, fk_relationship_ids)
         skipped_fk_count = len(llm_candidates) - len(filtered_candidates)
@@ -514,13 +531,15 @@ class LLMRelationshipDiscovery:
         )
 
         logger.info(f"阶段6: 阈值过滤 (threshold={self.accept_threshold})")
-        accepted_relations, rejected_relations = self._filter_by_threshold(scored_relations)
-        logger.info(f"过滤后接受: {len(accepted_relations)} 个")
+        accepted_relations_dict, rejected_relations = self._filter_by_threshold(scored_relations)
+        logger.info(f"过滤后接受: {len(accepted_relations_dict)} 个")
 
         logger.info("阶段7: 合并物理外键和推断关系")
-        fk_relations = [self._relation_to_dict(rel) for rel in fk_relation_objects]
-        before_dedup_count = len(fk_relations) + len(accepted_relations)
-        all_relations = self._deduplicate_by_relationship_id(fk_relations, accepted_relations)
+        # 将接受的 dict 格式关系转换为 Relation 对象
+        accepted_relation_objects = [self._dict_to_relation(rel) for rel in accepted_relations_dict]
+
+        before_dedup_count = len(fk_relation_objects) + len(accepted_relation_objects)
+        all_relations = self._deduplicate_by_relationship_id(fk_relation_objects, accepted_relation_objects)
 
         if before_dedup_count > len(all_relations):
             dup_count = before_dedup_count - len(all_relations)
@@ -535,12 +554,23 @@ class LLMRelationshipDiscovery:
         total_duration = time.time() - start_time
         logger.info(f"✓ 关系发现总耗时: {total_duration:.2f}秒")
 
-        return self._build_output(all_relations, rejected_relations)
+        # 计算统计信息
+        llm_assisted_count = sum(
+            1 for rel in all_relations
+            if rel.inference_method == "llm_assisted"
+        )
+
+        extra_statistics = {
+            "llm_assisted_relationships": llm_assisted_count,
+            "rejected_low_confidence": len(rejected_relations)
+        }
+
+        return all_relations, len(rejected_relations), extra_statistics
 
     def _load_all_tables(self) -> Dict[str, Dict]:
-        """加载所有 json_llm 文件"""
+        """加载所有 json 文件"""
         tables = {}
-        for json_file in self.json_llm_dir.glob("*.json"):
+        for json_file in self.json_dir.glob("*.json"):
             with open(json_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
             table_info = data.get("table_info", {})
@@ -582,7 +612,56 @@ class LLMRelationshipDiscovery:
         """翻转基数方向"""
         flip_map = {"1:N": "N:1", "N:1": "1:N", "1:1": "1:1", "M:N": "M:N"}
         return flip_map.get(cardinality, cardinality)
-    
+
+    def _dict_to_relation(self, rel_dict: Dict) -> Relation:
+        """将 dict 格式的关系转换为 Relation 对象
+
+        注意：dict 格式遵循 rel JSON 约定（from=主键表, to=外键表），
+        但 Relation 对象约定是 source=外键表, target=主键表，
+        因此需要交换 from/to
+
+        ⚠️ 重要：dict 的 relationship_id 使用的是 dict 方向（PK->FK），
+        但 Relation 对象需要使用 Relation 方向（FK->PK），
+        因此必须重新计算 relationship_id
+        """
+        # 提取列名
+        if rel_dict["type"] == "single_column":
+            from_columns = [rel_dict["from_column"]]
+            to_columns = [rel_dict["to_column"]]
+        else:
+            from_columns = rel_dict["from_columns"]
+            to_columns = rel_dict["to_columns"]
+
+        # 重新计算 relationship_id，使用 Relation 方向（FK->PK）
+        # dict: from(PK) -> to(FK)
+        # Relation: source(FK) -> target(PK)
+        relationship_id = MetadataRepository.compute_relationship_id(
+            source_schema=rel_dict["to_table"]["schema"],      # FK 表
+            source_table=rel_dict["to_table"]["table"],
+            source_columns=to_columns,
+            target_schema=rel_dict["from_table"]["schema"],    # PK 表
+            target_table=rel_dict["from_table"]["table"],
+            target_columns=from_columns,
+            rel_id_salt=self.repo.rel_id_salt
+        )
+
+        # 创建 Relation 对象（交换 from/to 以符合 Relation 约定）
+        return Relation(
+            relationship_id=relationship_id,  # ✅ 使用重新计算的 ID
+            # 交换：from(主键表) -> target, to(外键表) -> source
+            source_schema=rel_dict["to_table"]["schema"],
+            source_table=rel_dict["to_table"]["table"],
+            source_columns=to_columns,
+            target_schema=rel_dict["from_table"]["schema"],
+            target_table=rel_dict["from_table"]["table"],
+            target_columns=from_columns,
+            relationship_type="inferred" if rel_dict.get("discovery_method") == "llm_assisted" else "foreign_key",
+            cardinality=self._flip_cardinality(rel_dict.get("cardinality", "N:1")),  # 翻转基数
+            composite_score=rel_dict.get("composite_score"),
+            score_details=rel_dict.get("metrics"),  # metrics -> score_details
+            inference_method=rel_dict.get("discovery_method")  # discovery_method -> inference_method
+        )
+
     def _call_llm(self, table1: Dict, table2: Dict) -> List[Dict]:
         """调用 LLM 获取候选关联（带重试）
         
@@ -834,36 +913,36 @@ class LLMRelationshipDiscovery:
         return f"{src_schema}.{src_table}[{src_cols_str}]->{tgt_schema}.{tgt_table}[{tgt_cols_str}]"
     
     def _filter_existing_fks(self, candidates: List[Dict], fk_relationship_ids: Set[str]) -> List[Dict]:
-        """过滤已有的物理外键（使用 relationship_id 去重，双向一致）
-        
+        """过滤已有的物理外键（使用 relationship_id 去重）
+
         优化说明：
-        - 使用 relationship_id 而非签名，避免方向性问题
+        - 使用 relationship_id 而非签名，避免字段顺序问题
         - 在评分前就排除物理外键，节省数据库查询和计算资源
-        - relationship_id 是双向的，不受 LLM 返回方向影响
-        
+        - ⚠️ relationship_id 是有方向的，需要检查正反两个方向
+
         Args:
             candidates: LLM 返回的候选关系
             fk_relationship_ids: 物理外键的 relationship_id 集合
-            
+
         Returns:
             过滤后的候选关系（排除了物理外键）
         """
         filtered = []
         skipped_count = 0
-        
+
         for candidate in candidates:
             from_info = candidate["from_table"]
             to_info = candidate["to_table"]
-            
+
             if candidate["type"] == "single_column":
                 from_cols = [candidate["from_column"]]
                 to_cols = [candidate["to_column"]]
             else:
                 from_cols = candidate["from_columns"]
                 to_cols = candidate["to_columns"]
-            
-            # 生成候选的 relationship_id（双向一致，与物理外键的 ID 可比较）
-            candidate_rel_id = MetadataRepository.compute_relationship_id(
+
+            # 计算正向 relationship_id (from -> to)
+            forward_rel_id = MetadataRepository.compute_relationship_id(
                 source_schema=from_info["schema"],
                 source_table=from_info["table"],
                 source_columns=from_cols,
@@ -872,17 +951,30 @@ class LLMRelationshipDiscovery:
                 target_columns=to_cols,
                 rel_id_salt=self.repo.rel_id_salt
             )
-            
-            # 基于 relationship_id 匹配（不受方向影响）
-            if candidate_rel_id not in fk_relationship_ids:
-                filtered.append(candidate)
-            else:
+
+            # 计算反向 relationship_id (to -> from)
+            # 因为 LLM 可能返回与物理外键相反的方向
+            reverse_rel_id = MetadataRepository.compute_relationship_id(
+                source_schema=to_info["schema"],
+                source_table=to_info["table"],
+                source_columns=to_cols,
+                target_schema=from_info["schema"],
+                target_table=from_info["table"],
+                target_columns=from_cols,
+                rel_id_salt=self.repo.rel_id_salt
+            )
+
+            # 检查正反两个方向的 ID 是否与物理外键匹配
+            if forward_rel_id in fk_relationship_ids or reverse_rel_id in fk_relationship_ids:
                 skipped_count += 1
+                matched_id = forward_rel_id if forward_rel_id in fk_relationship_ids else reverse_rel_id
                 logger.debug(
                     f"跳过物理外键: {from_info['schema']}.{from_info['table']} <-> "
                     f"{to_info['schema']}.{to_info['table']} "
-                    f"(relationship_id={candidate_rel_id})"
+                    f"(relationship_id={matched_id})"
                 )
+            else:
+                filtered.append(candidate)
         
         if skipped_count > 0:
             logger.info(f"✓ 阶段4去重: 跳过 {skipped_count} 个物理外键，避免重复评分")
@@ -890,45 +982,43 @@ class LLMRelationshipDiscovery:
         return filtered
     
     def _deduplicate_by_relationship_id(
-        self, 
-        fk_relations: List[Dict], 
-        llm_relations: List[Dict]
-    ) -> List[Dict]:
+        self,
+        fk_relations: List[Relation],
+        llm_relations: List[Relation]
+    ) -> List[Relation]:
         """根据 relationship_id 去重，优先保留物理外键
-        
+
         Args:
-            fk_relations: 物理外键关系列表
-            llm_relations: LLM 推断关系列表
-            
+            fk_relations: 物理外键关系列表（Relation 对象）
+            llm_relations: LLM 推断关系列表（Relation 对象）
+
         Returns:
-            去重后的关系列表
+            去重后的关系列表（Relation 对象）
         """
         # 建立 relationship_id -> 物理外键 的映射
-        fk_id_map = {rel["relationship_id"]: rel for rel in fk_relations}
-        
+        fk_id_map = {rel.relationship_id: rel for rel in fk_relations}
+
         # 过滤 LLM 关系：如果 relationship_id 与物理外键重复，跳过
         filtered_llm_relations = []
         for llm_rel in llm_relations:
-            rel_id = llm_rel["relationship_id"]
+            rel_id = llm_rel.relationship_id
             if rel_id in fk_id_map:
-                # 记录被去重的关系
-                from_table = llm_rel.get("from_table", {})
-                to_table = llm_rel.get("to_table", {})
+                # 记录被去重的关系（Relation 对象：source=外键表, target=主键表）
                 logger.debug(
-                    f"去重：跳过 LLM 推断关系 {from_table.get('schema')}.{from_table.get('table')} -> "
-                    f"{to_table.get('schema')}.{to_table.get('table')} "
+                    f"去重：跳过 LLM 推断关系 {llm_rel.target_schema}.{llm_rel.target_table} -> "
+                    f"{llm_rel.source_schema}.{llm_rel.source_table} "
                     f"(relationship_id={rel_id}，物理外键已存在)"
                 )
             else:
                 filtered_llm_relations.append(llm_rel)
-        
+
         # 合并：物理外键 + 去重后的 LLM 关系
         all_relations = fk_relations + filtered_llm_relations
-        
+
         if len(llm_relations) > len(filtered_llm_relations):
             dedup_count = len(llm_relations) - len(filtered_llm_relations)
             logger.info(f"去重：移除 {dedup_count} 个与物理外键重复的 LLM 推断关系")
-        
+
         return all_relations
     
     def _build_output(self, relations: List[Dict], rejected: List[Dict] = None) -> Dict:

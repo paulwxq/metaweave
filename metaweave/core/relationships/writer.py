@@ -60,7 +60,9 @@ class RelationshipWriter:
             relations: List[Relation],
             suppressed: List[Dict[str, Any]],
             config: Dict[str, Any],
-            tables: Optional[Dict[str, dict]] = None
+            tables: Optional[Dict[str, dict]] = None,
+            generated_by: str = "rel",
+            extra_statistics: Optional[Dict[str, Any]] = None
     ) -> List[str]:
         """输出关系发现结果（v3.2格式）
 
@@ -69,6 +71,8 @@ class RelationshipWriter:
             suppressed: 被抑制的候选列表
             config: 完整配置
             tables: 表元数据字典（用于获取列的约束信息）
+            generated_by: 生成命令标识（"rel" 或 "rel_llm"）
+            extra_statistics: 额外的统计项（如 llm_assisted_relationships）
 
         Returns:
             输出文件路径列表
@@ -79,7 +83,7 @@ class RelationshipWriter:
         output_files = []
 
         # 1. 输出JSON（v3.2格式）
-        json_file = self._write_json_v32(relations, suppressed, config)
+        json_file = self._write_json_v32(relations, suppressed, config, generated_by, extra_statistics)
         if json_file:
             output_files.append(str(json_file))
 
@@ -95,7 +99,9 @@ class RelationshipWriter:
             self,
             relations: List[Relation],
             suppressed: List[Dict],
-            config: Dict[str, Any]
+            config: Dict[str, Any],
+            generated_by: str = "rel",
+            extra_statistics: Optional[Dict[str, Any]] = None
     ) -> Path:
         """输出JSON文件（v3.2格式）
 
@@ -138,6 +144,7 @@ class RelationshipWriter:
 
         # 构建JSON数据（v3.2格式）
         data = {
+            "generated_by": generated_by,
             "metadata_source": "json_files",
             "json_metadata_version": "2.0",
             "json_files_loaded": stats.get("json_files_loaded", 0),
@@ -156,6 +163,10 @@ class RelationshipWriter:
 
             "relationships": relationships_v32
         }
+
+        # 合并额外的统计项
+        if extra_statistics:
+            data["statistics"].update(extra_statistics)
 
         # 写入文件（使用配置的粒度，当前仅支持 global）
         json_file = self.rel_dir / f"relationships_{self.rel_granularity}.json"
@@ -371,6 +382,14 @@ class RelationshipWriter:
             return {
                 "discovery_method": "dynamic_same_name",
                 "target_source_type": "candidate_logical_key",
+                "source_constraint": None
+            }
+
+        # LLM 辅助推断
+        if inference_method == "llm_assisted":
+            return {
+                "discovery_method": "llm_assisted",
+                "target_source_type": "llm_inferred",
                 "source_constraint": None
             }
 

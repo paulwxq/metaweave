@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-24T05:00:08.367628Z",
+  "generated_at": "2025-12-26T05:34:41.960211Z",
   "table_info": {
     "schema_name": "public",
     "table_name": "order_item",
@@ -323,10 +323,10 @@
     }
   },
   "table_profile": {
-    "table_category": "bridge",
-    "confidence": 0.85,
+    "table_category": "fact",
+    "confidence": 0.95,
     "inference_basis": [
-      "bridge_fk_threshold"
+      "llm_inferred"
     ],
     "physical_constraints": {
       "primary_key": {
@@ -366,17 +366,11 @@
       "primary_key_count": 1,
       "foreign_key_count": 2
     },
-    "bridge_table_info": {
-      "foreign_key_pairs": [
-        [
-          "order_date",
-          "order_id"
-        ]
-      ],
-      "weight_columns": [
-        "quantity"
-      ]
-    }
+    "table_category_rule_based": "bridge",
+    "confidence_rule_based": 0.85,
+    "inference_basis_rule_based": [
+      "bridge_fk_threshold"
+    ]
   },
   "sample_records": {
     "sample_method": "random",
@@ -420,5 +414,6 @@
         "quantity": 12
       }
     ]
-  }
+  },
+  "llm_enhanced_at": "2025-12-26T05:35:33.722484+00:00"
 }

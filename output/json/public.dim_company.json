@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-24T05:00:08.103399Z",
+  "generated_at": "2025-12-26T05:34:41.519200Z",
   "table_info": {
     "schema_name": "public",
     "table_name": "dim_company",
@@ -120,10 +120,7 @@
     "table_category": "dim",
     "confidence": 0.95,
     "inference_basis": [
-      "dim_identifier_columns",
-      "dim_has_primary_key",
-      "dim_name_pattern",
-      "dim_comment_keyword"
+      "llm_inferred"
     ],
     "physical_constraints": {
       "primary_key": null,
@@ -154,13 +151,14 @@
         }
       ]
     },
-    "dim_table_info": {
-      "natural_key": "company_id",
-      "surrogate_key": null,
-      "attributes": [
-        "company_name"
-      ]
-    }
+    "table_category_rule_based": "dim",
+    "confidence_rule_based": 0.95,
+    "inference_basis_rule_based": [
+      "dim_identifier_columns",
+      "dim_has_primary_key",
+      "dim_name_pattern",
+      "dim_comment_keyword"
+    ]
   },
   "sample_records": {
     "sample_method": "random",
@@ -181,5 +179,6 @@
         "company_name": "全家"
       }
     ]
-  }
+  },
+  "llm_enhanced_at": "2025-12-26T05:34:54.050816+00:00"
 }

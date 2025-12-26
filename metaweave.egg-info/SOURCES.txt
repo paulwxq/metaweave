@@ -35,6 +35,7 @@ metaweave/core/metadata/domain_generator.py
 metaweave/core/metadata/extractor.py
 metaweave/core/metadata/formatter.py
 metaweave/core/metadata/generator.py
+metaweave/core/metadata/json_llm_enhancer.py
 metaweave/core/metadata/llm_json_generator.py
 metaweave/core/metadata/logical_key_detector.py
 metaweave/core/metadata/models.py

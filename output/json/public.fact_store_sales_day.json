@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-24T05:00:08.244160Z",
+  "generated_at": "2025-12-26T05:34:41.691043Z",
   "table_info": {
     "schema_name": "public",
     "table_name": "fact_store_sales_day",
@@ -239,13 +239,9 @@
   },
   "table_profile": {
     "table_category": "fact",
-    "confidence": 0.98,
+    "confidence": 0.95,
     "inference_basis": [
-      "fact_has_metric",
-      "fact_dimension_columns",
-      "fact_datetime",
-      "fact_name_pattern",
-      "fact_comment_keyword"
+      "llm_inferred"
     ],
     "physical_constraints": {
       "primary_key": null,
@@ -278,22 +274,15 @@
         }
       ]
     },
-    "fact_table_info": {
-      "grain": [
-        "store_id",
-        "date_day",
-        "product_type_id"
-      ],
-      "metrics": [
-        "amount"
-      ],
-      "dimensions": [
-        "store_id",
-        "product_type_id",
-        "date_day"
-      ],
-      "time_dimension": "date_day"
-    }
+    "table_category_rule_based": "fact",
+    "confidence_rule_based": 0.98,
+    "inference_basis_rule_based": [
+      "fact_has_metric",
+      "fact_dimension_columns",
+      "fact_datetime",
+      "fact_name_pattern",
+      "fact_comment_keyword"
+    ]
   },
   "sample_records": {
     "sample_method": "random",
@@ -332,5 +321,6 @@
         "amount": 226.0
       }
     ]
-  }
+  },
+  "llm_enhanced_at": "2025-12-26T05:35:15.674929+00:00"
 }

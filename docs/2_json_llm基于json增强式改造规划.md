@@ -161,13 +161,20 @@ if llm_category:
     json["table_profile"]["confidence"] = llm_confidence
     json["table_profile"]["inference_basis"] = ["llm_inferred"]
 
-    # 3. 标记来源
-    json["table_profile"]["table_category_source"] = "llm"
-
 else:
     # LLM 未返回 table_category：保持规则引擎结果
     logger.warning("表 %s LLM 未返回 table_category，保持规则引擎结果: %s", table_name, rule_category)
 ```
+
+**⚠️ 重要说明：`*_rule_based` 字段用途**
+
+- `table_category_rule_based`、`confidence_rule_based`、`inference_basis_rule_based` 这三个字段**仅用于备份和对比分析**
+- **下游作业（rel_llm、cql_llm 等）不应使用这些字段**
+- 下游应始终使用主字段：`table_category`、`confidence`、`inference_basis`
+- 备份字段的用途：
+  - 问题排查：当 LLM 分类有误时，可以查看规则引擎的原始结果
+  - 质量分析：统计 LLM 与规则引擎的分类一致性
+  - 回滚参考：极端情况下需要恢复规则引擎结果时的依据
 
 ### 3.3 注释补充/覆盖逻辑
 
@@ -391,13 +398,20 @@ if step == "json_llm":
 
 ### 4.1 新增模块：JsonLlmEnhancer
 
-**注意（返回值类型）**：当 `llm.langchain_config.use_async=true` 时，`enhance_json_files()` 在“无运行中事件循环”的普通 CLI 场景会返回 `int`；但在 Jupyter/Notebook 这类“已有运行中事件循环”的环境里会返回 *coroutine*（需要 `await` 才会执行）。
+**注意（返回值类型）**：
+- `enhance_json_files()` 返回 `int`（增强的文件数量）
+- CLI 工具强制使用同步模式（`use_async=false`），确保简单可靠
+- 如需异步执行（如 FastAPI 环境），可在配置中设置 `llm.langchain_config.use_async=true`
 
-推荐写法（兼容两种环境）：
+**推荐用法**：
 ```python
-result = enhancer.enhance_json_files(files)
-if asyncio.iscoroutine(result):
-    result = await result
+# CLI 场景（强制同步）
+enhancer = JsonLlmEnhancer(config)
+count = enhancer.enhance_json_files(files)  # 返回 int
+
+# FastAPI/异步场景（配置中启用 use_async）
+enhancer = JsonLlmEnhancer(config)
+count = enhancer.enhance_json_files(files)  # 在无事件循环环境返回 int
 ```
 
 ```python
@@ -465,13 +479,15 @@ class JsonLlmEnhancer:
         return self.enhance_json_files(json_files)
 
     def enhance_json_files(self, json_files: List[Path]):
-        """增强指定的一组 JSON 文件（用于 CLI 精确限定“本次生成的文件列表”）。
+        """增强指定的一组 JSON 文件（用于 CLI 精确限定"本次生成的文件列表"）。
 
-        - use_async=false：同步执行，返回 int
-        - use_async=true：
-          - 若当前线程无运行中的事件循环：内部 asyncio.run 执行协程，返回 int
-          - 若已存在事件循环：返回 coroutine，需要调用方 await
-        # 调用方可用 asyncio.iscoroutine(...) 判断并在 Notebook 场景下 await。
+        Returns:
+            int: 增强的文件数量
+
+        Note:
+            - use_async=false: 同步执行，直接返回 int
+            - use_async=true: 异步执行（在无事件循环环境中通过 asyncio.run 执行）
+            - CLI 工具强制使用同步模式以确保简单可靠
         """
         if self.use_async:
             return self._run_async(self._enhance_json_files_async(json_files))
@@ -675,7 +691,13 @@ class JsonLlmEnhancer:
         return enhanced_count
 
     def _run_async(self, coro):
-        """在无事件循环场景运行协程；若已存在事件循环则返回 coro 由调用方 await。"""
+        """在无事件循环环境中执行协程
+
+        Note:
+            - 无事件循环：使用 asyncio.run() 执行并返回结果
+            - 有事件循环：返回 coroutine（调用方需自行处理）
+            - CLI 工具已强制使用同步模式，通常不会触发此方法
+        """
         try:
             asyncio.get_running_loop()
         except RuntimeError:
@@ -893,7 +915,6 @@ class JsonLlmEnhancer:
             enhanced["table_profile"]["table_category"] = llm_category
             enhanced["table_profile"]["confidence"] = llm_confidence
             enhanced["table_profile"]["inference_basis"] = ["llm_inferred"]
-            enhanced["table_profile"]["table_category_source"] = "llm"
         else:
             logger.warning(
                 "表 %s LLM 未返回 table_category，无法覆盖，保持规则引擎结果: %s",
@@ -1300,7 +1321,7 @@ output:
 - 强制要求 LLM 返回 `confidence` 和 `reason`
 - 同步覆盖 `table_profile.confidence` 和 `table_profile.inference_basis`
 - 将规则引擎结果备份到 `*_rule_based` 字段
-- 新增 `table_category_source` 标记来源
+- 通过 `inference_basis: ["llm_inferred"]` 标记来源
 
 ### 6.4 文件原子性
 
@@ -1349,6 +1370,39 @@ json_dir = Path("output/json")
 
 # 或从配置读取
 json_dir = Path(config["output"]["json_directory"])
+```
+
+### 7.3 字段使用规范
+
+**⚠️ 重要：下游模块应使用的字段**
+
+下游模块在读取 `output/json/*.json` 时，应遵循以下规范：
+
+**✅ 应该使用的主字段**：
+- `table_profile.table_category` - 表分类（LLM 增强后的最终结果）
+- `table_profile.confidence` - 置信度（LLM 增强后的最终结果）
+- `table_profile.inference_basis` - 推断依据（包含 `"llm_inferred"` 表示 LLM 增强）
+
+**❌ 不应使用的备份字段**：
+- `table_profile.table_category_rule_based` - 规则引擎原始分类（仅供备份）
+- `table_profile.confidence_rule_based` - 规则引擎原始置信度（仅供备份）
+- `table_profile.inference_basis_rule_based` - 规则引擎原始推断依据（仅供备份）
+
+**备份字段的用途**（仅限特殊场景）：
+1. **问题排查**：当 LLM 分类有误时，查看规则引擎的原始判断
+2. **质量分析**：统计 LLM 与规则引擎的分类一致性，评估 LLM 效果
+3. **回滚参考**：极端情况下需要恢复规则引擎结果时的依据
+4. **调试对比**：开发阶段对比两种分类方法的差异
+
+**示例代码**：
+```python
+# ✅ 正确用法
+table_json = json.load(f)
+table_category = table_json["table_profile"]["table_category"]  # 使用主字段
+confidence = table_json["table_profile"]["confidence"]
+
+# ❌ 错误用法 - 不要这样做！
+table_category = table_json["table_profile"]["table_category_rule_based"]  # 使用了备份字段
 ```
 
 ## 8. 预期收益

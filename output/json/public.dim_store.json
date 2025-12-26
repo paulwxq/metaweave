@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-24T05:00:08.158402Z",
+  "generated_at": "2025-12-26T05:34:41.631105Z",
   "table_info": {
     "schema_name": "public",
     "table_name": "dim_store",
@@ -245,11 +245,7 @@
     "table_category": "dim",
     "confidence": 0.95,
     "inference_basis": [
-      "fact_dimension_columns",
-      "dim_identifier_columns",
-      "dim_has_primary_key",
-      "dim_name_pattern",
-      "dim_comment_keyword"
+      "llm_inferred"
     ],
     "physical_constraints": {
       "primary_key": null,
@@ -280,13 +276,15 @@
         }
       ]
     },
-    "dim_table_info": {
-      "natural_key": "store_id",
-      "surrogate_key": null,
-      "attributes": [
-        "store_name"
-      ]
-    }
+    "table_category_rule_based": "dim",
+    "confidence_rule_based": 0.95,
+    "inference_basis_rule_based": [
+      "fact_dimension_columns",
+      "dim_identifier_columns",
+      "dim_has_primary_key",
+      "dim_name_pattern",
+      "dim_comment_keyword"
+    ]
   },
   "sample_records": {
     "sample_method": "random",
@@ -325,5 +323,6 @@
         "region_id": 440304
       }
     ]
-  }
+  },
+  "llm_enhanced_at": "2025-12-26T05:35:02.190376+00:00"
 }

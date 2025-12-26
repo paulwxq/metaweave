@@ -480,9 +480,10 @@ class TableProfile:
     confidence: float
     column_statistics: ColumnStatisticsSummary
     key_columns: KeyColumnsSummary
-    fact_table_info: Optional[FactTableInfo] = None
-    dim_table_info: Optional[DimTableInfo] = None
-    bridge_table_info: Optional[BridgeTableInfo] = None
+    # 已移除未使用的字段（2025-12-26）:
+    # - fact_table_info: Optional[FactTableInfo]
+    # - dim_table_info: Optional[DimTableInfo]
+    # - bridge_table_info: Optional[BridgeTableInfo]
     inference_basis: List[str] = field(default_factory=list)
     candidate_logical_primary_keys: List["LogicalKey"] = field(default_factory=list)
 
@@ -510,14 +511,9 @@ class TableProfile:
             result["logical_keys"] = {
                 "candidate_primary_keys": [lk.to_dict() for lk in self.candidate_logical_primary_keys]
             }
-        
-        # 表类型特定信息
-        if self.fact_table_info:
-            result["fact_table_info"] = self.fact_table_info.to_dict()
-        if self.dim_table_info:
-            result["dim_table_info"] = self.dim_table_info.to_dict()
-        if self.bridge_table_info:
-            result["bridge_table_info"] = self.bridge_table_info.to_dict()
-        
+
+        # 已移除：表类型特定信息（fact_table_info/dim_table_info/bridge_table_info）
+        # 这些字段在项目中未被使用，已于 2025-12-26 移除以减少维护成本
+
         return result
 

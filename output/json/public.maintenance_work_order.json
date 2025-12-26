@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-24T05:00:08.608661Z",
+  "generated_at": "2025-12-26T05:34:42.346114Z",
   "table_info": {
     "schema_name": "public",
     "table_name": "maintenance_work_order",
@@ -548,11 +548,9 @@
   },
   "table_profile": {
     "table_category": "fact",
-    "confidence": 0.9,
+    "confidence": 0.95,
     "inference_basis": [
-      "fact_has_metric",
-      "fact_dimension_columns",
-      "fact_comment_keyword"
+      "llm_inferred"
     ],
     "physical_constraints": {
       "primary_key": null,
@@ -737,25 +735,13 @@
         }
       ]
     },
-    "fact_table_info": {
-      "grain": [
-        "wo_id",
-        "wo_line_no"
-      ],
-      "metrics": [
-        "spare_part_cost"
-      ],
-      "dimensions": [
-        "wo_id",
-        "wo_line_no",
-        "equipment_id",
-        "product_line_code",
-        "subsystem_code",
-        "fault_code",
-        "downtime_minutes"
-      ],
-      "time_dimension": null
-    }
+    "table_category_rule_based": "fact",
+    "confidence_rule_based": 0.9,
+    "inference_basis_rule_based": [
+      "fact_has_metric",
+      "fact_dimension_columns",
+      "fact_comment_keyword"
+    ]
   },
   "sample_records": {
     "sample_method": "random",
@@ -824,5 +810,6 @@
         "spare_part_cost": 6.85
       }
     ]
-  }
+  },
+  "llm_enhanced_at": "2025-12-26T05:35:37.502104+00:00"
 }

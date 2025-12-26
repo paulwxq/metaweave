@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-24T05:00:08.094677Z",
+  "generated_at": "2025-12-26T05:34:41.505075Z",
   "table_info": {
     "schema_name": "public",
     "table_name": "department",
@@ -212,9 +212,7 @@
     "table_category": "dim",
     "confidence": 0.95,
     "inference_basis": [
-      "fact_dimension_columns",
-      "dim_identifier_columns",
-      "dim_has_primary_key"
+      "llm_inferred"
     ],
     "physical_constraints": {
       "primary_key": {
@@ -246,14 +244,13 @@
       "primary_key_count": 1,
       "foreign_key_count": 0
     },
-    "dim_table_info": {
-      "natural_key": null,
-      "surrogate_key": "dept_id",
-      "attributes": [
-        "dept_name",
-        "location"
-      ]
-    }
+    "table_category_rule_based": "dim",
+    "confidence_rule_based": 0.95,
+    "inference_basis_rule_based": [
+      "fact_dimension_columns",
+      "dim_identifier_columns",
+      "dim_has_primary_key"
+    ]
   },
   "sample_records": {
     "sample_method": "random",
@@ -292,5 +289,6 @@
         "location": "广州"
       }
     ]
-  }
+  },
+  "llm_enhanced_at": "2025-12-26T05:34:46.705987+00:00"
 }

@@ -232,8 +232,6 @@ comment_generation:
   enabled: true                 # 总开关
   language: zh  # 注释语言：zh / en / bilingual
   max_columns_per_call: 120     # 单批处理的缺失字段上限
-  max_sample_rows: 3            # Prompt 样例数据行数上限
-  max_sample_cols: 20           # Prompt 样例数据列数上限
   enable_batch_processing: true # 超过上限时自动分批
   overwrite_existing: false     # 默认不覆盖已有注释
   
@@ -261,8 +259,8 @@ output:
   output_dir: output
 
   # Step 2: 表/列画像输出配置
-  json_directory: output/json      # --step json 输出 / --step rel & cql 输入
-  json_llm_directory: output/json_llm  # --step json_llm 输出 / --step rel_llm 输入
+  json_directory: output/json      # --step json 和 --step json_llm 统一输出目录 / --step rel & cql 输入
+  # json_llm_directory: output/json_llm  # 已废弃：json_llm 改为基于 json 的增强式处理，统一输出到 json_directory
 
   # Step 3: 关系发现输出配置
   rel_directory: output/rel    # --step rel/rel_llm 输出 / --step cql 输入
@@ -271,7 +269,7 @@ output:
 
   # Step 4: CQL 生成输出配置
   cql_directory: output/cql    # --step cql/cql_llm 输出 / load 输入
-  # 注意：--step cql 读取 json_directory，--step cql_llm 读取 json_llm_directory
+  # 注意：--step cql 和 --step cql_llm 都从 json_directory 读取（json_llm 已统一输出到 json_directory）
 
   # 输出格式
   formats:

@@ -470,42 +470,17 @@ class MetadataProfiler:
             [],  # enum_columns - 已删除 enum 类型
         )
 
-        fact_info = None
-        dim_info = None
-        bridge_info = None
-
-        if table_category == "fact":
-            grain = key_summary.primary_keys or key_summary.logical_primary_keys or identifier_columns
-            fact_info = FactTableInfo(
-                grain=grain,
-                metrics=metric_columns,
-                dimensions=identifier_columns + datetime_columns,
-                time_dimension=datetime_columns[0] if datetime_columns else None,
-            )
-        elif table_category == "dim":
-            surrogate = key_summary.primary_keys[0] if key_summary.primary_keys else None
-            natural = key_summary.logical_primary_keys[0] if key_summary.logical_primary_keys else None
-            attributes = [name for name, profile in column_profiles.items() if profile.semantic_role == "attribute"]
-            dim_info = DimTableInfo(
-                natural_key=natural,
-                surrogate_key=surrogate,
-                attributes=attributes,
-            )
-        elif table_category == "bridge":
-            fk_pairs = self._pair_foreign_keys(key_summary.foreign_keys)
-            bridge_info = BridgeTableInfo(
-                foreign_key_pairs=[[pair[0], pair[1]] for pair in fk_pairs],
-                weight_columns=metric_columns,
-            )
+        # 已移除：表类型特定信息生成逻辑（2025-12-26）
+        # - fact_table_info: FactTableInfo (grain, metrics, dimensions, time_dimension)
+        # - dim_table_info: DimTableInfo (natural_key, surrogate_key, attributes)
+        # - bridge_table_info: BridgeTableInfo (foreign_key_pairs, weight_columns)
+        # 这些字段在项目中未被使用，移除以减少维护成本
 
         return TableProfile(
             table_category=table_category,
             confidence=confidence,
             column_statistics=stats_summary,
             key_columns=key_summary,
-            fact_table_info=fact_info,
-            dim_table_info=dim_info,
-            bridge_table_info=bridge_info,
             inference_basis=inference_basis,
             candidate_logical_primary_keys=metadata.candidate_logical_primary_keys,
         )

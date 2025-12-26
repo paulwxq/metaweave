@@ -255,6 +255,15 @@ class LLMService:
             logger.error(f"生成字段注释失败 ({table_name}): {e}")
             return {}
 
+    def call_llm(self, prompt: str, system_message: Optional[str] = None) -> str:
+        """公开的 LLM 调用入口（同步）。
+
+        说明：
+            - 业务代码请调用此方法，避免依赖内部私有方法实现细节。
+            - 内部仍复用 _call_llm 以保持兼容。
+        """
+        return self._call_llm(prompt, system_message)
+
     def _call_llm(self, prompt: str, system_message: Optional[str] = None) -> str:
         """调用 LLM
         
@@ -476,4 +485,3 @@ status: 用户状态（1-正常，0-禁用）
                     comments[col_name] = comment
         
         return comments
-

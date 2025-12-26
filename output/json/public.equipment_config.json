@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-24T05:00:08.254162Z",
+  "generated_at": "2025-12-26T05:34:41.685752Z",
   "table_info": {
     "schema_name": "public",
     "table_name": "equipment_config",
@@ -238,9 +238,7 @@
     "table_category": "dim",
     "confidence": 0.95,
     "inference_basis": [
-      "dim_identifier_columns",
-      "dim_has_primary_key",
-      "dim_comment_keyword"
+      "llm_inferred"
     ],
     "physical_constraints": {
       "primary_key": null,
@@ -281,13 +279,13 @@
         }
       ]
     },
-    "dim_table_info": {
-      "natural_key": "equipment_id",
-      "surrogate_key": null,
-      "attributes": [
-        "controller_model"
-      ]
-    }
+    "table_category_rule_based": "dim",
+    "confidence_rule_based": 0.95,
+    "inference_basis_rule_based": [
+      "dim_identifier_columns",
+      "dim_has_primary_key",
+      "dim_comment_keyword"
+    ]
   },
   "sample_records": {
     "sample_method": "random",
@@ -326,5 +324,6 @@
         "firmware_version": "fw-1.1.9"
       }
     ]
-  }
+  },
+  "llm_enhanced_at": "2025-12-26T05:35:10.718835+00:00"
 }

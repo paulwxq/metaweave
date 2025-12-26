@@ -1,5 +1,6 @@
 """元数据生成 CLI 命令"""
 
+import copy
 import click
 import json
 import logging
@@ -205,21 +206,20 @@ def metadata_command(
 
         domain_filter = _parse_domain_filter(domain)
 
-        # Step: json_llm - 简化版 JSON 生成
+        # Step: json_llm - 基于 json 的 LLM 增强（两阶段串行）
         if step == "json_llm":
-            from metaweave.core.metadata.llm_json_generator import LLMJsonGenerator
-            from metaweave.core.metadata.connector import DatabaseConnector
-            from services.config_loader import load_config
+            from metaweave.core.metadata.json_llm_enhancer import JsonLlmEnhancer
             from metaweave.core.metadata.domain_generator import DomainGenerator
+            from services.config_loader import load_config
 
-            click.echo("📦 开始生成简化版 JSON（json_llm）...")
+            click.echo("📦 开始 LLM 增强处理（json_llm）...")
+            click.echo("   ├─ 阶段 1/2: 生成全量 JSON（--step json）")
+            click.echo("   └─ 阶段 2/2: LLM 增强（分类覆盖 + 注释补全）")
             click.echo("")
-
-            # 加载配置
-            config = load_config(config_path)
 
             # generate-domains 单独执行
             if generate_domains:
+                config = load_config(config_path)
                 md_dir = Path(md_context_dir)
                 if not md_dir.is_absolute():
                     md_dir = get_project_root() / md_dir
@@ -235,46 +235,80 @@ def metadata_command(
                 generator.write_to_yaml(domains)
                 click.echo(f"✅ 已生成 {len(domains)} 个 domain 并写入 {domains_config_path}")
                 return
-            
-            # 初始化连接器和生成器
-            connector = DatabaseConnector(config.get("database", {}))
-            generator = LLMJsonGenerator(
-                config=config,
-                connector=connector,
-                include_domains=bool(domain),
-                domain_filter=domain_filter,
-                db_domains_config=db_domains_config
+
+            # ====== 阶段 A：生成全量 JSON（失败则直接退出）======
+            click.echo("📊 阶段 1/2: 生成全量 JSON（--step json）...")
+
+            # 注：MetadataGenerator 构造函数接受 config_path，并在内部加载/解析配置（含环境变量替换）
+            generator = MetadataGenerator(config_path)
+            config = generator.config  # 复用已解析配置（避免重复加载/环境变量替换差异）
+
+            # 透传 CLI 参数（否则 json_llm 会忽略 schemas/tables/max_workers 等过滤条件）
+            schemas_list = [s.strip() for s in (schemas or "").split(",") if s.strip()] or None
+            tables_list = [t.strip() for t in (tables or "").split(",") if t.strip()] or None
+
+            result_a = generator.generate(
+                schemas=schemas_list,
+                tables=tables_list,
+                incremental=incremental,
+                max_workers=max_workers,
+                step="json",
             )
-            
-            # DDL 目录
-            output_config = config.get("output", {})
-            output_dir = output_config.get("output_dir", "output")
-            ddl_dir = get_project_root() / output_dir / "ddl"
-            
-            if not ddl_dir.exists():
-                raise FileNotFoundError(
-                    f"DDL 目录不存在: {ddl_dir}\n"
-                    f"请先执行 --step ddl 生成 DDL 文件"
-                )
-            
-            # 生成简化版 JSON
-            count = generator.generate_all_from_ddl(ddl_dir)
-            
+
+            if (not result_a.success) or result_a.failed_tables > 0:
+                # 阶段A失败：打印错误并退出（阶段B不执行）
+                error_msg = "阶段 A (--step json) 失败，退出。"
+                if result_a.errors:
+                    error_msg += "\n错误详情:\n" + "\n".join(f"  - {e}" for e in result_a.errors[:10])
+                raise click.ClickException(error_msg)
+
+            click.echo(f"✅ 阶段 1 完成：成功处理 {result_a.processed_tables} 张表")
+            click.echo("")
+
+            # ====== 阶段 B：LLM 增强 ======
+            click.echo("🤖 阶段 2/2: LLM 增强处理（原地写回 output/json）...")
+
+            # 阶段B只处理本次阶段A产出的 JSON 文件，且限定在 output/json 目录下，避免误包含其他 JSON
+            json_dir = (generator.formatter.output_dir / "json").resolve()
+            json_files = [
+                Path(p)
+                for p in result_a.output_files
+                if Path(p).suffix == ".json" and Path(p).resolve().parent == json_dir
+            ]
+
+            if not json_files:
+                click.echo("⚠️  阶段 A 未生成任何 JSON 文件，跳过阶段 B")
+                click.echo("✨ json_llm 处理完成（仅执行了阶段 A）")
+                return
+
+            # 强制 CLI 使用同步模式（CLI 工具不需要异步复杂性）
+            cli_config = copy.deepcopy(config)
+            if "llm" in cli_config and "langchain_config" in cli_config["llm"]:
+                cli_config["llm"]["langchain_config"]["use_async"] = False
+
+            # 初始化增强器（不查库，只基于 JSON 调用 LLM）
+            enhancer = JsonLlmEnhancer(cli_config)
+
+            # 调用增强方法（同步模式保证返回 int）
+            enhanced_count = enhancer.enhance_json_files(json_files)
+
             # 显示结果
             click.echo("")
             click.echo("=" * 60)
-            click.echo("📊 简化版 JSON 生成结果")
+            click.echo("📊 json_llm 处理结果")
             click.echo("=" * 60)
-            click.echo(f"✅ 生成文件: {count} 个")
-            click.echo(f"📁 输出目录: {generator.output_dir}")
+            click.echo(f"✅ 阶段 A (json): 成功处理 {result_a.processed_tables} 张表")
+            click.echo(f"✅ 阶段 B (LLM 增强): 增强 {enhanced_count} 个文件")
+            click.echo(f"📁 输出目录: {json_dir}")
             click.echo("=" * 60)
-            click.echo("✨ 简化版 JSON 生成完成！")
-            
+            click.echo("✨ json_llm 处理完成！")
+
             return
 
         # Step: rel_llm - LLM 辅助关系发现
         if step == "rel_llm":
             from metaweave.core.relationships.llm_relationship_discovery import LLMRelationshipDiscovery
+            from metaweave.core.relationships.writer import RelationshipWriter
             from metaweave.core.metadata.connector import DatabaseConnector
             from services.config_loader import load_config
 
@@ -283,10 +317,10 @@ def metadata_command(
 
             # 加载配置
             config = load_config(config_path)
-            
+
             # 初始化连接器
             connector = DatabaseConnector(config.get("database", {}))
-            
+
             # 初始化发现器
             discovery = LLMRelationshipDiscovery(
                 config=config,
@@ -295,39 +329,47 @@ def metadata_command(
                 cross_domain=cross_domain,
                 db_domains_config=db_domains_config
             )
-            
-            # 检查 json_llm 目录
-            if not discovery.json_llm_dir.exists():
+
+            # 检查 json 目录
+            if not discovery.json_dir.exists():
                 raise FileNotFoundError(
-                    f"json_llm 目录不存在: {discovery.json_llm_dir}\n"
-                    f"请先执行 --step json_llm 生成简化版 JSON"
+                    f"json 目录不存在: {discovery.json_dir}\n"
+                    f"请先执行 --step json 生成表元数据 JSON"
                 )
-            
+
             # 发现关系
-            result = discovery.discover()
-            
-            # 输出结果文件
-            output_config = config.get("output", {})
-            rel_dir = get_project_root() / output_config.get("rel_directory", "output/rel")
-            rel_dir.mkdir(parents=True, exist_ok=True)
-            
-            output_file = rel_dir / "relationships_global.json"
-            with open(output_file, "w", encoding="utf-8") as f:
-                json.dump(result, f, ensure_ascii=False, indent=2)
-            
+            relations, rejected_count, extra_statistics = discovery.discover()
+
+            # 使用 RelationshipWriter 输出结果
+            writer = RelationshipWriter(config)
+            output_files = writer.write_results(
+                relations=relations,
+                suppressed=[],  # LLM 流程没有 suppressed 关系
+                config=config,
+                tables=None,  # 表元数据可选
+                generated_by="rel_llm",  # 标识 LLM 辅助生成
+                extra_statistics=extra_statistics
+            )
+
             # 显示结果
             click.echo("")
             click.echo("=" * 60)
             click.echo("📊 LLM 辅助关系发现结果")
             click.echo("=" * 60)
-            stats = result.get("statistics", {})
-            click.echo(f"✅ 总关系数: {stats.get('total_relationships_found', 0)} 个")
-            click.echo(f"  - 物理外键: {stats.get('foreign_key_relationships', 0)}")
-            click.echo(f"  - LLM 推断: {stats.get('llm_assisted_relationships', 0)}")
-            click.echo(f"📁 输出文件: {output_file}")
+            total_relations = len(relations)
+            llm_assisted = extra_statistics.get("llm_assisted_relationships", 0)
+            fk_relations = total_relations - llm_assisted
+            click.echo(f"✅ 总关系数: {total_relations} 个")
+            click.echo(f"  - 物理外键: {fk_relations}")
+            click.echo(f"  - LLM 推断: {llm_assisted}")
+            if rejected_count > 0:
+                click.echo(f"  - 低置信度拒绝: {rejected_count}")
+            click.echo(f"📁 输出文件:")
+            for output_file in output_files:
+                click.echo(f"  - {output_file}")
             click.echo("=" * 60)
             click.echo("✨ LLM 辅助关系发现完成！")
-            
+
             return
 
         # Step: cql_llm - CQL 生成（LLM 流程）
@@ -348,7 +390,7 @@ def metadata_command(
             if not json_llm_dir.exists():
                 raise FileNotFoundError(
                     f"json_llm 目录不存在: {json_llm_dir}\n"
-                    f"请先执行 --step json_llm 生成简化版 JSON"
+                    f"请先执行 --step json_llm 生成 LLM 增强后的 JSON"
                 )
             
             generator.json_dir = json_llm_dir
@@ -530,4 +572,3 @@ def metadata_command(
         logger.error(f"元数据生成失败: {e}")
         click.echo(f"❌ 错误: {e}", err=True)
         raise click.Abort()
-

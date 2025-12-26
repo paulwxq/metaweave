@@ -1,5 +1,25 @@
 """简化版 JSON 数据画像生成器（供 LLM 使用）
 
+⚠️ DEPRECATED - 此模块已废弃
+============================================
+自 2025-12-26 起，--step json_llm 已改为基于全量 JSON 的增强式处理。
+新实现：metaweave.core.metadata.json_llm_enhancer.JsonLlmEnhancer
+
+改造原因：
+1. 消除重复的数据库访问（json 和 json_llm 不再各自查库）
+2. 统一输出目录（output/json，废弃 output/json_llm）
+3. 保留完整的规则引擎分析结果（语义分析、逻辑主键等）
+4. 表分类覆盖策略：LLM 结果覆盖规则引擎，备份到 *_rule_based 字段
+
+迁移指引：
+- 命令不变：仍执行 `metaweave metadata --step json_llm`
+- 行为变更：先执行 --step json 生成全量 JSON，再原地 LLM 增强
+- 输出目录：统一到 output/json（不再使用 output/json_llm）
+
+保留此文件仅供参考和历史对比，请勿在新代码中引用。
+============================================
+
+原说明：
 新增：支持注释生成、Token 优化与自动分批。
 """
 
@@ -25,6 +45,10 @@ logger = get_metaweave_logger("metadata.llm_json_generator")
 
 
 UNCLASSIFIED_DOMAIN = "_未分类_"
+
+# Prompt 样例数据截断（固定默认值；配置项已移除）
+DEFAULT_PROMPT_SAMPLE_ROWS = 3
+DEFAULT_PROMPT_SAMPLE_COLS = 20
 
 
 class LLMJsonGenerator:
@@ -74,8 +98,6 @@ class LLMJsonGenerator:
         if self.comment_language.lower() in {"zh-cn", "zh_cn"}:
             self.comment_language = "zh"
         self.max_columns_per_call = comment_config.get("max_columns_per_call", 120)
-        self.max_sample_rows = comment_config.get("max_sample_rows", 3)
-        self.max_sample_cols = comment_config.get("max_sample_cols", 20)
         self.enable_batch_processing = comment_config.get("enable_batch_processing", True)
         self.overwrite_existing = comment_config.get("overwrite_existing", False)
 
@@ -86,8 +108,8 @@ class LLMJsonGenerator:
             self.comment_generation_enabled,
             self.comment_language,
             self.max_columns_per_call,
-            self.max_sample_rows,
-            self.max_sample_cols,
+            DEFAULT_PROMPT_SAMPLE_ROWS,
+            DEFAULT_PROMPT_SAMPLE_COLS,
             self.enable_batch_processing,
         )
         logger.info(
@@ -111,12 +133,6 @@ class LLMJsonGenerator:
         if self.max_columns_per_call < 10:
             logger.warning("⚠️ max_columns_per_call 过小(%s)，调整为 10", self.max_columns_per_call)
             self.max_columns_per_call = 10
-        if self.max_sample_rows < 1:
-            logger.warning("⚠️ max_sample_rows 至少为 1，调整为 3")
-            self.max_sample_rows = 3
-        if self.max_sample_cols < 5:
-            logger.warning("⚠️ max_sample_cols 过小(%s)，调整为 10", self.max_sample_cols)
-            self.max_sample_cols = 10
 
     def generate_all_from_ddl(self, ddl_dir: Path) -> int:
         """从 DDL 目录生成所有表的简化 JSON"""
@@ -537,8 +553,8 @@ class LLMJsonGenerator:
     def _build_simplified_json_for_llm(self, json_data: Dict, missing_cols: List[str]) -> Dict:
         """为 LLM 调用裁剪 JSON，控制 Token 体积"""
         trimmed = copy.deepcopy(json_data)
-        max_rows = self.max_sample_rows
-        max_cols = self.max_sample_cols
+        max_rows = DEFAULT_PROMPT_SAMPLE_ROWS
+        max_cols = DEFAULT_PROMPT_SAMPLE_COLS
 
         if "sample_records" in trimmed and "records" in trimmed["sample_records"]:
             records = trimmed["sample_records"]["records"]
@@ -605,9 +621,9 @@ class LLMJsonGenerator:
             len(column_profiles),
             len(missing_columns),
             len(sample_records),
-            self.max_sample_rows,
+            DEFAULT_PROMPT_SAMPLE_ROWS,
             len(sample_records[0]) if sample_records else 0,
-            self.max_sample_cols,
+            DEFAULT_PROMPT_SAMPLE_COLS,
         )
 
         base_prompt = f"""

@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-24T05:00:08.350622Z",
+  "generated_at": "2025-12-26T05:34:41.829888Z",
   "table_info": {
     "schema_name": "public",
     "table_name": "order_header",
@@ -220,9 +220,7 @@
     "table_category": "dim",
     "confidence": 0.95,
     "inference_basis": [
-      "fact_dimension_columns",
-      "dim_identifier_columns",
-      "dim_has_primary_key"
+      "llm_inferred"
     ],
     "physical_constraints": {
       "primary_key": {
@@ -247,11 +245,13 @@
       "primary_key_count": 2,
       "foreign_key_count": 0
     },
-    "dim_table_info": {
-      "natural_key": null,
-      "surrogate_key": "order_id",
-      "attributes": []
-    }
+    "table_category_rule_based": "dim",
+    "confidence_rule_based": 0.95,
+    "inference_basis_rule_based": [
+      "fact_dimension_columns",
+      "dim_identifier_columns",
+      "dim_has_primary_key"
+    ]
   },
   "sample_records": {
     "sample_method": "random",
@@ -285,5 +285,6 @@
         "customer": "陈七"
       }
     ]
-  }
+  },
+  "llm_enhanced_at": "2025-12-26T05:35:24.288767+00:00"
 }

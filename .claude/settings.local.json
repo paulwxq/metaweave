@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(grep:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(source:*)",
+      "Bash(python:*)",
+      "Bash(find:*)",
+      "Bash(.venv-wsl/bin/python -m pytest:*)",
+      "Bash(/mnt/c/Projects/cursor_2025h2/metaweave/.venv-wsl/bin/python:*)"
     ]
   }
 }

@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-24T05:00:08.195444Z",
+  "generated_at": "2025-12-26T05:34:41.633119Z",
   "table_info": {
     "schema_name": "public",
     "table_name": "employee",
@@ -383,11 +383,10 @@
     }
   },
   "table_profile": {
-    "table_category": "fact",
-    "confidence": 0.85,
+    "table_category": "dim",
+    "confidence": 0.95,
     "inference_basis": [
-      "fact_has_metric",
-      "fact_dimension_columns"
+      "llm_inferred"
     ],
     "physical_constraints": {
       "primary_key": {
@@ -433,20 +432,12 @@
       "primary_key_count": 1,
       "foreign_key_count": 1
     },
-    "fact_table_info": {
-      "grain": [
-        "emp_id"
-      ],
-      "metrics": [
-        "salary"
-      ],
-      "dimensions": [
-        "emp_id",
-        "emp_no",
-        "dept_id"
-      ],
-      "time_dimension": null
-    }
+    "table_category_rule_based": "fact",
+    "confidence_rule_based": 0.85,
+    "inference_basis_rule_based": [
+      "fact_has_metric",
+      "fact_dimension_columns"
+    ]
   },
   "sample_records": {
     "sample_method": "random",
@@ -500,5 +491,6 @@
         "dept_id": 8
       }
     ]
-  }
+  },
+  "llm_enhanced_at": "2025-12-26T05:35:06.226863+00:00"
 }
