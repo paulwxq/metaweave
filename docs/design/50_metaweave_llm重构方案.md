@@ -185,8 +185,6 @@ llm:
 # 注释生成配置（保持不变）
 comment_generation:
   enabled: true
-  generate_table_comment: true
-  generate_column_comment: true
   language: zh-CN
   
   cache_enabled: true
@@ -721,4 +719,3 @@ llm:
 **相关文档**：
 - 📋 实施清单：`50_metaweave_llm重构方案_实施清单.md`
 - 🔍 勘误表：`50_metaweave_llm重构方案_勘误表.md`
-

@@ -185,41 +185,35 @@ class CommentGenerator:
         self,
         metadata: TableMetadata,
         sample_data: Optional[pd.DataFrame] = None,
-        generate_table_comment: bool = True,
-        generate_column_comments: bool = True
     ) -> int:
         """使用 LLM 增强元数据的注释
         
         Args:
             metadata: 表元数据（会被修改）
             sample_data: 样本数据（可选）
-            generate_table_comment: 是否生成表注释
-            generate_column_comments: 是否生成字段注释
             
         Returns:
             生成的注释数量
         """
         generated_count = 0
         
-        # 生成表注释
-        if generate_table_comment and not metadata.comment:
+        # 生成表注释（仅缺失时生成）
+        if not metadata.comment:
             comment = self.generate_table_comment(metadata, sample_data)
             if comment:
                 metadata.comment = comment
                 metadata.comment_source = "llm_generated"
                 generated_count += 1
         
-        # 生成字段注释
-        if generate_column_comments:
-            column_comments = self.generate_column_comments(metadata, sample_data)
-            
-            # 更新字段注释
-            for column in metadata.columns:
-                if column.column_name in column_comments:
-                    column.comment = column_comments[column.column_name]
-                    column.comment_source = "llm_generated"
-                    generated_count += 1
+        # 生成字段注释（仅缺失字段会被 generate_column_comments 筛选）
+        column_comments = self.generate_column_comments(metadata, sample_data)
+
+        # 更新字段注释
+        for column in metadata.columns:
+            if column.column_name in column_comments:
+                column.comment = column_comments[column.column_name]
+                column.comment_source = "llm_generated"
+                generated_count += 1
         
         logger.info(f"生成注释完成: {metadata.full_name}, {generated_count} 个注释")
         return generated_count
-

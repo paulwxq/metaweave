@@ -562,7 +562,7 @@ llm:
     overwrite_existing: false           # 是否覆盖已有注释（默认不覆盖）
 
     # 降级策略配置
-    fallback_on_parse_error: true       # 解析失败时是否使用降级策略
+    # fallback_on_parse_error: （已移除）解析失败时默认走降级策略
     # log_failed_responses: （已移除）解析失败时默认记录原始响应
 ```
 
@@ -594,7 +594,7 @@ class LLMJsonGenerator:
         self.overwrite_existing = comment_config.get("overwrite_existing", False)
 
         # 降级策略配置
-        self.fallback_on_parse_error = comment_config.get("fallback_on_parse_error", True)
+        # fallback_on_parse_error: （已移除）解析失败时默认走降级策略
         # log_failed_responses: （已移除）解析失败时默认记录原始响应
 
         # 验证配置
@@ -642,7 +642,7 @@ class LLMJsonGenerator:
 | **max_sample_cols** | `20` | 样例数据列数限制 | `10-50` | • 超长表优化：10-20<br>• 完整样例：50+ |
 | **enable_batch_processing** | `true` | 自动分批处理 | `true` / `false` | • 有超长表：启用<br>• 严格控制成本：禁用 |
 | **overwrite_existing** | `false` | 覆盖已有注释 | `true` / `false` | • 重新生成：`true`<br>• 保护人工注释：`false` |
-| **fallback_on_parse_error** | `true` | 解析失败时降级 | `true` / `false` | • 稳健运行：`true`<br>• 严格模式：`false`（抛异常） |
+| ~~fallback_on_parse_error~~ | ~~`true`~~ | ~~解析失败时降级~~ | ~~`true` / `false`~~ | **已移除**：解析失败时默认走降级策略 |
 | ~~log_failed_responses~~ | ~~`true`~~ | ~~记录失败的原始响应~~ | ~~`true` / `false`~~ | **已移除**：解析失败时默认记录原始响应 |
 
 #### 4. 多语言支持实现
@@ -880,7 +880,7 @@ INFO: 覆盖保护: overwrite_existing=False
    - 容错提取每个字段
    - 部分成功也保存
    - 详细日志（成功/缺失字段列表）
-   - 根据 `fallback_on_parse_error` 配置调用降级策略
+   - 解析失败时默认走降级策略
    - 改动：+60 行
 
 8. **`_get_fallback_profile()`** ⭐ 新增方法
@@ -2007,7 +2007,7 @@ cat output/metaweave/metadata/cql/import_all.cypher | grep "comment:"
 | **max_sample_cols** | `20` | 样例数据列数 | • 超长表：10-20<br>• 完整样例：30-50 |
 | **enable_batch_processing** | `true` | 自动分批开关 | • 有超长表：启用<br>• 严格成本控制：禁用 |
 | **overwrite_existing** | `false` | 覆盖已有注释 | • 保护人工注释：false<br>• 重新生成：true |
-| **fallback_on_parse_error** | `true` | 解析失败降级 | • 稳健运行：true<br>• 严格模式：false |
+| ~~fallback_on_parse_error~~ | ~~`true`~~ | ~~解析失败降级~~ | **已移除**：解析失败时默认走降级策略 |
 | ~~log_failed_responses~~ | ~~`true`~~ | ~~记录失败响应~~ | **已移除**：解析失败时默认记录原始响应 |
 
 ### 实施建议

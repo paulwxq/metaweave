@@ -341,12 +341,7 @@ class MetadataGenerator:
             
             # 3. 生成注释（如果启用）
             if self.comment_enabled:
-                comment_count = self.comment_generator.enrich_metadata_with_comments(
-                    metadata,
-                    sample_data,
-                    generate_table_comment=self.config.get("comment_generation", {}).get("generate_table_comment", True),
-                    generate_column_comments=self.config.get("comment_generation", {}).get("generate_column_comment", True)
-                )
+                comment_count = self.comment_generator.enrich_metadata_with_comments(metadata, sample_data)
                 result.generated_comments += comment_count
             
             # 4. 生成列画像
@@ -515,4 +510,3 @@ class MetadataGenerator:
             logger.warning("CQL 生成尚未实现，暂不输出文件")
             return []
         return mapping.get(step, [])
-

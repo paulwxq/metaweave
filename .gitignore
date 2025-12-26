@@ -28,6 +28,7 @@ htmlcov/
 .idea/
 *.swp
 *.swo
+*.lock
 *~
 
 # OS

@@ -73,14 +73,11 @@ class LLMJsonGenerator:
         # 兼容 zh-CN 写法
         if self.comment_language.lower() in {"zh-cn", "zh_cn"}:
             self.comment_language = "zh"
-        self.generate_table_comment = comment_config.get("generate_table_comment", True)
-        self.generate_column_comment = comment_config.get("generate_column_comment", True)
         self.max_columns_per_call = comment_config.get("max_columns_per_call", 120)
         self.max_sample_rows = comment_config.get("max_sample_rows", 3)
         self.max_sample_cols = comment_config.get("max_sample_cols", 20)
         self.enable_batch_processing = comment_config.get("enable_batch_processing", True)
         self.overwrite_existing = comment_config.get("overwrite_existing", False)
-        self.fallback_on_parse_error = comment_config.get("fallback_on_parse_error", True)
 
         self._validate_config()
 
@@ -167,7 +164,7 @@ class LLMJsonGenerator:
         for idx, table_json in enumerate(table_jsons):
             meta = table_json.get("_metadata", {})
             missing_cols = meta.get("missing_column_comments", [])
-            need_table_comment = meta.get("need_table_comment", False) and self.generate_table_comment
+            need_table_comment = meta.get("need_table_comment", False)
 
             # 注释生成可配置禁用
             if not self.comment_generation_enabled:
@@ -285,7 +282,7 @@ class LLMJsonGenerator:
         """单表处理，包含 Token 优化与分批"""
         meta = table_json.get("_metadata", {})
         missing_cols = meta.get("missing_column_comments", [])
-        need_table_comment = meta.get("need_table_comment", False) and self.generate_table_comment
+        need_table_comment = meta.get("need_table_comment", False)
         if not self.comment_generation_enabled:
             missing_cols = []
             need_table_comment = False
@@ -597,8 +594,8 @@ class LLMJsonGenerator:
             return self._build_prompt_without_comments(table_json)
 
         meta = table_json.get("_metadata", {}) or {}
-        need_table_comment = meta.get("need_table_comment", False) and self.generate_table_comment
-        missing_columns = meta.get("missing_column_comments", []) if self.generate_column_comment else []
+        need_table_comment = meta.get("need_table_comment", False)
+        missing_columns = meta.get("missing_column_comments", [])
         existing_comments = meta.get("existing_column_comments", {})
 
         sample_records = table_json.get("sample_records", {}).get("records", []) or []
@@ -938,4 +935,3 @@ class LLMJsonGenerator:
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(table_json, f, ensure_ascii=False, indent=2)
         logger.info("💾 已保存: %s", output_path)
-

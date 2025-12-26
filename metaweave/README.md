@@ -228,8 +228,6 @@ llm:
 ```yaml
 comment_generation:
   enabled: true
-  generate_table_comment: true
-  generate_column_comment: true
   language: zh-CN
   cache_enabled: true
   cache_file: cache/metaweave/comment_cache.json
@@ -345,4 +343,3 @@ MIT License
 
 - 项目维护者：MetaWeave Team
 - 文档版本：v0.1.0
-

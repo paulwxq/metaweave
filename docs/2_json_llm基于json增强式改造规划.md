@@ -74,6 +74,30 @@
 └── 写回 output/json/*.json（原地更新或原子替换）
 ```
 
+**`comment_generation.*` 配置影响范围（按当前代码实现澄清）**：
+
+| 参数 | 影响范围（当前实现） | 行为 |
+|---|---|---|
+| `comment_generation.enabled` | `--step ddl/md/all`（`MetadataGenerator` DB 路径会调用 `CommentGenerator`）；旧 `--step json_llm`（`LLMJsonGenerator`） | `true`：启用注释生成；在 `ddl/md/all` 仅补齐缺失不覆盖；在旧 `json_llm` 是否覆盖由 `overwrite_existing` 决定。`false`：完全不生成注释 |
+| `comment_generation.language` | 旧 `--step json_llm`（`LLMJsonGenerator`；本方案阶段B将复用同名参数） | 注释语言：`zh`/`en`/`bilingual`（仅影响 LLM 生成的注释文本；表分类不受影响） |
+| `comment_generation.cache_enabled` | `--step ddl/md/all`（`CommentGenerator` 缓存）；本方案阶段B（JsonLlmEnhancer 将复用同一套缓存） | `true`：优先复用缓存命中的注释，未命中才调用 LLM 并写回缓存；`false`：每次都调用 LLM（不读写缓存） |
+| `comment_generation.cache_file` | `--step ddl/md/all`；本方案阶段B | 注释缓存文件路径（默认：`cache/comment_cache.json`） |
+| `comment_generation.overwrite_existing` | 仅旧 `--step json_llm`（`LLMJsonGenerator`；本方案阶段B复用同名参数） | `true`：覆盖已有表/字段注释；`false`：仅补齐缺失 |
+
+补充：`--step json`（阶段A）走 DDL 路径（从 `output/ddl/*.sql` 读取结构），**不会调用 `CommentGenerator`**，因此 `comment_generation.enabled` 对阶段A不生效。注意：DDL 路径仍会访问数据库查询行数和采样数据，但“注释生成”这一步会被跳过。
+
+### 3.1.1 对现有 `LLMJsonGenerator` 的处理（明确结论）
+
+- **结论：废弃并下线该执行路径**。改造完成后，`--step json_llm` 不再走 `LLMJsonGenerator` 的“独立生成简化 JSON + 写入 output/json_llm”逻辑。
+- **不保留后备方案/兼容开关**：项目尚未上线，按你的要求不考虑向后兼容，避免长期维护两套分叉流程。
+- **保留代码文件的策略（可选其一）**：
+  - 推荐：保留 `metaweave/core/metadata/llm_json_generator.py` 作为历史实现参考，但从 `metadata_cli.py` 移除入口引用并在文件头标记 deprecated，后续再清理删除；
+  - 更激进：改造合并验收后直接删除 `LLMJsonGenerator` 及其文档（前提是确认无其他模块引用）。
+- **迁移方式（对开发者/调用方）**：
+  - 命令不变：仍执行 `metaweave metadata --step json_llm`；
+  - 行为变更：先执行 `--step json` 生成全量 JSON，再原地增强（分类覆盖 + 注释补齐/覆盖），最终只写入 `output/json`；
+  - `output/json_llm` 目录不再生成，也不再作为后续步骤输入（下游改造不在本次范围）。
+
 ### 3.2 表类型比对与覆盖逻辑
 
 #### 3.2.0 固定策略：每表必调 LLM 并覆盖（含 unknown）
@@ -96,12 +120,17 @@ rule_inference_basis = json["table_profile"]["inference_basis"]
 llm_result = call_llm(table_json)
 llm_category = llm_result["table_category"]
 llm_confidence = llm_result.get("confidence", 0.9)  # LLM 也返回置信度
-llm_reason = llm_result.get("reason", "")  # LLM 返回判断理由（可选，仅用于日志，不存储到 JSON）
+logger.debug("表 %s LLM reason: %s", table_name, llm_result.get("reason", ""))
 ```
 
 #### 3.2.2 覆盖策略
 
 **核心原则**：只要 LLM 返回了 `table_category`（包括 `unknown`），就用 LLM 结果覆盖（包括 `table_category` 和 `confidence`），同时备份规则引擎结果；如果 LLM 未返回 `table_category`，则保持规则引擎结果并记录告警。
+
+**`inference_basis` 字段格式约定**：
+- 当前元数据 schema（v2.0）中，`table_profile.inference_basis` 是 `List[str]`（数组），规则引擎会写入一组“标签式原因”（例如 `fact_has_metric`、`dim_comment_keyword`）。
+- 为保持格式一致，LLM 覆盖分类后，`inference_basis` 也应保持为数组；推荐固定写入 `["llm_inferred"]` 作为来源标识。
+- 不要把自然语言 `reason` 塞进 `inference_basis`（避免下游误用/难以结构化）；`reason` 仅用于日志调试即可。
 
 ```python
 # 核心判断：只要 LLM 返回了 table_category（含 unknown），就覆盖
@@ -160,15 +189,14 @@ def _analyze_comment_needs(self, table_json: Dict) -> Dict:
 
     # 判断表注释是否需要生成
     table_comment = (table_info.get("comment") or "").strip()
-    need_table_comment = self.generate_table_comment and ((not table_comment) or self.overwrite_existing)
+    need_table_comment = (not table_comment) or self.overwrite_existing
 
     # 判断哪些列注释需要生成（返回明确的列名列表）
     columns_need_comment = []
-    if self.generate_column_comment:
-        for col_name, col_data in column_profiles.items():
-            col_comment = (col_data.get("comment") or "").strip()
-            if (not col_comment) or self.overwrite_existing:
-                columns_need_comment.append(col_name)
+    for col_name, col_data in column_profiles.items():
+        col_comment = (col_data.get("comment") or "").strip()
+        if (not col_comment) or self.overwrite_existing:
+            columns_need_comment.append(col_name)
 
     return {
         "need_table_comment": need_table_comment,
@@ -185,8 +213,8 @@ need_comments = (
 )
 
 if not need_comments:
-    logger.info(f"表 {table_name} 注释已齐全，跳过注释生成")
-    # 不调用注释生成任务
+    logger.info(f"表 {table_name} 注释已齐全：不生成注释，但仍会调用 LLM 做表分类（仅分类 Prompt）")
+    # 仅跳过“注释生成/注释合并”逻辑；表分类仍然必做
 ```
 
 **关键优化**：将 `columns_need_comment` 列表明确传递给 LLM prompt，避免 LLM 为不需要的列生成注释，浪费 token。
@@ -310,10 +338,10 @@ def enhance_json_directory(self, json_dir: Path) -> int:
 #### 3.5.1 配置调整
 
 ```yaml
-output:
-  output_dir: "output"
-  json_directory: "output/json"  # 统一输出目录
-  json_llm_directory: "output/json_llm"  # legacy：新 json_llm 默认不写该目录（可选兼容复制）
+    output:
+      output_dir: "output"
+      json_directory: "output/json"  # 统一输出目录
+      # json_llm_directory: "output/json_llm"  # 已废弃：整合后不再使用该目录
 ```
 
 #### 3.5.2 CLI 调整
@@ -321,16 +349,40 @@ output:
 ```python
 # metadata_cli.py
 if step == "json_llm":
-    # 阶段 A：生成全量 JSON
-    click.echo("📊 阶段 1/2: 生成全量 JSON...")
-    generator = MetadataGenerator(config, connector)
-    count = generator.generate(step="json")  # 输出到 output/json
+    # 阶段 A：生成全量 JSON（失败则直接退出）
+    click.echo("📊 阶段 1/2: 生成全量 JSON（--step json）...")
+    # 注：MetadataGenerator 构造函数接受 config_path，并在内部加载/解析配置（含环境变量替换）
+    generator = MetadataGenerator(config_path)
+    config = generator.config  # 复用已解析配置（避免重复加载/环境变量替换差异）
+
+    # 透传 CLI 参数（否则 json_llm 会忽略 schemas/tables/max_workers 等过滤条件）
+    schemas_list = [s.strip() for s in (schemas or "").split(",") if s.strip()] or None
+    tables_list = [t.strip() for t in (tables or "").split(",") if t.strip()] or None
+
+    result_a = generator.generate(
+        schemas=schemas_list,
+        tables=tables_list,
+        incremental=incremental,
+        max_workers=max_workers,
+        step="json",
+    )
+
+    if (not result_a.success) or result_a.failed_tables > 0:
+        # 阶段A失败：打印错误并退出（阶段B不执行）
+        raise click.ClickException("阶段A失败，退出。\n" + "\n".join(result_a.errors))
+
+    # 阶段B只处理本次阶段A产出的 JSON 文件，且限定在 output/json 目录下，避免误包含其他 JSON
+    json_dir = (generator.formatter.output_dir / "json").resolve()
+    json_files = [
+        Path(p)
+        for p in result_a.output_files
+        if Path(p).suffix == ".json" and Path(p).resolve().parent == json_dir
+    ]
 
     # 阶段 B：LLM 增强
-    click.echo("🤖 阶段 2/2: LLM 增强处理...")
-    enhancer = JsonLlmEnhancer(config, connector)  # connector 仅用于配置，不查库
-    json_dir = Path(config["output"]["json_directory"])
-    enhanced_count = enhancer.enhance_json_directory(json_dir)  # 原地增强
+    click.echo("🤖 阶段 2/2: LLM 增强处理（原地写回 output/json）...")
+    enhancer = JsonLlmEnhancer(config)  # 不查库，只基于 JSON 调用 LLM
+    enhanced_count = enhancer.enhance_json_files(json_files)
 
     click.echo(f"✅ 完成！增强了 {enhanced_count} 个表")
 ```
@@ -339,8 +391,33 @@ if step == "json_llm":
 
 ### 4.1 新增模块：JsonLlmEnhancer
 
+**注意（返回值类型）**：当 `llm.langchain_config.use_async=true` 时，`enhance_json_files()` 在“无运行中事件循环”的普通 CLI 场景会返回 `int`；但在 Jupyter/Notebook 这类“已有运行中事件循环”的环境里会返回 *coroutine*（需要 `await` 才会执行）。
+
+推荐写法（兼容两种环境）：
+```python
+result = enhancer.enhance_json_files(files)
+if asyncio.iscoroutine(result):
+    result = await result
+```
+
 ```python
 # metaweave/core/metadata/json_llm_enhancer.py
+
+import asyncio
+import copy
+import json
+import logging
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Dict, Optional, List, Tuple
+
+from metaweave.core.metadata.connector import DatabaseConnector
+from metaweave.services.cache_service import CacheService
+from metaweave.services.llm_service import LLMService
+from metaweave.utils.file_utils import get_project_root
+
+logger = logging.getLogger("metaweave.json_llm_enhancer")
 
 class JsonLlmEnhancer:
     """基于全量 JSON 的 LLM 增强处理器"""
@@ -358,102 +435,188 @@ class JsonLlmEnhancer:
         # 注释生成配置（沿用现有 configs/metadata_config.yaml 的 comment_generation.*）
         comment_config = config.get("comment_generation", {})
         self.comment_generation_enabled = comment_config.get("enabled", True)
-        self.generate_table_comment = comment_config.get("generate_table_comment", True)
-        self.generate_column_comment = comment_config.get("generate_column_comment", True)
+        self.comment_language = (comment_config.get("language", "zh") or "zh").strip().lower()
+        if self.comment_language in {"zh-cn", "zh_cn"}:
+            self.comment_language = "zh"
+        if self.comment_language not in {"zh", "en", "bilingual"}:
+            logger.warning("无效的 comment_generation.language=%s，回退到 zh", self.comment_language)
+            self.comment_language = "zh"
         self.overwrite_existing = comment_config.get("overwrite_existing", False)
         self.max_columns_per_call = comment_config.get("max_columns_per_call", 120)
         self.enable_batch_processing = comment_config.get("enable_batch_processing", True)
+
+        # 注释缓存配置（复用现有 CacheService 与 key 设计）
+        # - 表注释：table:<schema>.<table>
+        # - 字段注释：columns:<schema>.<table>  (value 为 {col_name: comment})
+        self.cache_enabled = comment_config.get("cache_enabled", True)
+        cache_file = comment_config.get("cache_file", "cache/comment_cache.json")
+        cache_path = Path(cache_file)
+        if not cache_path.is_absolute():
+            cache_path = get_project_root() / cache_path
+        self.cache_service = CacheService(cache_path) if self.cache_enabled else None
 
         # 异步配置
         langchain_config = config.get("llm", {}).get("langchain_config", {})
         self.use_async = langchain_config.get("use_async", False)
 
-    def enhance_json_directory(self, json_dir: Path) -> int:
-        """增强整个目录的 JSON 文件（同步入口）"""
-        if self.use_async:
-            return self._run_async(self._enhance_json_directory_async(json_dir))
-        return self._enhance_json_directory_sync(json_dir)
-
-    def _enhance_json_directory_sync(self, json_dir: Path) -> int:
-        """同步增强（逐表处理；分类必做，注释按需）"""
+    def enhance_json_directory(self, json_dir: Path):
+        """增强整个目录的 JSON 文件（按 *.json 扫描并增强）。"""
         json_files = list(json_dir.glob("*.json"))
+        return self.enhance_json_files(json_files)
+
+    def enhance_json_files(self, json_files: List[Path]):
+        """增强指定的一组 JSON 文件（用于 CLI 精确限定“本次生成的文件列表”）。
+
+        - use_async=false：同步执行，返回 int
+        - use_async=true：
+          - 若当前线程无运行中的事件循环：内部 asyncio.run 执行协程，返回 int
+          - 若已存在事件循环：返回 coroutine，需要调用方 await
+        # 调用方可用 asyncio.iscoroutine(...) 判断并在 Notebook 场景下 await。
+        """
+        if self.use_async:
+            return self._run_async(self._enhance_json_files_async(json_files))
+        return self._enhance_json_files_sync(json_files)
+
+    def _enhance_json_files_sync(self, json_files: List[Path]) -> int:
+        """同步增强（逐表处理；分类必做，注释按需/分批）"""
         enhanced_count = 0
-        skipped_count = 0
 
         for json_file in json_files:
             try:
                 table_json = self._load_json(json_file)
                 table_name = table_json["table_info"]["table_name"]
 
-                # 固定策略：每表必调 LLM 分类并覆盖
-                need_classification = True
                 comment_needs = self._analyze_comment_needs(table_json)
+                # 先尝试用缓存补齐/覆盖注释，减少 LLM 调用与 token 成本
+                comment_needs = self._apply_cached_comments(table_json, comment_needs)
                 need_comments = (
-                    comment_needs["need_table_comment"] or
-                    len(comment_needs["columns_need_comment"]) > 0
+                    comment_needs["need_table_comment"]
+                    or len(comment_needs["columns_need_comment"]) > 0
                 )
 
-                # 说明：分类必做，因此不会因为“都不需要”而跳过
-
-                # 构建输入视图和 prompt
                 llm_input = self._build_llm_input_view(table_json)
 
+                cols = comment_needs["columns_need_comment"]
+                batches = [cols]
+                if need_comments and cols and len(cols) > self.max_columns_per_call:
+                    if self.enable_batch_processing:
+                        batches = [
+                            cols[i : i + self.max_columns_per_call]
+                            for i in range(0, len(cols), self.max_columns_per_call)
+                        ]
+                    else:
+                        batches = [cols[: self.max_columns_per_call]]
+                        logger.warning(
+                            "列注释任务过多且分批被禁用，仅处理前 %s 个列",
+                            self.max_columns_per_call,
+                        )
+
                 if need_comments:
-                    prompt = self._build_combined_prompt(llm_input, comment_needs)
+                    first_needs = {
+                        "need_table_comment": comment_needs["need_table_comment"],
+                        "columns_need_comment": batches[0],
+                    }
+                    prompt0 = self._build_combined_prompt(llm_input, first_needs)
                 else:
-                    prompt = self._build_classification_only_prompt(llm_input)
+                    prompt0 = self._build_classification_only_prompt(llm_input)
 
-                # 同步调用 LLM
-                response = self.llm_service._call_llm(prompt)
-                llm_result = self._parse_llm_response(response, table_name)
+                response0 = self.llm_service._call_llm(prompt0)
+                llm_result0 = self._parse_llm_response(response0, table_name)
 
-                # 合并并写回
-                enhanced = self._merge_llm_result(table_json, llm_result, need_comments)
+                merged_llm_result = dict(llm_result0 or {})
+                merged_llm_result.setdefault("column_comments", {})
+
+                for batch_cols in batches[1:]:
+                    batch_needs = {
+                        "need_table_comment": False,
+                        "columns_need_comment": batch_cols,
+                    }
+                    prompt_i = self._build_comments_only_prompt(llm_input, batch_needs)
+                    response_i = self.llm_service._call_llm(prompt_i)
+                    llm_result_i = self._parse_llm_response(response_i, table_name)
+                    if llm_result_i and isinstance(llm_result_i.get("column_comments"), dict):
+                        merged_llm_result["column_comments"].update(llm_result_i["column_comments"])
+
+                enhanced = self._merge_llm_result(table_json, merged_llm_result, need_comments)
                 self._atomic_write_json(json_file, enhanced)
+                self._update_comment_cache(enhanced, merged_llm_result, need_comments)
                 enhanced_count += 1
             except Exception as e:
                 logger.error("增强失败 %s: %s", json_file.name, e)
 
-        logger.info("JSON 增强完成，共 %s 个文件（跳过 %s 个）", enhanced_count, skipped_count)
+        logger.info("JSON 增强完成，共 %s 个文件", enhanced_count)
         return enhanced_count
 
-    async def _enhance_json_directory_async(self, json_dir: Path) -> int:
-        """异步增强（批量并发；分类必做，注释按需）"""
-        json_files = list(json_dir.glob("*.json"))
-
-        # 准备任务（仅包含需要增强的表）
+    async def _enhance_json_files_async(self, json_files: List[Path]) -> int:
+        """异步增强（批量并发；分类必做，注释按需/分批）"""
         jobs = []
-        skipped_count = 0
-        for idx, json_file in enumerate(json_files):
+
+        for table_idx, json_file in enumerate(json_files):
             try:
                 table_json = self._load_json(json_file)
                 table_name = table_json["table_info"]["table_name"]
 
-                # 固定策略：每表必调 LLM 分类并覆盖
-                need_classification = True
                 comment_needs = self._analyze_comment_needs(table_json)
                 need_comments = (
-                    comment_needs["need_table_comment"] or
-                    len(comment_needs["columns_need_comment"]) > 0
+                    comment_needs["need_table_comment"]
+                    or len(comment_needs["columns_need_comment"]) > 0
                 )
 
-                # 说明：分类必做，因此不会因为“都不需要”而跳过
-
-                # 构建 prompt
                 llm_input = self._build_llm_input_view(table_json)
-                if need_comments:
-                    prompt = self._build_combined_prompt(llm_input, comment_needs)
-                else:
-                    prompt = self._build_classification_only_prompt(llm_input)
 
-                jobs.append({
-                    "idx": idx,
-                    "file": json_file,
-                    "table_json": table_json,
-                    "table_name": table_name,
-                    "prompt": prompt,
-                    "need_comments": need_comments,
-                })
+                cols = comment_needs["columns_need_comment"]
+                batches = [cols]
+                if need_comments and cols and len(cols) > self.max_columns_per_call:
+                    if self.enable_batch_processing:
+                        batches = [
+                            cols[i : i + self.max_columns_per_call]
+                            for i in range(0, len(cols), self.max_columns_per_call)
+                        ]
+                    else:
+                        batches = [cols[: self.max_columns_per_call]]
+                        logger.warning(
+                            "列注释任务过多且分批被禁用，仅处理前 %s 个列",
+                            self.max_columns_per_call,
+                        )
+
+                if need_comments:
+                    first_needs = {
+                        "need_table_comment": comment_needs["need_table_comment"],
+                        "columns_need_comment": batches[0],
+                    }
+                    prompt0 = self._build_combined_prompt(llm_input, first_needs)
+                else:
+                    prompt0 = self._build_classification_only_prompt(llm_input)
+
+                jobs.append(
+                    {
+                        "table_idx": table_idx,
+                        "batch_idx": 0,
+                        "file": json_file,
+                        "table_json": table_json,
+                        "table_name": table_name,
+                        "prompt": prompt0,
+                        "need_comments": need_comments,
+                    }
+                )
+
+                for b, batch_cols in enumerate(batches[1:], start=1):
+                    batch_needs = {
+                        "need_table_comment": False,
+                        "columns_need_comment": batch_cols,
+                    }
+                    prompt_i = self._build_comments_only_prompt(llm_input, batch_needs)
+                    jobs.append(
+                        {
+                            "table_idx": table_idx,
+                            "batch_idx": b,
+                            "file": json_file,
+                            "table_json": table_json,
+                            "table_name": table_name,
+                            "prompt": prompt_i,
+                            "need_comments": True,
+                        }
+                    )
             except Exception as e:
                 logger.error("加载失败 %s: %s", json_file.name, e)
 
@@ -461,7 +624,6 @@ class JsonLlmEnhancer:
             logger.info("未发现可增强的 JSON 文件（或均加载失败）")
             return 0
 
-        # 批量异步调用 LLM
         prompts = [job["prompt"] for job in jobs]
 
         def on_progress(done: int, total: int):
@@ -469,37 +631,118 @@ class JsonLlmEnhancer:
                 logger.info("LLM 增强进度: %s/%s", done, total)
 
         results = await self.llm_service.batch_call_llm_async(prompts, on_progress=on_progress)
-
-        # 合并并写回（按 idx 映射，避免错位）
-        enhanced_count = 0
+        # 约定：LLMService.batch_call_llm_async 返回 List[Tuple[int, str]]，
+        # 其中 int 是 prompts 的原始下标，str 是对应响应；并且内部会按下标排序返回。
+        # 参考实现：metaweave/services/llm_service.py:301
         result_map = {idx: response for idx, response in results}
 
-        for job in jobs:
+        grouped: Dict[int, List[Tuple[int, str]]] = {}
+        for prompt_idx, job in enumerate(jobs):
+            resp = result_map.get(prompt_idx, "")
+            grouped.setdefault(job["table_idx"], []).append((job["batch_idx"], resp))
+
+        enhanced_count = 0
+        for table_idx, batch_responses in grouped.items():
+            base_job = next(
+                j for j in jobs if j["table_idx"] == table_idx and j["batch_idx"] == 0
+            )
             try:
-                response = result_map.get(job["idx"], "")
-                if not response:
-                    logger.warning("LLM 响应为空: %s", job["file"].name)
-                    continue
+                batch_responses.sort(key=lambda x: x[0])
+                llm_result0 = self._parse_llm_response(batch_responses[0][1], base_job["table_name"])
 
-                llm_result = self._parse_llm_response(response, job["table_name"])
+                merged_llm_result = dict(llm_result0 or {})
+                merged_llm_result.setdefault("column_comments", {})
 
-                # 合并并原子写入
-                enhanced = self._merge_llm_result(job["table_json"], llm_result, job["need_comments"])
-                self._atomic_write_json(job["file"], enhanced)
+                for _, resp in batch_responses[1:]:
+                    llm_result_i = self._parse_llm_response(resp, base_job["table_name"])
+                    if llm_result_i and isinstance(llm_result_i.get("column_comments"), dict):
+                        merged_llm_result["column_comments"].update(llm_result_i["column_comments"])
+
+                enhanced = self._merge_llm_result(
+                    base_job["table_json"],
+                    merged_llm_result,
+                    base_job["need_comments"],
+                )
+                self._atomic_write_json(base_job["file"], enhanced)
+                # 缓存写入时机：异步批次全部返回后，在“合并并落盘 JSON”成功后按表顺序写缓存
+                # 这样避免并发写同一个 cache_file 产生竞争/损坏，同时保证缓存与落盘 JSON 尽量一致。
+                self._update_comment_cache(enhanced, merged_llm_result, base_job["need_comments"])
                 enhanced_count += 1
             except Exception as e:
-                logger.error("合并写入失败 %s: %s", job["file"].name, e)
+                logger.error("合并写入失败 %s: %s", base_job["file"].name, e)
 
-        logger.info("JSON 异步增强完成，共 %s 个文件（跳过 %s 个）", enhanced_count, skipped_count)
+        logger.info("JSON 异步增强完成，共 %s 个文件", enhanced_count)
         return enhanced_count
 
     def _run_async(self, coro):
-        """在无事件循环场景运行协程"""
+        """在无事件循环场景运行协程；若已存在事件循环则返回 coro 由调用方 await。"""
         try:
             asyncio.get_running_loop()
         except RuntimeError:
             return asyncio.run(coro)
-        raise RuntimeError("检测到已存在运行中的事件循环，请在外部 await 调用或自行管理事件循环。")
+        return coro
+
+    def _apply_cached_comments(self, table_json: Dict, comment_needs: Dict) -> Dict:
+        """用缓存补齐/覆盖注释（命中则直接写回 table_json 并更新待生成列表）。"""
+        if (not self.cache_enabled) or (self.cache_service is None) or (not self.comment_generation_enabled):
+            return comment_needs
+
+        table_info = table_json.get("table_info", {}) or {}
+        schema = table_info.get("schema_name", "")
+        table = table_info.get("table_name", "")
+
+        # 1) 表注释缓存
+        if comment_needs.get("need_table_comment"):
+            cache_key = f"table:{schema}.{table}"
+            cached = self.cache_service.get(cache_key)
+            if cached and str(cached).strip():
+                table_info["comment"] = cached
+                table_info["comment_source"] = "llm_generated"
+                comment_needs["need_table_comment"] = False
+
+        # 2) 字段注释缓存（整表 dict）
+        cols_need = list(comment_needs.get("columns_need_comment", []) or [])
+        if cols_need:
+            cache_key = f"columns:{schema}.{table}"
+            cached_map = self.cache_service.get(cache_key)
+            if isinstance(cached_map, dict) and cached_map:
+                column_profiles = table_json.get("column_profiles", {}) or {}
+                remaining = []
+                for col_name in cols_need:
+                    cached_comment = cached_map.get(col_name)
+                    if cached_comment and str(cached_comment).strip() and col_name in column_profiles:
+                        column_profiles[col_name]["comment"] = cached_comment
+                        column_profiles[col_name]["comment_source"] = "llm_generated"
+                    else:
+                        remaining.append(col_name)
+                comment_needs["columns_need_comment"] = remaining
+
+        return comment_needs
+
+    def _update_comment_cache(self, enhanced_json: Dict, llm_result: Dict, need_comments: bool) -> None:
+        """将本次 LLM 生成/覆盖的注释写回缓存（按表写入）。"""
+        if (not need_comments) or (not self.cache_enabled) or (self.cache_service is None):
+            return
+
+        table_info = enhanced_json.get("table_info", {}) or {}
+        schema = table_info.get("schema_name", "")
+        table = table_info.get("table_name", "")
+        if not schema or not table:
+            return
+
+        # 1) 表注释缓存：以最终写入 JSON 的 comment 为准（为空则不写）
+        table_comment = (table_info.get("comment") or "").strip()
+        if table_comment:
+            self.cache_service.set(f"table:{schema}.{table}", table_comment)
+
+        # 2) 字段注释缓存：合并写回整表 dict（避免覆盖掉历史已有列）
+        col_comments = llm_result.get("column_comments", {}) or {}
+        if isinstance(col_comments, dict) and col_comments:
+            key = f"columns:{schema}.{table}"
+            existing = self.cache_service.get(key) if self.cache_service else None
+            merged = existing if isinstance(existing, dict) else {}
+            merged.update({k: v for k, v in col_comments.items() if v and str(v).strip()})
+            self.cache_service.set(key, merged)
 
     def _analyze_comment_needs(self, table_json: Dict) -> Dict:
         """分析哪些注释需要生成（返回明确的字段列表，Token 优化）"""
@@ -623,7 +866,7 @@ class JsonLlmEnhancer:
 
         llm_category = llm_result.get("table_category")
         llm_confidence = llm_result.get("confidence", 0.9)
-        llm_reason = llm_result.get("reason", "")  # 可选，仅用于日志，不存储到 JSON
+        logger.debug("表 %s LLM reason: %s", enhanced['table_info']['table_name'], llm_result.get("reason", ""))
 
         if llm_category is not None:
             category_changed = (llm_category != rule_category)
@@ -666,6 +909,10 @@ class JsonLlmEnhancer:
         # 3. 更新元数据
         # - 保留 json 步骤写入的 generated_at（避免改写“生成时间”的语义）
         # - 新增 llm_enhanced_at 记录增强时间（便于追溯）
+        # metadata_version 是“元数据 JSON 的输出 schema 版本号”，由 Step json 的 TableMetadata.to_dict() 统一写入。
+        # 当前代码库固定为 v2.0（metaweave/core/metadata/models.py:155；llm_json_generator.py 也使用 2.0）。
+        # JsonLlmEnhancer 不负责版本升级：这里只做透传；若历史文件缺失该字段，才回退到当前 schema 版本 2.0。
+        # 若未来要升级版本号：应在 TableMetadata.to_dict() 等统一出口处集中修改，并同步更新下游 reader/validator。
         enhanced["metadata_version"] = table_json.get("metadata_version", "2.0")
         enhanced["llm_enhanced_at"] = datetime.now(timezone.utc).isoformat()
 
@@ -722,7 +969,7 @@ class JsonLlmEnhancer:
     def _parse_llm_response(self, response: str, table_name: str) -> Dict:
         """解析 LLM 响应（复用 llm_json_generator.py 的逻辑）"""
         try:
-            # 更健壮的 JSON 提取（允许 LLM 输出 markdown/前后解释，只取第一个完整 JSON 对象）
+            # 更健壮的 JSON 提取（允许 LLM 输出 markdown/前后解释，只取第一个完整 JSON 对象/数组）
             import re
             cleaned = (response or "").strip()
 
@@ -731,28 +978,27 @@ class JsonLlmEnhancer:
             # 移除结尾的 ```
             cleaned = re.sub(r'\s*```\s*$', '', cleaned, flags=re.MULTILINE).strip()
 
-            start_idx = cleaned.find("{")
-            if start_idx == -1:
-                logger.error("LLM 响应未找到 JSON 对象 (表: %s): %s", table_name, cleaned[:200])
+            # 选择第一个 JSON 起始符号（{ 或 [）
+            start_candidates = [idx for idx in (cleaned.find("{"), cleaned.find("[")) if idx != -1]
+            if not start_candidates:
+                logger.error("LLM 响应未找到 JSON 起始符号 (表: %s): %s", table_name, cleaned[:200])
                 return {}
 
-            brace_count = 0
-            end_idx = None
-            for i in range(start_idx, len(cleaned)):
-                if cleaned[i] == "{":
-                    brace_count += 1
-                elif cleaned[i] == "}":
-                    brace_count -= 1
-                    if brace_count == 0:
-                        end_idx = i + 1
-                        break
+            start_idx = min(start_candidates)
 
-            if end_idx is None:
-                logger.error("LLM 响应 JSON 括号不匹配 (表: %s): %s", table_name, cleaned[:200])
+            # 使用 JSONDecoder.raw_decode：能正确处理字符串中的 { }、转义字符等
+            decoder = json.JSONDecoder()
+            parsed, _end = decoder.raw_decode(cleaned[start_idx:])
+
+            # 兼容：返回列表时取第一个对象
+            if isinstance(parsed, list) and parsed:
+                parsed = parsed[0]
+
+            if not isinstance(parsed, dict):
+                logger.error("LLM 响应 JSON 非对象 (表: %s): %s", table_name, type(parsed).__name__)
                 return {}
 
-            json_text = cleaned[start_idx:end_idx]
-            return json.loads(json_text)
+            return parsed
         except json.JSONDecodeError as e:
             logger.error("解析 LLM 响应失败 (表: %s): %s\n响应内容: %s", table_name, e, response[:200])
             return {}
@@ -760,14 +1006,23 @@ class JsonLlmEnhancer:
     def _atomic_write_json(self, file_path: Path, data: Dict):
         """原子写入 JSON（先写临时文件再替换）"""
         temp_file = file_path.with_suffix(".tmp")
+        # 1) 先写临时文件（写失败才清理 temp）
         try:
-            with open(temp_file, 'w', encoding='utf-8') as f:
+            with open(temp_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
-            temp_file.replace(file_path)
-        except Exception as e:
+                f.flush()
+                os.fsync(f.fileno())
+        except Exception:
             if temp_file.exists():
                 temp_file.unlink()
-            raise e
+            raise
+
+        # 2) 再原子替换（replace 失败时：原文件仍保持不变；temp 保留便于排查）
+        try:
+            os.replace(temp_file, file_path)
+        except Exception:
+            logger.error("原子替换失败，保留临时文件以便排查: %s", temp_file)
+            raise
 ```
 
 ### 4.2 LLM Prompt 调整（分类必做 + 注释按需/分批）
@@ -779,6 +1034,12 @@ class JsonLlmEnhancer:
 ```python
 def _build_combined_prompt(self, llm_input_view: Dict, comment_needs: Dict) -> str:
     """构建组合任务 Prompt（分类 + 注释）"""
+    language_req = {
+        "zh": "使用中文输出注释",
+        "en": "Write comments in English",
+        "bilingual": "注释使用双语：中文（English）",
+    }.get(self.comment_language, "使用中文输出注释")
+
     # 构建注释任务描述（明确要生成的列名列表，避免模型擅自扩展）
     comment_tasks = []
     if comment_needs["need_table_comment"]:
@@ -797,10 +1058,9 @@ def _build_combined_prompt(self, llm_input_view: Dict, comment_needs: Dict) -> s
 {json.dumps(llm_input_view, ensure_ascii=False, indent=2)}
 
 注意：
-1) 我提供的是"裁剪后的输入视图"，并非全量 JSON；这是为了减少 token 成本并避免噪声字段影响判断。
+1) 我提供的是“输入视图”（不是全量 JSON）。请仅基于我提供的内容判断，不要自行假设未提供的字段或结论。
 2) 请重点参考 sample_records（样例值域）与 physical_constraints（物理约束）进行判断与推理。
-3) 特别注意：我并未提供 logical_keys 字段（逻辑主键推断），因为该字段基于采样数据推断，可能不准确。
-   请仅基于 physical_constraints.primary_key（物理主键）和样例数据进行判断，不要依赖或假设存在逻辑主键。
+3) 请仅基于输入 JSON 中的字段与样例数据做推理；不要引入输入中不存在的字段/结论。
 
 ## 任务一：判断表的类型（table_category）
 1) fact：事实类表，特征：有度量值、随业务增长、含多维度外键
@@ -820,7 +1080,7 @@ def _build_combined_prompt(self, llm_input_view: Dict, comment_needs: Dict) -> s
 - 仅为上述明确列出的字段生成注释，不要生成其他字段的注释
 - 如果本次没有需要生成列注释的字段，请返回 `"column_comments": {}`（空对象）
 - 注释应简洁、准确、描述业务含义
-- 使用中文
+- {language_req}
 
 ## 输出格式（JSON）
 {{
@@ -849,9 +1109,9 @@ def _build_classification_only_prompt(self, llm_input_view: Dict) -> str:
 {json.dumps(llm_input_view, ensure_ascii=False, indent=2)}
 
 注意：
-1) 我提供的是"裁剪后的输入视图"，并非全量 JSON
+1) 我提供的是“输入视图”（不是全量 JSON）。请仅基于我提供的内容判断，不要自行假设未提供的字段或结论。
 2) 请重点参考 sample_records（样例值域）与 physical_constraints（物理约束）进行判断
-3) 特别注意：我并未提供 logical_keys 字段，请仅基于 physical_constraints.primary_key 和样例数据判断
+3) 请仅基于输入 JSON 中的字段与样例数据做推理；不要引入输入中不存在的字段/结论。
 
 ## 任务：判断表的类型（table_category）
 1) fact：事实类表，特征：有度量值、随业务增长、含多维度外键
@@ -875,6 +1135,12 @@ def _build_classification_only_prompt(self, llm_input_view: Dict) -> str:
 ```python
 def _build_comments_only_prompt(self, llm_input_view: Dict, comment_needs: Dict) -> str:
     """构建仅注释任务 Prompt（Token 优化）"""
+    language_req = {
+        "zh": "使用中文输出注释",
+        "en": "Write comments in English",
+        "bilingual": "注释使用双语：中文（English）",
+    }.get(self.comment_language, "使用中文输出注释")
+
     # 构建任务描述
     task_items = []
     if comment_needs["need_table_comment"]:
@@ -898,7 +1164,7 @@ def _build_comments_only_prompt(self, llm_input_view: Dict, comment_needs: Dict)
 - 仅为上述明确列出的字段生成注释，不要生成其他字段的注释
 - 如果本次没有需要生成列注释的字段，请返回 `"column_comments": {}`（空对象）
 - 注释应简洁、准确、描述业务含义
-- 使用中文
+- {language_req}
 
 ## 输出格式（JSON）
 {{
@@ -917,27 +1183,43 @@ def _build_comments_only_prompt(self, llm_input_view: Dict, comment_needs: Dict)
 ```yaml
 # configs/metadata_config.yaml
 
-comment_generation:
-  enabled: true                 # 总开关
-  generate_table_comment: true  # 调用LLM自动补充缺失的表注释
-  generate_column_comment: true # 调用LLM自动补充缺失的字段注释
-  language: zh                  # 注释语言：zh / en / bilingual
-  max_columns_per_call: 120     # 单批处理的缺失字段上限
-  enable_batch_processing: true # 超过上限时自动分批
-  overwrite_existing: false     # 默认不覆盖已有注释
-  fallback_on_parse_error: true # 解析失败时使用降级策略
+    comment_generation:
+      enabled: true                 # 总开关
+      language: zh                  # 注释语言：zh / en / bilingual（本方案阶段B使用；表分类不受影响）
+      max_columns_per_call: 120     # 单批处理的缺失字段上限
+      enable_batch_processing: true # 超过上限时自动分批
+      overwrite_existing: false     # 默认不覆盖已有注释
+      cache_enabled: true           # 是否启用注释缓存（cache_service）
+      cache_file: cache/comment_cache.json  # 缓存文件路径
 
 output:
   output_dir: "output"
   json_directory: "output/json"  # 统一输出目录
-  json_llm_directory: "output/json_llm"  # legacy：新 json_llm 默认不写该目录（可选兼容复制）
+  # json_llm_directory: "output/json_llm"  # 已废弃：整合后不再使用该目录
 ```
 
 **说明**：
 - 注释开关都在 `configs/metadata_config.yaml` 的 `comment_generation.*` 下：
-  - `comment_generation.enabled`：总开关
-  - `comment_generation.generate_table_comment` / `comment_generation.generate_column_comment`：分别控制表/字段注释生成
-  - `comment_generation.overwrite_existing`：是否覆盖已有注释（覆盖时建议开启分批）
+  - `comment_generation.enabled`：注释生成总开关
+    - 对 `ddl/md/all` 步骤生效（走数据库路径，会调用 `CommentGenerator`）
+    - 对旧 `json_llm` 步骤生效
+    - 对 `--step json` **不生效**（走 DDL 路径，不调用 `CommentGenerator`）
+  - `comment_generation.language`：注释语言（本方案阶段B使用；表分类不受影响）。补充：当前代码库里的 `CommentGenerator/LLMService` 表/列注释 prompt 固定中文，不读取该参数；**本方案阶段B（JsonLlmEnhancer）会根据 `language` 参数动态调整 prompt 语言**。若希望 `ddl/md/all` 也随语言切换，需要后续统一改造 `LLMService` 的 prompt。
+  - `comment_generation.overwrite_existing`：覆盖模式开关（本方案阶段B使用；覆盖时建议开启分批）
+- 本方案已简化配置：不再支持 `generate_table_comment` / `generate_column_comment` 这类“分别控制表/列注释生成”的开关；统一由 `enabled` 控制是否启用注释生成、由 `overwrite_existing` 控制“仅补齐缺失”还是“覆盖已有注释”。
+- **如何只做分类不生成注释**：设置 `comment_generation.enabled: false`。阶段B仍会每表必调 LLM 做分类覆盖，但会跳过注释生成/分批/合并逻辑（Prompt 自动切换为“仅分类任务”）。
+- 本方案阶段B复用现有注释缓存：通过 `comment_generation.cache_enabled/cache_file` 控制。
+  - 强制重新生成：删除缓存文件（如 `cache/comment_cache.json`）或设置 `comment_generation.cache_enabled: false`
+  - 缓存格式（示意）：
+    ```json
+    {
+      "table:<schema>.<table>": "表注释",
+      "columns:<schema>.<table>": {
+        "col1": "注释1"
+      }
+    }
+    ```
+  - 缓存持久化：`CacheService.set()` 会自动写入缓存文件，无需手动 save
 - `sample_records` 的行数无需在 json_llm 再次控制：`--step json` 生成 JSON 时已由 `OutputFormatter` 固定最多写入 5 条样例记录。
 - 表分类不提供额外开关：只要执行 `--step json_llm` 就每表必调 LLM 并覆盖（含 `unknown`）。如果不希望使用 LLM 分类，直接不要运行 `--step json_llm`。
 
@@ -972,7 +1254,7 @@ output:
 ### 阶段 4：配置调整
 - [ ] 更新 `configs/metadata_config.yaml`
 - [ ] 添加 `overwrite_existing` 配置说明
-- [ ] 废弃 `json_llm_directory` 配置（保留兼容但不使用）
+- [ ] 注释掉/移除 `json_llm_directory` 配置说明（整合后不再使用）
 
 ### 阶段 5：测试验证
 - [ ] 单元测试：JsonLlmEnhancer 各方法
@@ -992,14 +1274,14 @@ output:
 
 ## 6. 风险与注意事项
 
-### 6.1 向后兼容性
+### 6.1 元数据版本号（metadata_version）
 
-**风险**：现有依赖 `output/json_llm` 目录的下游工具会失效
+**约定**：`metadata_version` 表示“输出 JSON schema 的版本号”，不表示数据内容的更新时间。
 
-**缓解措施**：
-- 保留 `json_llm_directory` 配置项（兼容模式）
-- 提供迁移文档说明下游如何调整
-- 可选：在 json_llm 完成后，复制一份到旧目录（过渡期）
+**策略**：
+- 版本号由统一出口集中管理（当前为 `TableMetadata.to_dict()` 写入 v2.0），不要在 json_llm 增强阶段分散维护。
+- JsonLlmEnhancer 只透传/补齐该字段：优先保留 `--step json` 写入的 `metadata_version`；仅当历史文件缺失该字段时才回退到当前版本号。
+- 若未来要升级版本号：在统一出口处集中修改，并同步更新下游 reader/validator（不要在各 step 中各自写死）。
 
 ### 6.2 Token 成本控制
 
@@ -1069,18 +1351,6 @@ json_dir = Path("output/json")
 json_dir = Path(config["output"]["json_directory"])
 ```
 
-### 7.3 过渡方案
-
-为了不影响现有下游，可以提供过渡期兼容：
-
-```python
-# 在 json_llm 完成后，可选复制到旧目录
-if config.get("output", {}).get("json_llm_directory"):
-    # 兼容模式：同时输出到旧目录
-    shutil.copytree(json_dir, json_llm_dir, dirs_exist_ok=True)
-    logger.warning("已复制到 json_llm 目录（兼容模式），建议下游迁移到 json 目录")
-```
-
 ## 8. 预期收益
 
 ### 8.1 核心收益
@@ -1145,14 +1415,3 @@ if config.get("output", {}).get("json_llm_directory"):
 | 注释齐全场景 | `comment_generation.enabled: false` | 完全跳过注释任务（仍会做分类覆盖） |
 | 只补齐缺失注释 | `overwrite_existing: false` | 仅补齐缺失，最省 token |
 | 强制覆盖全部注释 | `overwrite_existing: true` + 分批 | 输出一致性更强，但需要分批避免超 token |
-
-## 9. 时间估算
-
-- 阶段 1（核心模块）：2-3 天
-- 阶段 2（CLI 调整）：0.5 天
-- 阶段 3（Prompt 调整）：0.5 天
-- 阶段 4（配置调整）：0.5 天
-- 阶段 5（测试验证）：1-2 天
-- 阶段 6（文档更新）：0.5 天
-
-**总计**：5-7 工作日
