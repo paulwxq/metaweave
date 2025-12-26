@@ -4,7 +4,7 @@
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from collections import defaultdict
@@ -149,7 +149,7 @@ class RelationshipWriter:
             "json_metadata_version": "2.0",
             "json_files_loaded": stats.get("json_files_loaded", 0),
             "database_queries_executed": stats.get("database_queries_executed", 0),
-            "analysis_timestamp": datetime.utcnow().isoformat() + "Z",
+            "analysis_timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
 
             "statistics": {
                 "total_relationships_found": stats["total_relationships_found"],

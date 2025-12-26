@@ -6,7 +6,7 @@
 import json
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 import pandas as pd
@@ -474,7 +474,7 @@ class OutputFormatter:
                         "sample_method": "random",
                         "sample_size": len(samples),
                         "total_rows": metadata.row_count,
-                        "sampled_at": datetime.utcnow().isoformat() + "Z",
+                        "sampled_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                         "records": samples
                     }
             
@@ -541,7 +541,7 @@ class OutputFormatter:
         payload = {
             "version": 1,
             "table": metadata.full_name,
-            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "records": records
         }
         json_block = json.dumps(payload, ensure_ascii=False, indent=2)

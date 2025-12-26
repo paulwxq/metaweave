@@ -1,10 +1,20 @@
 {
-  "metadata_source": "json_llm_files",
-  "analysis_timestamp": "2025-12-24T08:33:01.718029+00:00",
+  "generated_by": "rel_llm",
+  "metadata_source": "json_files",
+  "json_metadata_version": "2.0",
+  "json_files_loaded": 0,
+  "database_queries_executed": 0,
+  "analysis_timestamp": "2025-12-26T15:38:23.437637Z",
   "statistics": {
-    "total_relationships_found": 11,
+    "total_relationships_found": 10,
     "foreign_key_relationships": 2,
-    "llm_assisted_relationships": 9
+    "composite_key_relationships": 3,
+    "single_column_relationships": 7,
+    "total_suppressed_single_relations": 0,
+    "active_search_discoveries": 0,
+    "dynamic_composite_discoveries": 0,
+    "llm_assisted_relationships": 8,
+    "rejected_low_confidence": 0
   },
   "relationships": [
     {
@@ -12,30 +22,30 @@
       "type": "single_column",
       "from_table": {
         "schema": "public",
-        "table": "department"
+        "table": "employee"
       },
       "to_table": {
         "schema": "public",
-        "table": "employee"
+        "table": "department"
       },
-      "discovery_method": "foreign_key_constraint",
-      "cardinality": "1:1",
       "from_column": "dept_id",
-      "to_column": "dept_id"
+      "to_column": "dept_id",
+      "discovery_method": "foreign_key_constraint",
+      "target_source_type": "foreign_key",
+      "source_constraint": null,
+      "cardinality": "1:1"
     },
     {
       "relationship_id": "rel_565fe28cfc05",
       "type": "composite",
       "from_table": {
         "schema": "public",
-        "table": "order_header"
+        "table": "order_item"
       },
       "to_table": {
         "schema": "public",
-        "table": "order_item"
+        "table": "order_header"
       },
-      "discovery_method": "foreign_key_constraint",
-      "cardinality": "1:N",
       "from_columns": [
         "order_date",
         "order_id"
@@ -43,18 +53,22 @@
       "to_columns": [
         "order_date",
         "order_id"
-      ]
+      ],
+      "discovery_method": "foreign_key_constraint",
+      "target_source_type": "foreign_key",
+      "source_constraint": null,
+      "cardinality": "N:1"
     },
     {
-      "relationship_id": "rel_2eb5cb1dc7e5",
+      "relationship_id": "rel_b61c5593eb1c",
       "type": "single_column",
       "from_table": {
         "schema": "public",
-        "table": "dim_company"
+        "table": "dim_store"
       },
       "to_table": {
         "schema": "public",
-        "table": "dim_store"
+        "table": "dim_company"
       },
       "from_column": "company_id",
       "to_column": "company_id",
@@ -69,44 +83,44 @@
         "name_similarity": 1.0,
         "type_compatibility": 1.0
       },
-      "cardinality": "1:N"
+      "cardinality": "N:1"
     },
     {
-      "relationship_id": "rel_c2ea56cba624",
+      "relationship_id": "rel_f06bafe0559c",
       "type": "single_column",
       "from_table": {
-        "schema": "public",
-        "table": "dim_product_type"
-      },
-      "to_table": {
         "schema": "public",
         "table": "fact_store_sales_day"
       },
-      "from_column": "product_type_id",
-      "to_column": "product_type_id",
-      "discovery_method": "llm_assisted",
-      "target_source_type": "llm_inferred",
-      "source_constraint": null,
-      "composite_score": 1.0,
-      "confidence_level": "high",
-      "metrics": {
-        "inclusion_rate": 1.0,
-        "jaccard_index": 1.0,
-        "name_similarity": 1.0,
-        "type_compatibility": 1.0
-      },
-      "cardinality": "1:N"
-    },
-    {
-      "relationship_id": "rel_2c57af5c1d55",
-      "type": "single_column",
-      "from_table": {
+      "to_table": {
         "schema": "public",
         "table": "dim_product_type"
       },
-      "to_table": {
+      "from_column": "product_type_id",
+      "to_column": "product_type_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 1.0,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 1.0,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_9905c2fee1a8",
+      "type": "single_column",
+      "from_table": {
         "schema": "public",
         "table": "fact_store_sales_month"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "dim_product_type"
       },
       "from_column": "product_type_id",
       "to_column": "product_type_id",
@@ -121,18 +135,18 @@
         "name_similarity": 1.0,
         "type_compatibility": 1.0
       },
-      "cardinality": "1:N"
+      "cardinality": "N:1"
     },
     {
-      "relationship_id": "rel_7a7ec2efc126",
+      "relationship_id": "rel_2ab3a1004d3f",
       "type": "single_column",
       "from_table": {
         "schema": "public",
-        "table": "dim_region"
+        "table": "dim_store"
       },
       "to_table": {
         "schema": "public",
-        "table": "dim_store"
+        "table": "dim_region"
       },
       "from_column": "region_id",
       "to_column": "region_id",
@@ -147,7 +161,7 @@
         "name_similarity": 1.0,
         "type_compatibility": 1.0
       },
-      "cardinality": "M:N"
+      "cardinality": "N:1"
     },
     {
       "relationship_id": "rel_83022846e981",
@@ -176,15 +190,15 @@
       "cardinality": "N:1"
     },
     {
-      "relationship_id": "rel_7f687755e97f",
+      "relationship_id": "rel_b1b7fca8dc98",
       "type": "single_column",
       "from_table": {
         "schema": "public",
-        "table": "dim_store"
+        "table": "fact_store_sales_month"
       },
       "to_table": {
         "schema": "public",
-        "table": "fact_store_sales_month"
+        "table": "dim_store"
       },
       "from_column": "store_id",
       "to_column": "store_id",
@@ -199,19 +213,19 @@
         "name_similarity": 1.0,
         "type_compatibility": 1.0
       },
-      "cardinality": "1:N"
+      "cardinality": "N:1"
     },
     {
-      "relationship_id": "rel_412782f89e81",
+      "relationship_id": "rel_911639fa245e",
       "type": "composite",
       "from_table": {
+        "schema": "public",
+        "table": "maintenance_work_order"
+      },
+      "to_table": {
         "schema": "public",
         "table": "equipment_config"
       },
-      "to_table": {
-        "schema": "public",
-        "table": "maintenance_work_order"
-      },
       "from_columns": [
         "equipment_id",
         "config_version"
@@ -223,58 +237,26 @@
       "discovery_method": "llm_assisted",
       "target_source_type": "llm_inferred",
       "source_constraint": null,
-      "composite_score": 0.675,
-      "confidence_level": "medium",
-      "metrics": {
-        "inclusion_rate": 0.5,
-        "jaccard_index": 0.5,
-        "name_similarity": 1.0,
-        "type_compatibility": 1.0
-      },
-      "cardinality": "1:N"
-    },
-    {
-      "relationship_id": "rel_324fdc75ce41",
-      "type": "composite",
-      "from_table": {
-        "schema": "public",
-        "table": "fact_store_sales_day"
-      },
-      "to_table": {
-        "schema": "public",
-        "table": "fact_store_sales_month"
-      },
-      "from_columns": [
-        "store_id",
-        "product_type_id"
-      ],
-      "to_columns": [
-        "store_id",
-        "product_type_id"
-      ],
-      "discovery_method": "llm_assisted",
-      "target_source_type": "llm_inferred",
-      "source_constraint": null,
-      "composite_score": 1.0,
+      "composite_score": 0.95,
       "confidence_level": "high",
       "metrics": {
         "inclusion_rate": 1.0,
-        "jaccard_index": 1.0,
+        "jaccard_index": 0.5,
         "name_similarity": 1.0,
         "type_compatibility": 1.0
       },
-      "cardinality": "M:N"
+      "cardinality": "N:1"
     },
     {
-      "relationship_id": "rel_4ec0a8823b80",
+      "relationship_id": "rel_28f01094040e",
       "type": "composite",
       "from_table": {
         "schema": "public",
-        "table": "fault_catalog"
+        "table": "maintenance_work_order"
       },
       "to_table": {
         "schema": "public",
-        "table": "maintenance_work_order"
+        "table": "fault_catalog"
       },
       "from_columns": [
         "product_line_code",
@@ -289,15 +271,15 @@
       "discovery_method": "llm_assisted",
       "target_source_type": "llm_inferred",
       "source_constraint": null,
-      "composite_score": 0.675,
-      "confidence_level": "medium",
+      "composite_score": 0.95,
+      "confidence_level": "high",
       "metrics": {
-        "inclusion_rate": 0.5,
+        "inclusion_rate": 1.0,
         "jaccard_index": 0.5,
         "name_similarity": 1.0,
         "type_compatibility": 1.0
       },
-      "cardinality": "1:N"
+      "cardinality": "N:1"
     }
   ]
 }

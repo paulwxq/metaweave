@@ -4,7 +4,7 @@
 """
 
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 import json
 
@@ -153,7 +153,7 @@ class TableMetadata:
         # 构建 v2.0 格式的 JSON
         data = {
             "metadata_version": "2.0",
-            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             
             "table_info": {
                 "schema_name": self.schema_name,

@@ -69,14 +69,19 @@ class LLMService:
         
         # 5. 提取批量配置
         self.batch_size = config.get("batch_size", 10)
+        # 应用层重试次数：用于 batch_call_llm_async 的失败重试（不依赖底层 SDK 的 max_retries）
         self.retry_times = config.get("retry_times", 3)
+        # 应用层重试间隔（秒），用于 batch_call_llm_async 的失败重试（不依赖底层 SDK 的 max_retries）
+        self.retry_delay = float(config.get("retry_delay", 2) or 2)
 
         # 6. LangChain 异步配置
         langchain_config = config.get("langchain_config", {})
         self.use_async = langchain_config.get("use_async", False)
         self.async_concurrency = langchain_config.get("async_concurrency", 20)
-        # 优先使用 langchain_config 中的 max_retries
-        self.retry_times = langchain_config.get("max_retries", self.retry_times)
+        # SDK 内部网络重试次数（用于 LangChain client / SDK），不要影响应用层重试次数
+        self.sdk_max_retries = langchain_config.get("max_retries", self.retry_times)
+        # 可选：允许在 langchain_config 覆盖应用层 retry_delay
+        self.retry_delay = float(langchain_config.get("retry_delay", self.retry_delay) or self.retry_delay)
 
         logger.info(
             "LLM 服务已初始化: %s (%s), 异步模式: %s, 并发限制: %s",
@@ -113,7 +118,7 @@ class LLMService:
                 "temperature": self.temperature,
                 "max_tokens": self.max_tokens,
                 "timeout": self.timeout,
-                "max_retries": self.retry_times,
+                "max_retries": self.sdk_max_retries,
             }
             
             # 可选：api_base
@@ -177,7 +182,7 @@ class LLMService:
                 "temperature": self.temperature,
                 "max_tokens": self.max_tokens,
                 "timeout": self.timeout,
-                "max_retries": self.retry_times,
+                "max_retries": self.sdk_max_retries,
             }
             
             # 可选：api_base（默认值）
@@ -338,17 +343,44 @@ class LLMService:
 
         async def bounded_call(index: int, prompt: str) -> Tuple[int, str]:
             nonlocal completed
-            async with semaphore:
-                try:
-                    response = await self._call_llm_async(prompt, system_message)
-                    return index, response
-                except Exception as e:
-                    logger.error(f"Prompt {index} 调用失败: {e}")
-                    return index, ""
-                finally:
-                    completed += 1
-                    if on_progress:
-                        on_progress(completed, total)
+            try:
+                for attempt in range(self.retry_times + 1):
+                    try:
+                        async with semaphore:
+                            response = await self._call_llm_async(prompt, system_message)
+                        if attempt > 0:
+                            logger.info(
+                                "Prompt %s 重试后成功（第 %s/%s 次尝试）",
+                                index,
+                                attempt + 1,
+                                self.retry_times + 1,
+                            )
+                        return index, response
+                    except Exception as e:
+                        if attempt < self.retry_times:
+                            logger.warning(
+                                "Prompt %s 调用失败: %s，%ss 后重试（将进行第 %s/%s 次尝试）",
+                                index,
+                                e,
+                                self.retry_delay,
+                                attempt + 2,
+                                self.retry_times + 1,
+                            )
+                            # 注意：sleep 不占用 semaphore，避免阻塞并发资源
+                            await asyncio.sleep(self.retry_delay)
+                            continue
+                        logger.error(
+                            "Prompt %s 最终失败（共尝试 %s 次，已重试 %s 次）: %s；返回空响应",
+                            index,
+                            self.retry_times + 1,
+                            self.retry_times,
+                            e,
+                        )
+                        return index, ""
+            finally:
+                completed += 1
+                if on_progress:
+                    on_progress(completed, total)
 
         tasks = [bounded_call(idx, prompt) for idx, prompt in enumerate(prompts)]
         results = await asyncio.gather(*tasks)

@@ -321,54 +321,59 @@ def metadata_command(
             # 初始化连接器
             connector = DatabaseConnector(config.get("database", {}))
 
-            # 初始化发现器
-            discovery = LLMRelationshipDiscovery(
-                config=config,
-                connector=connector,
-                domain_filter=domain,
-                cross_domain=cross_domain,
-                db_domains_config=db_domains_config
-            )
-
-            # 检查 json 目录
-            if not discovery.json_dir.exists():
-                raise FileNotFoundError(
-                    f"json 目录不存在: {discovery.json_dir}\n"
-                    f"请先执行 --step json 生成表元数据 JSON"
+            try:
+                # 初始化发现器
+                discovery = LLMRelationshipDiscovery(
+                    config=config,
+                    connector=connector,
+                    domain_filter=domain,
+                    cross_domain=cross_domain,
+                    db_domains_config=db_domains_config
                 )
 
-            # 发现关系
-            relations, rejected_count, extra_statistics = discovery.discover()
+                # 检查 json 目录
+                if not discovery.json_dir.exists():
+                    raise FileNotFoundError(
+                        f"json 目录不存在: {discovery.json_dir}\n"
+                        f"请先执行 --step json 生成表元数据 JSON"
+                    )
 
-            # 使用 RelationshipWriter 输出结果
-            writer = RelationshipWriter(config)
-            output_files = writer.write_results(
-                relations=relations,
-                suppressed=[],  # LLM 流程没有 suppressed 关系
-                config=config,
-                tables=None,  # 表元数据可选
-                generated_by="rel_llm",  # 标识 LLM 辅助生成
-                extra_statistics=extra_statistics
-            )
+                # 发现关系
+                relations, rejected_count, extra_statistics = discovery.discover()
 
-            # 显示结果
-            click.echo("")
-            click.echo("=" * 60)
-            click.echo("📊 LLM 辅助关系发现结果")
-            click.echo("=" * 60)
-            total_relations = len(relations)
-            llm_assisted = extra_statistics.get("llm_assisted_relationships", 0)
-            fk_relations = total_relations - llm_assisted
-            click.echo(f"✅ 总关系数: {total_relations} 个")
-            click.echo(f"  - 物理外键: {fk_relations}")
-            click.echo(f"  - LLM 推断: {llm_assisted}")
-            if rejected_count > 0:
-                click.echo(f"  - 低置信度拒绝: {rejected_count}")
-            click.echo(f"📁 输出文件:")
-            for output_file in output_files:
-                click.echo(f"  - {output_file}")
-            click.echo("=" * 60)
-            click.echo("✨ LLM 辅助关系发现完成！")
+                # 使用 RelationshipWriter 输出结果
+                writer = RelationshipWriter(config)
+                output_files = writer.write_results(
+                    relations=relations,
+                    suppressed=[],  # LLM 流程没有 suppressed 关系
+                    config=config,
+                    tables=discovery.tables,  # 传递表元数据（discovery 已缓存）
+                    generated_by="rel_llm",  # 标识 LLM 辅助生成
+                    extra_statistics=extra_statistics
+                )
+
+                # 显示结果
+                click.echo("")
+                click.echo("=" * 60)
+                click.echo("📊 LLM 辅助关系发现结果")
+                click.echo("=" * 60)
+                total_relations = len(relations)
+                llm_assisted = extra_statistics.get("llm_assisted_relationships", 0)
+                fk_relations = total_relations - llm_assisted
+                click.echo(f"✅ 总关系数: {total_relations} 个")
+                click.echo(f"  - 物理外键: {fk_relations}")
+                click.echo(f"  - LLM 推断: {llm_assisted}")
+                if rejected_count > 0:
+                    click.echo(f"  - 低置信度拒绝: {rejected_count}")
+                click.echo(f"📁 输出文件:")
+                for output_file in output_files:
+                    click.echo(f"  - {output_file}")
+                click.echo("=" * 60)
+                click.echo("✨ LLM 辅助关系发现完成！")
+
+            finally:
+                # 关闭数据库连接（与 rel pipeline 保持一致）
+                connector.close()
 
             return
 

@@ -27,7 +27,7 @@ import asyncio
 import copy
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -395,7 +395,7 @@ class LLMJsonGenerator:
 
         json_data = {
             "metadata_version": "2.0",
-            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "table_info": table_info,
             "column_profiles": column_profiles,
             "table_profile": table_profile,
@@ -546,7 +546,7 @@ class LLMJsonGenerator:
             "sample_method": "random",
             "sample_size": len(records),
             "total_rows": metadata.row_count,
-            "sampled_at": datetime.utcnow().isoformat() + "Z",
+            "sampled_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "records": records,
         }
 

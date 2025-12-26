@@ -1,7 +1,7 @@
 """LLM 辅助关联关系发现。
 
 数据来源：
-- LLM 调用：从 json_llm 文件读取，不查询数据库
+- LLM 调用：从 json 文件读取表元数据，不查询数据库
 - 评分阶段：复用 RelationshipScorer，需要数据库连接
 """
 
@@ -11,7 +11,7 @@ import time
 from datetime import datetime, timezone
 from itertools import combinations, product
 from pathlib import Path
-from typing import Dict, List, Set, Tuple, Optional
+from typing import Any, Dict, List, Set, Tuple, Optional
 
 from metaweave.core.metadata.connector import DatabaseConnector
 from metaweave.core.relationships.models import Relation
@@ -19,6 +19,7 @@ from metaweave.core.relationships.repository import MetadataRepository
 from metaweave.core.relationships.scorer import RelationshipScorer
 from metaweave.core.relationships.name_similarity import NameSimilarityService
 from metaweave.services.llm_service import LLMService
+from metaweave.utils.file_utils import get_project_root
 from metaweave.utils.logger import get_metaweave_logger
 
 logger = get_metaweave_logger("relationships.llm_discovery")
@@ -49,20 +50,27 @@ RELATIONSHIP_DISCOVERY_PROMPT = """
 ## 输出格式
 返回 JSON 格式。如果存在关联，返回关联信息；如果没有关联，返回空数组。
 
+**重要约定**：
+- `from_table`: 外键表（多的一端，引用方）
+- `from_column(s)`: 外键列
+- `to_table`: 主键/唯一键表（一的一端，被引用方）
+- `to_column(s)`: 主键/唯一键列
+
 ### 单列关联示例
 ```json
 {{
   "relationships": [
     {{
       "type": "single_column",
-      "from_table": {{"schema": "public", "table": "dim_region"}},
-      "to_table": {{"schema": "public", "table": "dim_store"}},
+      "from_table": {{"schema": "public", "table": "dim_store"}},
       "from_column": "region_id",
+      "to_table": {{"schema": "public", "table": "dim_region"}},
       "to_column": "region_id"
     }}
   ]
 }}
 ```
+说明：dim_store.region_id（外键）引用 dim_region.region_id（主键）
 
 ### 多列关联示例（type 为 composite，字段用数组）
 ```json
@@ -70,14 +78,15 @@ RELATIONSHIP_DISCOVERY_PROMPT = """
   "relationships": [
     {{
       "type": "composite",
-      "from_table": {{"schema": "public", "table": "equipment_config"}},
-      "to_table": {{"schema": "public", "table": "maintenance_work_order"}},
+      "from_table": {{"schema": "public", "table": "maintenance_work_order"}},
       "from_columns": ["equipment_id", "config_version"],
+      "to_table": {{"schema": "public", "table": "equipment_config"}},
       "to_columns": ["equipment_id", "config_version"]
     }}
   ]
 }}
 ```
+说明：work_order 的复合字段（外键）引用 equipment_config 的复合主键
 
 ### 无关联
 ```json
@@ -180,9 +189,9 @@ def get_table_pairs(
 
 class LLMRelationshipDiscovery:
     """LLM 辅助关联关系发现
-    
+
     数据来源：
-    - LLM 调用：从 json_llm 文件读取，不查询数据库
+    - LLM 调用：从 json 文件读取表元数据，不查询数据库
     - 评分阶段：复用 RelationshipScorer，需要数据库连接
     """
     
@@ -217,12 +226,15 @@ class LLMRelationshipDiscovery:
         self.llm_service = LLMService(llm_config)
 
         output_config = config.get("output", {})
-        # 优先读取 json_directory，fallback 到 output_dir/json
-        json_dir = output_config.get("json_directory")
-        if not json_dir:
+        # 路径解析逻辑与 RelationshipDiscoveryPipeline 保持一致
+        # 使用 get_project_root() 确保在非项目根目录执行时行为一致
+        json_directory = output_config.get("json_directory")
+        if json_directory:
+            self.json_dir = get_project_root() / json_directory
+        else:
+            # Fallback: 从 output_dir 推导
             output_dir = output_config.get("output_dir", "output")
-            json_dir = f"{output_dir}/json"
-        self.json_dir = Path(json_dir)
+            self.json_dir = get_project_root() / output_dir / "json"
         
         # 读取 rel_id_salt 配置（与现有管道保持一致）
         rel_id_salt = output_config.get("rel_id_salt", "")
@@ -366,6 +378,10 @@ class LLMRelationshipDiscovery:
         logger.info("阶段2: 提取物理外键")
         fk_relation_objects, fk_relationship_ids = self.repo.collect_foreign_keys(tables)
         logger.info(f"物理外键直通: {len(fk_relation_objects)} 个")
+
+        # 缓存 tables，供 CLI 传给 RelationshipWriter
+        self.tables = tables
+
         return tables, fk_relation_objects, fk_relationship_ids
 
     def _validate_table_domains(self, tables: Dict) -> None:
@@ -379,7 +395,7 @@ class LLMRelationshipDiscovery:
         if missing_tables:
             logger.error(
                 "以下表的 JSON 文件缺少 table_domains 属性，"
-                "请先执行 --step json_llm --domain 生成："
+                "请先执行 --step json --domain 生成："
             )
             for table in missing_tables:
                 logger.error(f"  - {table}")
@@ -580,49 +596,50 @@ class LLMRelationshipDiscovery:
         return tables
     
     def _relation_to_dict(self, rel: Relation) -> Dict:
-        """将 Relation 对象转换为 rel JSON 格式的字典
-        
-        注意语义转换：
-        - Relation 对象：source=外键表, target=主键表
-        - rel JSON 约定：from=主键表, to=外键表
-        - 因此需要交换 source/target
+        """将 Relation 对象转换为 dict 格式
+
+        新约定（2025-12-26统一后）：
+        - Relation: source=外键表(FK), target=主键表(PK)
+        - dict: from=外键表(FK), to=主键表(PK)
+        - 方向一致，直接映射，无需交换
         """
         rel_type = "composite" if len(rel.source_columns) > 1 else "single_column"
-        
-        # 交换 source/target 以符合 rel JSON 约定（from=主键表, to=外键表）
+
+        # 直接映射，无需交换
         result = {
             "relationship_id": rel.relationship_id,
             "type": rel_type,
-            "from_table": {"schema": rel.target_schema, "table": rel.target_table},  # 主键表
-            "to_table": {"schema": rel.source_schema, "table": rel.source_table},    # 外键表
+            "from_table": {"schema": rel.source_schema, "table": rel.source_table},  # FK 表
+            "to_table": {"schema": rel.target_schema, "table": rel.target_table},    # PK 表
             "discovery_method": "foreign_key_constraint",
-            "cardinality": self._flip_cardinality(rel.cardinality)  # 方向翻转，基数也要翻转
+            "cardinality": rel.cardinality  # 直接使用，无需翻转
         }
-        
+
         if rel_type == "single_column":
-            result["from_column"] = rel.target_columns[0]   # 主键列
-            result["to_column"] = rel.source_columns[0]     # 外键列
+            result["from_column"] = rel.source_columns[0]   # FK 列
+            result["to_column"] = rel.target_columns[0]     # PK 列
         else:
-            result["from_columns"] = rel.target_columns     # 主键列
-            result["to_columns"] = rel.source_columns       # 外键列
-        
+            result["from_columns"] = rel.source_columns     # FK 列
+            result["to_columns"] = rel.target_columns       # PK 列
+
         return result
     
     def _flip_cardinality(self, cardinality: str) -> str:
-        """翻转基数方向"""
+        """翻转基数方向
+
+        @deprecated 2025-12-26: 统一方向约定后不再需要翻转
+        保留此方法仅为向后兼容，实际已不再使用
+        """
         flip_map = {"1:N": "N:1", "N:1": "1:N", "1:1": "1:1", "M:N": "M:N"}
         return flip_map.get(cardinality, cardinality)
 
     def _dict_to_relation(self, rel_dict: Dict) -> Relation:
         """将 dict 格式的关系转换为 Relation 对象
 
-        注意：dict 格式遵循 rel JSON 约定（from=主键表, to=外键表），
-        但 Relation 对象约定是 source=外键表, target=主键表，
-        因此需要交换 from/to
-
-        ⚠️ 重要：dict 的 relationship_id 使用的是 dict 方向（PK->FK），
-        但 Relation 对象需要使用 Relation 方向（FK->PK），
-        因此必须重新计算 relationship_id
+        新约定（2025-12-26统一后）：
+        - dict: from=外键表(FK), to=主键表(PK)
+        - Relation: source=外键表(FK), target=主键表(PK)
+        - 方向一致，直接映射，无需交换
         """
         # 提取列名
         if rel_dict["type"] == "single_column":
@@ -632,40 +649,37 @@ class LLMRelationshipDiscovery:
             from_columns = rel_dict["from_columns"]
             to_columns = rel_dict["to_columns"]
 
-        # 重新计算 relationship_id，使用 Relation 方向（FK->PK）
-        # dict: from(PK) -> to(FK)
-        # Relation: source(FK) -> target(PK)
+        # 重新计算 relationship_id，使用统一方向（FK->PK）
         relationship_id = MetadataRepository.compute_relationship_id(
-            source_schema=rel_dict["to_table"]["schema"],      # FK 表
-            source_table=rel_dict["to_table"]["table"],
-            source_columns=to_columns,
-            target_schema=rel_dict["from_table"]["schema"],    # PK 表
-            target_table=rel_dict["from_table"]["table"],
-            target_columns=from_columns,
+            source_schema=rel_dict["from_table"]["schema"],    # FK 表
+            source_table=rel_dict["from_table"]["table"],
+            source_columns=from_columns,
+            target_schema=rel_dict["to_table"]["schema"],      # PK 表
+            target_table=rel_dict["to_table"]["table"],
+            target_columns=to_columns,
             rel_id_salt=self.repo.rel_id_salt
         )
 
-        # 创建 Relation 对象（交换 from/to 以符合 Relation 约定）
+        # 创建 Relation 对象（直接映射，无需交换）
         return Relation(
-            relationship_id=relationship_id,  # ✅ 使用重新计算的 ID
-            # 交换：from(主键表) -> target, to(外键表) -> source
-            source_schema=rel_dict["to_table"]["schema"],
-            source_table=rel_dict["to_table"]["table"],
-            source_columns=to_columns,
-            target_schema=rel_dict["from_table"]["schema"],
-            target_table=rel_dict["from_table"]["table"],
-            target_columns=from_columns,
+            relationship_id=relationship_id,
+            source_schema=rel_dict["from_table"]["schema"],    # FK 表
+            source_table=rel_dict["from_table"]["table"],
+            source_columns=from_columns,
+            target_schema=rel_dict["to_table"]["schema"],      # PK 表
+            target_table=rel_dict["to_table"]["table"],
+            target_columns=to_columns,
             relationship_type="inferred" if rel_dict.get("discovery_method") == "llm_assisted" else "foreign_key",
-            cardinality=self._flip_cardinality(rel_dict.get("cardinality", "N:1")),  # 翻转基数
+            cardinality=rel_dict.get("cardinality", "N:1"),    # 直接使用，无需翻转
             composite_score=rel_dict.get("composite_score"),
-            score_details=rel_dict.get("metrics"),  # metrics -> score_details
-            inference_method=rel_dict.get("discovery_method")  # discovery_method -> inference_method
+            score_details=rel_dict.get("metrics"),
+            inference_method=rel_dict.get("discovery_method")
         )
 
     def _call_llm(self, table1: Dict, table2: Dict) -> List[Dict]:
         """调用 LLM 获取候选关联（带重试）
-        
-        注意：table1/table2 来自 json_llm 文件，不查询数据库
+
+        注意：table1/table2 来自 json 文件，不查询数据库
         """
         table1_info = table1.get("table_info", {})
         table2_info = table2.get("table_info", {})
@@ -717,31 +731,78 @@ class LLMRelationshipDiscovery:
                     return []
     
     def _parse_llm_response(self, response: str) -> List[Dict]:
-        """解析 LLM 返回"""
+        """解析 LLM 返回（增强版，多模式提取）
+
+        提取优先级：
+        1. ```json ... ``` 代码块（最可靠）
+        2. ``` ... ``` 无语言标签代码块
+        3. 首个完整 JSON 对象（使用状态机，正确处理字符串内的花括号）
+        4. 降级：简单 brace_count（向后兼容，但有已知缺陷）
+        """
+        import re
+
         try:
             # 添加调试日志：输出原始返回内容
             logger.debug(f"LLM 原始返回（前500字符）: {response[:500] if response else '(空响应)'}")
-            
-            # 清理 Markdown 代码块标记（使用正则表达式）
-            import re
-            cleaned_response = response.strip()
-            
-            # 移除开头的 ```json 或 ```
+
+            response = response.strip()
+            if not response:
+                logger.warning("LLM 返回为空")
+                return []
+
+            # === 方法 1: 提取 ```json ... ``` 代码块 ===
+            json_block_pattern = r'```json\s*\n(.*?)\n```'
+            match = re.search(json_block_pattern, response, re.DOTALL | re.IGNORECASE)
+            if match:
+                try:
+                    json_text = match.group(1).strip()
+                    data = json.loads(json_text)
+                    if self._validate_response_structure(data):
+                        logger.debug(f"✅ 方法1成功: 解析 ```json 代码块，得到 {len(data.get('relationships', []))} 个关系")
+                        return data.get("relationships", [])
+                except json.JSONDecodeError as e:
+                    logger.warning(f"方法1失败: ```json 代码块解析失败: {e}")
+
+            # === 方法 2: 提取 ``` ... ``` 无语言标签代码块 ===
+            generic_block_pattern = r'```\s*\n(.*?)\n```'
+            match = re.search(generic_block_pattern, response, re.DOTALL)
+            if match:
+                try:
+                    json_text = match.group(1).strip()
+                    data = json.loads(json_text)
+                    if self._validate_response_structure(data):
+                        logger.debug(f"✅ 方法2成功: 解析 ``` 通用代码块，得到 {len(data.get('relationships', []))} 个关系")
+                        return data.get("relationships", [])
+                except json.JSONDecodeError as e:
+                    logger.warning(f"方法2失败: 通用代码块解析失败: {e}")
+
+            # === 方法 3: 使用状态机提取首个完整 JSON 对象（正确处理字符串）===
+            json_obj = self._extract_first_json_object(response)
+            if json_obj:
+                try:
+                    data = json.loads(json_obj)
+                    if self._validate_response_structure(data):
+                        logger.debug(f"✅ 方法3成功: 状态机提取 JSON，得到 {len(data.get('relationships', []))} 个关系")
+                        return data.get("relationships", [])
+                except json.JSONDecodeError as e:
+                    logger.warning(f"方法3失败: 状态机提取的 JSON 解析失败: {e}")
+
+            # === 方法 4: Fallback 到简单 brace_count（向后兼容，但不处理字符串内花括号）===
+            logger.warning("⚠️  前3种方法均失败，降级到方法4: 简单 brace_count（可能不准确）")
+
+            # 移除 Markdown 代码块标记
+            cleaned_response = response
             cleaned_response = re.sub(r'^```(?:json)?\s*', '', cleaned_response, flags=re.MULTILINE)
-            
-            # 移除结尾的 ```
             cleaned_response = re.sub(r'\s*```\s*$', '', cleaned_response, flags=re.MULTILINE)
-            
             cleaned_response = cleaned_response.strip()
-            
-            # 尝试提取第一个完整的 JSON 对象
-            # 找到第一个 { 和对应的 }
+
+            # 找到第一个 {
             start_idx = cleaned_response.find('{')
             if start_idx == -1:
-                logger.warning("LLM 返回中未找到 JSON 对象")
+                logger.warning("方法4失败: 未找到 JSON 对象起始 {")
                 return []
-            
-            # 从第一个 { 开始，找到匹配的 }
+
+            # 简单计数花括号（不处理字符串）
             brace_count = 0
             end_idx = start_idx
             for i in range(start_idx, len(cleaned_response)):
@@ -752,31 +813,98 @@ class LLMRelationshipDiscovery:
                     if brace_count == 0:
                         end_idx = i + 1
                         break
-            
+
             if brace_count != 0:
-                logger.warning("LLM 返回的 JSON 括号不匹配")
+                logger.warning("方法4失败: JSON 括号不匹配")
                 return []
-            
-            cleaned_response = cleaned_response[start_idx:end_idx]
-            
-            logger.debug(f"提取的 JSON（前200字符）: {cleaned_response[:200]}")
-            
-            data = json.loads(cleaned_response)
-            relationships = data.get("relationships", [])
-            
-            if not isinstance(relationships, list):
-                logger.warning(f"LLM 返回格式错误: relationships 不是数组")
+
+            json_text = cleaned_response[start_idx:end_idx]
+            logger.debug(f"方法4提取的 JSON（前200字符）: {json_text[:200]}")
+
+            data = json.loads(json_text)
+            if self._validate_response_structure(data):
+                logger.debug(f"✅ 方法4成功: 简单 brace_count，得到 {len(data.get('relationships', []))} 个关系")
+                return data.get("relationships", [])
+            else:
+                logger.warning("方法4失败: 结构验证失败")
                 return []
-            
-            logger.debug(f"成功解析 {len(relationships)} 个关系")
-            return relationships
+
         except json.JSONDecodeError as e:
-            logger.warning(f"LLM 返回 JSON 解析失败: {e}")
+            logger.warning(f"所有方法失败: JSON 解析错误: {e}")
             logger.debug(f"无法解析的响应: {response[:1000] if response else '(空)'}")
             return []
         except Exception as e:
             logger.error(f"解析 LLM 响应时发生异常: {e}")
             return []
+
+    def _extract_first_json_object(self, text: str) -> Optional[str]:
+        """使用状态机提取首个完整 JSON 对象（正确处理字符串内的花括号）
+
+        状态机逻辑：
+        - 跟踪是否在字符串内（in_string）
+        - 处理转义字符（escape_next）
+        - 只在非字符串内计数花括号
+
+        Returns:
+            提取的 JSON 字符串，如果未找到则返回 None
+        """
+        in_string = False
+        escape_next = False
+        brace_count = 0
+        start_idx = None
+
+        for i, char in enumerate(text):
+            # 处理转义字符
+            if escape_next:
+                escape_next = False
+                continue
+
+            if char == '\\' and in_string:
+                escape_next = True
+                continue
+
+            # 处理字符串边界
+            if char == '"':
+                in_string = not in_string
+                continue
+
+            # 只在非字符串内计数花括号
+            if not in_string:
+                if char == '{':
+                    if brace_count == 0:
+                        start_idx = i
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                    if brace_count == 0 and start_idx is not None:
+                        return text[start_idx:i+1]
+
+        return None
+
+    def _validate_response_structure(self, data: Any) -> bool:
+        """验证解析出的 JSON 结构是否符合预期
+
+        预期结构: {"relationships": [...]}
+
+        Args:
+            data: 解析后的 JSON 数据
+
+        Returns:
+            True 如果结构正确，否则 False
+        """
+        if not isinstance(data, dict):
+            logger.debug(f"结构验证失败: 不是 dict，而是 {type(data)}")
+            return False
+
+        if "relationships" not in data:
+            logger.debug(f"结构验证失败: 缺少 'relationships' 键，实际键: {list(data.keys())}")
+            return False
+
+        if not isinstance(data["relationships"], list):
+            logger.debug(f"结构验证失败: 'relationships' 不是 list，而是 {type(data['relationships'])}")
+            return False
+
+        return True
     
     def _score_candidates(self, candidates: List[Dict], tables: Dict[str, Dict]) -> List[Dict]:
         """对候选关联进行评分
@@ -918,7 +1046,12 @@ class LLMRelationshipDiscovery:
         优化说明：
         - 使用 relationship_id 而非签名，避免字段顺序问题
         - 在评分前就排除物理外键，节省数据库查询和计算资源
-        - ⚠️ relationship_id 是有方向的，需要检查正反两个方向
+        - ⚠️ relationship_id 是有方向的，检查正反两个方向以防 LLM 不遵守约定
+
+        新约定（2025-12-26统一后）：
+        - Prompt 已明确要求: from=外键表(FK), to=主键表(PK)
+        - 正常情况下 forward_rel_id 应匹配物理外键
+        - 但为防御 LLM 不遵守约定，仍检查 reverse_rel_id
 
         Args:
             candidates: LLM 返回的候选关系
@@ -942,6 +1075,7 @@ class LLMRelationshipDiscovery:
                 to_cols = candidate["to_columns"]
 
             # 计算正向 relationship_id (from -> to)
+            # 新约定下应该是 FK -> PK，与物理外键一致
             forward_rel_id = MetadataRepository.compute_relationship_id(
                 source_schema=from_info["schema"],
                 source_table=from_info["table"],
@@ -953,7 +1087,7 @@ class LLMRelationshipDiscovery:
             )
 
             # 计算反向 relationship_id (to -> from)
-            # 因为 LLM 可能返回与物理外键相反的方向
+            # 防御性检查：以防 LLM 不遵守约定返回了反向
             reverse_rel_id = MetadataRepository.compute_relationship_id(
                 source_schema=to_info["schema"],
                 source_table=to_info["table"],
@@ -1047,7 +1181,7 @@ class LLMRelationshipDiscovery:
             logger.info(f"被拒绝的低置信度关系: {len(rejected)} 个")
         
         return {
-            "metadata_source": "json_llm_files",
+            "metadata_source": "json_files",
             "analysis_timestamp": datetime.now(timezone.utc).isoformat(),
             "statistics": stats,
             "relationships": relations
