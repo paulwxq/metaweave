@@ -131,6 +131,52 @@ sampling:
       - uuid
       - token
 
+# 列画像配置
+column_profiling:
+  # 复杂类型集合：会被识别为 semantic_role="complex" 的数据类型
+  # 说明：
+  # - 这些类型本质上不适合作为外键关联（存储结构化/半结构化/二进制数据）
+  # - 识别为 complex 后，可通过 exclude_semantic_roles 配置过滤
+  # - 匹配规则：对 data_type 和配置都做 lower() 归一化（大小写不敏感）
+  # - 数组特殊处理：配置 array 会同时匹配 ARRAY 类型和 integer[]/text[] 等后缀写法
+  complex_types:
+    # 当前阶段可识别的类型（基于 DDL 解析的 data_type）
+    - json
+    - jsonb
+    - array          # 匹配 ARRAY 类型 + integer[]/text[] 等数组后缀
+    - hstore
+    - xml
+    - bytea
+    - tsvector
+    - tsquery
+    # PostgreSQL 内置几何类型（DDL 中直接显示类型名）
+    - point
+    - line
+    - lseg
+    - box
+    - path
+    - polygon
+    - circle
+
+    # 以下类型当前阶段无法识别（data_type 为 USER-DEFINED）
+    # 需要引入 udt_name 后再启用
+    # - geometry      # PostGIS
+    # - geography     # PostGIS
+    # - int4range     # range 类型
+    # - int8range
+    # - numrange
+    # - tsrange
+    # - tstzrange
+    # - daterange
+
+    # 可选：视业务而定（如需要可加入）
+    # - inet          # 有的系统会用 inet 做关联键
+    # - cidr
+    # - macaddr
+    # - macaddr8
+    # - bit
+    # - varbit
+
 # LLM 配置
 llm:
   # 当前激活的 LLM 提供商
@@ -327,6 +373,7 @@ single_column:
     - audit
     - metric
     - description  # 新增：description 字段不适合作为关联键
+    - complex      # 复杂类型字段（json/jsonb/array/bytea等）不适合作为关联键
   logical_key_min_confidence: 0.8
   min_type_compatibility: 0.8  # 最低类型兼容性阈值
   name_similarity_important_target: 0.6  # 目标列是关键字段时的名称相似度阈值,非embedding方式建议0.6,embedding方式建议0.9
@@ -352,6 +399,7 @@ composite:
     # 可选：如果发现 description 字段影响关系质量，可以取消下面的注释
     - description   # 长文本说明字段（如 remark, note）
     - attribute     # 属性字段（如 address, phone）
+    - complex       # 复杂类型字段（json/jsonb/array/bytea等）不适合作为关联键
 
 # 决策配置
 decision:

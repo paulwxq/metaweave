@@ -249,7 +249,11 @@ class LLMRelationshipDiscovery:
         self.accept_threshold = decision_config.get("accept_threshold", 0.65)
         self.high_confidence_threshold = decision_config.get("high_confidence_threshold", 0.90)
         self.medium_confidence_threshold = decision_config.get("medium_confidence_threshold", 0.80)
-        
+
+        # 读取语义角色排除配置（用于过滤目标列）
+        self.single_exclude_roles = set(config.get("single_column", {}).get("exclude_semantic_roles", []))
+        self.composite_exclude_roles = set(config.get("composite", {}).get("exclude_semantic_roles", []))
+
         # 读取 LLM 重试配置
         self.llm_max_retries = llm_config.get("retry_times", 2)
         self.llm_retry_delay = llm_config.get("retry_delay", 1)  # 重试延迟（秒）
@@ -515,6 +519,149 @@ class LLMRelationshipDiscovery:
             "请改用 await discovery.discover_async() 或在 CLI 层调用 asyncio.run()."
         )
 
+    def _filter_by_semantic_roles(
+        self,
+        candidates: List[Dict],
+        tables: Dict[str, Dict]
+    ) -> List[Dict]:
+        """按语义角色过滤候选关系
+
+        过滤范围说明：
+        - 仅过滤目标列（to_cols），与 rel 保持一致
+        - 源列（from_cols）不做语义过滤（理由：与 rel 的过滤侧保持一致，rel 只过滤目标列）
+
+        过滤规则（优先级从高到低）：
+        1. 物理约束目标列（PK/UK/索引）：不过滤语义角色
+        2. 非物理约束目标列中，Complex 类型列：永远过滤（即使同名）
+        3. 非物理约束目标列中，同名列：不过滤其他语义角色
+        4. 其他目标列：按 exclude_semantic_roles 配置过滤
+
+        Args:
+            candidates: LLM 返回的候选关系
+            tables: 表元数据字典（schema.table -> table_json）
+
+        Returns:
+            过滤后的候选关系
+        """
+        # 建立大小写不敏感的表key映射（避免LLM返回大小写不一致导致误判元数据缺失）
+        # 假设前提：同一数据库内 schema.table 组合大小写不敏感且无冲突（PostgreSQL 标识符不区分大小写）
+        # 已知限制：如果存在 "Public"."Foo" 和 "public"."foo" 两个不同表（极少见但理论可能），lower() 键会发生覆盖
+        # 本次实现：不处理该极端情况（直接使用 lower() 映射）
+        table_key_map = {
+            table_key.lower(): table_json
+            for table_key, table_json in tables.items()
+        }
+
+        filtered = []
+        skipped_count = 0
+
+        for candidate in candidates:
+            candidate_type = candidate["type"]
+
+            # 根据候选类型选择过滤规则
+            if candidate_type == "single_column":
+                from_cols = [candidate["from_column"]]
+                to_cols = [candidate["to_column"]]
+                exclude_roles = self.single_exclude_roles
+            else:  # composite
+                from_cols = candidate["from_columns"]
+                to_cols = candidate["to_columns"]
+                exclude_roles = self.composite_exclude_roles
+
+            # 检查目标列（仅过滤目标列，与 rel 一致）
+            should_skip = False
+            to_table_key = f"{candidate['to_table']['schema']}.{candidate['to_table']['table']}"
+            # 使用大小写不敏感查找（避免LLM返回大小写不一致导致误判）
+            to_table_json = table_key_map.get(to_table_key.lower())
+
+            if not to_table_json:
+                logger.warning(f"[filter_semantic_roles] 目标表 {to_table_key} 元数据缺失，跳过候选")
+                # 预期丢弃：元数据缺失的候选无法进行后续评分，此处提前过滤
+                continue
+
+            # 判断是否同名（大小写不敏感）
+            if candidate_type == "single_column":
+                is_same_name = (from_cols[0].lower() == to_cols[0].lower())
+            else:  # composite
+                # 复合键同名定义：对应位置逐列同名（大小写不敏感）
+                # 例如：["a","b"] vs ["A","B"] 是同名，但 ["a","b"] vs ["b","a"] 不是同名（位置不对应）
+                is_same_name = (
+                    len(from_cols) == len(to_cols) and
+                    all(f.lower() == t.lower() for f, t in zip(from_cols, to_cols))
+                )
+
+            # 建立大小写不敏感的列名映射（用于查找列画像）
+            # 注意：LLM 返回的列名大小写可能与 column_profiles 不一致
+            # 假设前提：同一表内列名大小写不敏感且无冲突（PostgreSQL 列名不区分大小写，极少出现 Foo/foo 同时存在）
+            # 已知限制：如果同表存在 "Foo" 和 "foo" 两列（极少见但理论可能），lower() 键会发生覆盖
+            # 本次实现：不处理该极端情况（直接使用 lower() 映射）
+            col_profile_map = {
+                col_name.lower(): col_profile
+                for col_name, col_profile in to_table_json.get("column_profiles", {}).items()
+            }
+
+            for to_col in to_cols:
+                # 获取目标列画像（大小写不敏感查找）
+                col_profile = col_profile_map.get(to_col.lower())
+                if not col_profile:
+                    # 目标列画像缺失：预期丢弃该候选
+                    # 原因：缺失画像会导致后续评分阶段 type_compatibility 误判（可能被算成 1.0）
+                    logger.debug(
+                        f"[filter_semantic_roles] 跳过候选（目标列 {to_col} 画像缺失）: "
+                        f"{candidate['from_table']['schema']}.{candidate['from_table']['table']} → {to_table_key}"
+                    )
+                    should_skip = True
+                    skipped_count += 1
+                    break
+
+                # 优先级 1: 检查是否为物理约束列
+                structure_flags = col_profile.get("structure_flags", {})
+                is_physical = (
+                    structure_flags.get("is_primary_key") or
+                    structure_flags.get("is_unique") or
+                    structure_flags.get("is_unique_constraint") or
+                    structure_flags.get("is_indexed")
+                )
+
+                if is_physical:
+                    continue  # 物理约束列不过滤
+
+                # 获取语义角色
+                semantic_role = col_profile.get("semantic_analysis", {}).get("semantic_role")
+
+                # 优先级 2: Complex 永远过滤（即使同名）
+                if semantic_role == "complex":
+                    logger.debug(
+                        f"[filter_semantic_roles] 跳过候选（目标列 {to_col} 为 complex，即使同名也过滤）: "
+                        f"{candidate['from_table']['schema']}.{candidate['from_table']['table']} → {to_table_key}"
+                    )
+                    should_skip = True
+                    skipped_count += 1
+                    break
+
+                # 优先级 3: 同名列不过滤其他语义角色
+                if is_same_name:
+                    continue  # 同名列跳过语义角色检查
+
+                # 优先级 4: 其他列按配置过滤
+                if semantic_role in exclude_roles:
+                    logger.debug(
+                        f"[filter_semantic_roles] 跳过候选（目标列 {to_col} 为 {semantic_role}）: "
+                        f"{candidate['from_table']['schema']}.{candidate['from_table']['table']} → {to_table_key}"
+                    )
+                    should_skip = True
+                    skipped_count += 1
+                    break
+
+            if not should_skip:
+                filtered.append(candidate)
+
+        logger.info(
+            f"[filter_semantic_roles] 过滤前: {len(candidates)}, 过滤后: {len(filtered)}, "
+            f"跳过: {skipped_count}"
+        )
+        return filtered
+
     def _finalize_relations(
         self,
         tables: Dict[str, Dict],
@@ -536,6 +683,10 @@ class LLMRelationshipDiscovery:
             len(filtered_candidates),
             skipped_fk_count,
         )
+
+        # 新增：阶段 4.5: 按语义角色过滤
+        logger.info("阶段4.5: 按语义角色过滤（exclude_semantic_roles）")
+        filtered_candidates = self._filter_by_semantic_roles(filtered_candidates, tables)
 
         score_start = time.time()
         logger.info("阶段5: 对候选关联进行评分")

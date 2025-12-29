@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import pandas as pd
 
@@ -189,6 +189,11 @@ class ProfilingConfig:
     audit_patterns: List[str] = field(default_factory=_default_audit_patterns)
     datetime_types: List[str] = field(default_factory=_default_datetime_types)
     allowed_identifier_types: List[str] = field(default_factory=_default_allowed_identifier_types)
+    # identifier 检测阈值配置
+    high_uniqueness_threshold: float = 0.95
+    min_non_null_rate: float = 0.80
+    low_uniqueness_threshold: float = 0.05
+    identifier_exclude_keywords: List[str] = field(default_factory=lambda: ["name", "nm", "desc", "description", "remark", "comment", "details", "memo", "summary"])
     # description 检测配置
     description_enabled: bool = True
     description_min_varchar_length: int = 256
@@ -198,6 +203,8 @@ class ProfilingConfig:
     description_min_uniqueness: float = 0.7
     description_keywords: List[str] = field(default_factory=_default_description_keywords)
     description_exclude_keywords: List[str] = field(default_factory=_default_description_exclude_keywords)
+    # complex 类型集合（小写）
+    complex_types: Set[str] = field(default_factory=set)
     # 表类型规则
     fact_rules: FactTableRules = field(default_factory=FactTableRules)
     dim_rules: DimTableRules = field(default_factory=DimTableRules)
@@ -221,11 +228,16 @@ class ProfilingConfig:
             "audit_patterns",
             _default_audit_patterns(),
         )
-        # 读取 identifier 数据类型白名单
-        allowed_identifier_types = config.get("sampling", {}).get("identifier_detection", {}).get(
+        # 读取 identifier 检测配置
+        identifier_cfg = config.get("sampling", {}).get("identifier_detection", {})
+        allowed_identifier_types = identifier_cfg.get(
             "allowed_data_types",
             _default_allowed_identifier_types(),
         )
+        high_uniqueness_threshold = identifier_cfg.get("high_uniqueness_threshold", 0.95)
+        min_non_null_rate = identifier_cfg.get("min_non_null_rate", 0.80)
+        low_uniqueness_threshold = identifier_cfg.get("low_uniqueness_threshold", 0.05)
+        identifier_exclude_keywords = identifier_cfg.get("exclude_keywords", ["name", "nm", "desc", "description", "remark", "comment", "details", "memo", "summary"])
         
         # 读取 description 检测配置
         desc_cfg = config.get("sampling", {}).get("description_detection", {})
@@ -238,6 +250,10 @@ class ProfilingConfig:
         description_keywords = desc_cfg.get("include_keywords", _default_description_keywords())
         description_exclude_keywords = desc_cfg.get("exclude_keywords", _default_description_exclude_keywords())
 
+        # 读取 complex_types 配置
+        complex_types_list = config.get("column_profiling", {}).get("complex_types", [])
+        complex_types = set(t.lower() for t in complex_types_list)
+
         fact_cfg = config.get("table_profiling", {}).get("fact_table", {})
         dim_cfg = config.get("table_profiling", {}).get("dim_table", {})
         bridge_cfg = config.get("table_profiling", {}).get("bridge_table", {})
@@ -249,6 +265,10 @@ class ProfilingConfig:
             audit_patterns=audit_patterns,
             datetime_types=[dt.lower() for dt in datetime_types],
             allowed_identifier_types=[dt.lower() for dt in allowed_identifier_types],
+            high_uniqueness_threshold=high_uniqueness_threshold,
+            min_non_null_rate=min_non_null_rate,
+            low_uniqueness_threshold=low_uniqueness_threshold,
+            identifier_exclude_keywords=identifier_exclude_keywords,
             description_enabled=description_enabled,
             description_min_varchar_length=description_min_varchar_length,
             description_min_avg_length=description_min_avg_length,
@@ -257,6 +277,7 @@ class ProfilingConfig:
             description_min_uniqueness=description_min_uniqueness,
             description_keywords=description_keywords,
             description_exclude_keywords=description_exclude_keywords,
+            complex_types=complex_types,
             fact_rules=FactTableRules(
                 min_metric_columns=fact_cfg.get("min_metric_columns", FactTableRules.min_metric_columns),
                 min_dimension_columns=fact_cfg.get(
@@ -647,6 +668,29 @@ class MetadataProfiler:
                 inference_basis,
             )
 
+        # ========== complex detection ==========
+        # 在 datetime 之后、identifier 之前插入
+        data_type_lower = column.data_type.lower()
+        # 检查1: 直接匹配 complex_types 配置（如 json, jsonb, hstore, xml, bytea, tsvector, tsquery, point, line, etc.）
+        # 检查2: 特殊处理数组类型 - 如果配置中包含 "array"，则匹配 ARRAY 类型或 xxx[] 后缀
+        is_complex = (
+            data_type_lower in self.config.complex_types or
+            ("array" in self.config.complex_types and data_type_lower.endswith("[]"))
+        )
+        if is_complex:
+            inference_basis.append(f"complex_type:{data_type_lower}")
+            return (
+                "complex",                 # semantic_role
+                0.95,                      # confidence
+                None,                      # identifier_info
+                None,                      # metric_info
+                None,                      # datetime_info
+                None,                      # enum_info
+                None,                      # audit_info
+                None,                      # description_info
+                inference_basis,           # List[str]
+            )
+
         # identifier detection (新规则体系)
         is_id, id_confidence, matched_pattern, id_basis = self._is_identifier(column, stats, struct_flags)
         if is_id:
@@ -875,7 +919,7 @@ class MetadataProfiler:
     def _has_high_uniqueness(self, stats: Optional[Dict]) -> Tuple[bool, float, str]:
         """规则2：统计特征检查
         
-        条件：唯一性 > 0.95 AND 非空率 > 0.80
+        条件：唯一性 > high_uniqueness_threshold AND 非空率 > min_non_null_rate
         
         返回: (是否满足, 置信度, 原因)
         """
@@ -893,7 +937,8 @@ class MetadataProfiler:
             null_rate_val = float(null_rate)
             non_null_rate = 1.0 - null_rate_val
             
-            if uniqueness_val > 0.95 and non_null_rate > 0.80:
+            # 使用配置的阈值
+            if uniqueness_val > self.config.high_uniqueness_threshold and non_null_rate > self.config.min_non_null_rate:
                 return (True, 0.95, "high_uniqueness")
         except (TypeError, ValueError):
             pass
@@ -907,7 +952,7 @@ class MetadataProfiler:
     ) -> Tuple[bool, float, str, str]:
         """规则3：命名特征检查
         
-        条件：字段名包含标识关键词 AND 唯一性 > 0.05
+        条件：字段名包含标识关键词 AND 唯一性 > low_uniqueness_threshold
         
         返回: (是否满足, 置信度, 匹配的关键词, 原因)
         """
@@ -943,13 +988,14 @@ class MetadataProfiler:
         if not matched_keyword:
             return (False, 0.0, "", "")
         
-        # 检查唯一性 > 0.05（排除枚举）
+        # 检查唯一性 > low_uniqueness_threshold（排除枚举）
         if stats:
             uniqueness = stats.get("uniqueness")
             if uniqueness is not None:
                 try:
                     uniqueness_val = float(uniqueness)
-                    if uniqueness_val > 0.05:
+                    # 使用配置的阈值
+                    if uniqueness_val > self.config.low_uniqueness_threshold:
                         return (True, 0.85, matched_keyword, "naming_with_uniqueness")
                 except (TypeError, ValueError):
                     pass
@@ -969,8 +1015,8 @@ class MetadataProfiler:
         0. 命名排除规则（name/desc 等描述性字段）
         1. 数据类型白名单（前置过滤）
         2. 物理约束（PK/FK/UNIQUE）
-        3. 统计特征（唯一性>0.95 + 非空率>0.80）
-        4. 命名特征（关键词 + 唯一性>0.05）
+        3. 统计特征（唯一性>high_uniqueness_threshold + 非空率>min_non_null_rate）
+        4. 命名特征（关键词 + 唯一性>low_uniqueness_threshold）
         
         返回: (是否identifier, 置信度, 匹配的模式/关键词, 推断依据列表)
         """
@@ -979,8 +1025,8 @@ class MetadataProfiler:
         # 规则0a：命名排除规则 - 描述性字段不应该是 identifier
         # 即使它们唯一，也应该是 attribute
         lower_name = column.column_name.lower()
-        exclude_keywords = ["name", "nm", "desc", "description", "remark", "comment", "details", "memo", "summary"]
-        for keyword in exclude_keywords:
+        # 使用配置的排除关键词列表
+        for keyword in self.config.identifier_exclude_keywords:
             if keyword in lower_name:
                 return (False, 0.0, None, [])
         

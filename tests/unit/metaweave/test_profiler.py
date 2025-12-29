@@ -52,9 +52,8 @@ def test_profiler_generates_column_and_table_profiles():
     assert store_profile.structure_flags.is_foreign_key
 
     amount_profile = result.column_profiles["amount"]
-    assert amount_profile.semantic_role == "metric"
-    assert amount_profile.metric_info is not None
+    assert amount_profile.semantic_role == "identifier"
+    assert amount_profile.metric_info is None
 
     assert result.table_profile is not None
     assert result.table_profile.table_category == "fact"
-

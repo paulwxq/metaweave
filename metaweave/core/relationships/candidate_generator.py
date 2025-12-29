@@ -874,17 +874,35 @@ class CandidateGenerator:
                             target_structure_flags.get("is_indexed")                 # ✅ 索引（目标表特有）
                         )
 
-                        # 物理约束：完全不过滤（完全尊重 DBA 定义）
+                        # 过滤优先级规则（从高到低）：
+                        # 1. 物理约束目标列：不过滤语义角色
+                        # 2. 非物理约束目标列中，Complex 类型列：永远过滤（即使同名）
+                        # 3. 非物理约束目标列中，同名列：不过滤其他语义角色
+                        # 4. 其他目标列：按 exclude_semantic_roles 配置过滤
                         if target_has_physical:
                             logger.debug(
                                 "[single_column_candidate] 目标列为物理约束（PK/UK/索引），不过滤: %s.%s (role=%s, flags=%s)",
                                 f"{target_schema}.{target_table_name}", target_col_name, target_role,
                                 {k: v for k, v in target_structure_flags.items() if v}  # 只显示 True 的标志
                             )
-                            # ✅ 物理约束不过滤，直接通过
+                            # ✅ 优先级1: 物理约束不过滤，直接通过
                             pass
-                        # 非物理约束：按配置过滤
+                        elif target_role == "complex":
+                            logger.debug(
+                                "[single_column_candidate] 跳过 complex 类型目标列: %s.%s (即使同名也过滤)",
+                                f"{target_schema}.{target_table_name}", target_col_name
+                            )
+                            # ✅ 优先级2: complex 类型永远过滤（优先级高于同名）
+                            continue
+                        elif col_name.lower() == target_col_name.lower():
+                            logger.debug(
+                                "[single_column_candidate] 同名列不过滤: %s.%s (role=%s)",
+                                f"{target_schema}.{target_table_name}", target_col_name, target_role
+                            )
+                            # ✅ 优先级3: 同名列不过滤
+                            pass
                         else:
+                            # ✅ 优先级4: 其他语义角色按配置过滤
                             if target_role in self.exclude_semantic_roles:
                                 logger.debug(
                                     "[single_column_candidate] 跳过目标列 %s.%s，语义角色=%s 被排除",
