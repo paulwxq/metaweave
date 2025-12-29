@@ -335,29 +335,38 @@ class MetadataGenerator:
             
             # 2. 数据采样
             sample_data = None
+            ddl_only_mode = self.active_step == "ddl" and self.active_formats == ["ddl"]
             if self.sampling_enabled:
-                sample_data = self.connector.sample_data(schema, table, self.sample_size)
-                self._apply_column_statistics(metadata, sample_data)
+                if ddl_only_mode:
+                    needs_sample_data = bool(self.comment_enabled) or bool(
+                        getattr(self.formatter, "sample_record_options", {}).get("enabled", True)
+                    )
+                    if needs_sample_data:
+                        sample_data = self._sample_data_for_ddl(schema, table)
+                else:
+                    sample_data = self.connector.sample_data(schema, table, self.sample_size)
+                    self._apply_column_statistics(metadata, sample_data)
             
             # 3. 生成注释（如果启用）
             if self.comment_enabled:
                 comment_count = self.comment_generator.enrich_metadata_with_comments(metadata, sample_data)
                 result.generated_comments += comment_count
             
-            # 4. 生成列画像
-            column_profiles = self.profiler._profile_columns(metadata, sample_data)
-            metadata.column_profiles = column_profiles
-            
-            # 5. 生成逻辑主键（依赖列画像）
-            if self.logical_key_enabled and metadata.column_profiles:
-                logical_keys = self.logical_key_detector.detect(metadata, sample_data)
-                metadata.candidate_logical_primary_keys = logical_keys
-                if logical_keys:
-                    result.logical_keys_found += len(logical_keys)
-            
-            # 6. 生成表画像（依赖列画像+逻辑主键）
-            table_profile = self.profiler._profile_table(metadata, column_profiles)
-            metadata.table_profile = table_profile
+            if not ddl_only_mode:
+                # 4. 生成列画像
+                column_profiles = self.profiler._profile_columns(metadata, sample_data)
+                metadata.column_profiles = column_profiles
+
+                # 5. 生成逻辑主键（依赖列画像）
+                if self.logical_key_enabled and metadata.column_profiles:
+                    logical_keys = self.logical_key_detector.detect(metadata, sample_data)
+                    metadata.candidate_logical_primary_keys = logical_keys
+                    if logical_keys:
+                        result.logical_keys_found += len(logical_keys)
+
+                # 6. 生成表画像（依赖列画像+逻辑主键）
+                table_profile = self.profiler._profile_table(metadata, column_profiles)
+                metadata.table_profile = table_profile
             
             # 7. 格式化输出
             output_files = self.formatter.format_and_save(
@@ -374,6 +383,26 @@ class MetadataGenerator:
             # 记录详细的错误信息
             logger.error(f"处理表失败 ({schema}.{table}): {type(e).__name__}: {e}", exc_info=True)
             raise
+
+    def _sample_data_for_ddl(self, schema: str, table: str):
+        """用于 --step ddl 的轻量采样：优先取到 target_rows 条“非全空行”的记录。
+
+        - 最终返回最多 target_rows 行
+        - 会过滤掉“整行全是 NULL”的记录（如果存在）
+        """
+        try:
+            target_rows = 5
+            fetch_limit = target_rows * 2
+            df = self.connector.sample_data(schema, table, fetch_limit)
+            if df is None or df.empty:
+                return df
+            non_empty = df[df.notna().any(axis=1)]
+            if non_empty.empty:
+                return df.iloc[0:0]
+            return non_empty.head(target_rows)
+        except Exception as e:
+            logger.warning(f"DDL 采样失败 ({schema}.{table}): {e}")
+            return None
 
     def _process_table_from_ddl(
         self,

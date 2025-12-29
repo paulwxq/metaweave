@@ -1,7 +1,7 @@
 // import_all.cypher
 // Neo4j 元数据导入脚本（global 模式，包含所有表和关系）
-// 生成时间: 2025-12-24T16:43:51.192641
-// 统计: 13 张表, 60 个列, 11 个关系
+// 生成时间: 2025-12-27T02:40:10.152308
+// 统计: 13 张表, 60 个列, 10 个关系
 
 // =====================================================================
 // 1. 创建唯一约束
@@ -20,7 +20,7 @@ UNWIND [
     "full_name": "public.department",
     "schema": "public",
     "name": "department",
-    "comment": "部门信息维度表，用于描述组织架构中的部门属性",
+    "comment": "部门信息表，存储企业各部门的编码、名称及所在地信息",
     "pk": [
       "dept_id"
     ],
@@ -33,11 +33,7 @@ UNWIND [
     "logic_pk": [],
     "logic_fk": [],
     "logic_uk": [],
-    "indexes": [
-      [
-        "dept_code"
-      ]
-    ],
+    "indexes": [],
     "table_domains": [],
     "table_category": "dim"
   },
@@ -49,7 +45,11 @@ UNWIND [
     "pk": [],
     "uk": [],
     "fk": [],
-    "logic_pk": [],
+    "logic_pk": [
+      [
+        "company_id"
+      ]
+    ],
     "logic_fk": [],
     "logic_uk": [],
     "indexes": [],
@@ -64,7 +64,11 @@ UNWIND [
     "pk": [],
     "uk": [],
     "fk": [],
-    "logic_pk": [],
+    "logic_pk": [
+      [
+        "product_type_id"
+      ]
+    ],
     "logic_fk": [],
     "logic_uk": [],
     "indexes": [],
@@ -79,7 +83,11 @@ UNWIND [
     "pk": [],
     "uk": [],
     "fk": [],
-    "logic_pk": [],
+    "logic_pk": [
+      [
+        "region_id"
+      ]
+    ],
     "logic_fk": [],
     "logic_uk": [],
     "indexes": [],
@@ -94,7 +102,11 @@ UNWIND [
     "pk": [],
     "uk": [],
     "fk": [],
-    "logic_pk": [],
+    "logic_pk": [
+      [
+        "store_id"
+      ]
+    ],
     "logic_fk": [],
     "logic_uk": [],
     "indexes": [],
@@ -105,7 +117,7 @@ UNWIND [
     "full_name": "public.employee",
     "schema": "public",
     "name": "employee",
-    "comment": "员工信息维度表，用于存储企业员工的基本信息和所属部门",
+    "comment": "员工信息表，存储企业员工的基本信息、薪资及所属部门",
     "pk": [
       "emp_id"
     ],
@@ -122,11 +134,7 @@ UNWIND [
     "logic_pk": [],
     "logic_fk": [],
     "logic_uk": [],
-    "indexes": [
-      [
-        "emp_no"
-      ]
-    ],
+    "indexes": [],
     "table_domains": [],
     "table_category": "dim"
   },
@@ -138,7 +146,16 @@ UNWIND [
     "pk": [],
     "uk": [],
     "fk": [],
-    "logic_pk": [],
+    "logic_pk": [
+      [
+        "equipment_id",
+        "config_version"
+      ],
+      [
+        "equipment_id",
+        "firmware_version"
+      ]
+    ],
     "logic_fk": [],
     "logic_uk": [],
     "indexes": [],
@@ -153,7 +170,13 @@ UNWIND [
     "pk": [],
     "uk": [],
     "fk": [],
-    "logic_pk": [],
+    "logic_pk": [
+      [
+        "store_id",
+        "date_day",
+        "product_type_id"
+      ]
+    ],
     "logic_fk": [],
     "logic_uk": [],
     "indexes": [],
@@ -168,7 +191,13 @@ UNWIND [
     "pk": [],
     "uk": [],
     "fk": [],
-    "logic_pk": [],
+    "logic_pk": [
+      [
+        "store_id",
+        "date_month",
+        "product_type_id"
+      ]
+    ],
     "logic_fk": [],
     "logic_uk": [],
     "indexes": [],
@@ -183,7 +212,13 @@ UNWIND [
     "pk": [],
     "uk": [],
     "fk": [],
-    "logic_pk": [],
+    "logic_pk": [
+      [
+        "product_line_code",
+        "subsystem_code",
+        "fault_code"
+      ]
+    ],
     "logic_fk": [],
     "logic_uk": [],
     "indexes": [],
@@ -198,7 +233,80 @@ UNWIND [
     "pk": [],
     "uk": [],
     "fk": [],
-    "logic_pk": [],
+    "logic_pk": [
+      [
+        "wo_id",
+        "wo_line_no"
+      ],
+      [
+        "wo_id",
+        "equipment_id"
+      ],
+      [
+        "wo_id",
+        "config_version"
+      ],
+      [
+        "wo_id",
+        "product_line_code"
+      ],
+      [
+        "wo_id",
+        "subsystem_code"
+      ],
+      [
+        "wo_id",
+        "fault_code"
+      ],
+      [
+        "wo_id",
+        "downtime_minutes"
+      ],
+      [
+        "wo_line_no",
+        "downtime_minutes"
+      ],
+      [
+        "equipment_id",
+        "downtime_minutes"
+      ],
+      [
+        "product_line_code",
+        "downtime_minutes"
+      ],
+      [
+        "subsystem_code",
+        "downtime_minutes"
+      ],
+      [
+        "fault_code",
+        "downtime_minutes"
+      ],
+      [
+        "wo_id",
+        "fault_ts"
+      ],
+      [
+        "wo_line_no",
+        "fault_ts"
+      ],
+      [
+        "fault_ts",
+        "equipment_id"
+      ],
+      [
+        "fault_ts",
+        "product_line_code"
+      ],
+      [
+        "fault_ts",
+        "subsystem_code"
+      ],
+      [
+        "fault_ts",
+        "fault_code"
+      ]
+    ],
     "logic_fk": [],
     "logic_uk": [],
     "indexes": [],
@@ -209,7 +317,7 @@ UNWIND [
     "full_name": "public.order_header",
     "schema": "public",
     "name": "order_header",
-    "comment": "记录订单的头部信息，包含订单编号、下单日期及客户名称等关键业务事实。",
+    "comment": "订单信息表，存储客户订单编号、下单日期及客户名称",
     "pk": [
       "order_id",
       "order_date"
@@ -221,13 +329,13 @@ UNWIND [
     "logic_uk": [],
     "indexes": [],
     "table_domains": [],
-    "table_category": "fact"
+    "table_category": "dim"
   },
   {
     "full_name": "public.order_item",
     "schema": "public",
     "name": "order_item",
-    "comment": "记录订单中每个商品项的详细信息，包含商品、数量等事实数据",
+    "comment": "订单明细表，存储每笔订单中商品的购买数量及对应信息",
     "pk": [
       "item_id"
     ],
@@ -279,9 +387,9 @@ UNWIND [
     "schema": "public",
     "table": "department",
     "name": "dept_id",
-    "comment": "部门唯一标识ID，主键",
+    "comment": "部门唯一标识ID",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": true,
     "is_uk": false,
     "is_fk": false,
@@ -296,9 +404,9 @@ UNWIND [
     "schema": "public",
     "table": "department",
     "name": "dept_code",
-    "comment": "部门编码，用于系统内快速识别部门",
+    "comment": "部门编码（如HR、FIN等）",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": true,
     "is_fk": false,
@@ -313,9 +421,9 @@ UNWIND [
     "schema": "public",
     "table": "department",
     "name": "dept_name",
-    "comment": "部门全称，中文名称",
+    "comment": "部门全称",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "attribute",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -330,9 +438,9 @@ UNWIND [
     "schema": "public",
     "table": "department",
     "name": "location",
-    "comment": "部门所在城市",
+    "comment": "所在城市（如北京、上海等）",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "attribute",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -349,7 +457,7 @@ UNWIND [
     "name": "company_id",
     "comment": "公司ID（主键）",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -366,7 +474,7 @@ UNWIND [
     "name": "company_name",
     "comment": "公司名称，唯一",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "attribute",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -383,7 +491,7 @@ UNWIND [
     "name": "product_type_id",
     "comment": "商品类型ID（主键）",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -400,7 +508,7 @@ UNWIND [
     "name": "product_type_name",
     "comment": "商品类型名称，唯一",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "attribute",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -417,7 +525,7 @@ UNWIND [
     "name": "region_id",
     "comment": "区（县）ID（主键）",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -434,7 +542,7 @@ UNWIND [
     "name": "region_name",
     "comment": "区（县）名称",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "attribute",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -451,7 +559,7 @@ UNWIND [
     "name": "city_id",
     "comment": "城市ID",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -468,7 +576,7 @@ UNWIND [
     "name": "city_name",
     "comment": "城市名称",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "attribute",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -485,7 +593,7 @@ UNWIND [
     "name": "province_id",
     "comment": "省份ID",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -502,7 +610,7 @@ UNWIND [
     "name": "province_name",
     "comment": "省份名称",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "attribute",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -519,7 +627,7 @@ UNWIND [
     "name": "store_id",
     "comment": "店铺ID（主键）",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -536,7 +644,7 @@ UNWIND [
     "name": "store_name",
     "comment": "店铺名称（同一公司下唯一）",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "attribute",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -553,7 +661,7 @@ UNWIND [
     "name": "company_id",
     "comment": "所属公司ID（外键）",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -570,7 +678,7 @@ UNWIND [
     "name": "region_id",
     "comment": "所属区（县）ID（外键）",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -587,7 +695,7 @@ UNWIND [
     "name": "emp_id",
     "comment": "员工唯一标识ID",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": true,
     "is_uk": false,
     "is_fk": false,
@@ -602,9 +710,9 @@ UNWIND [
     "schema": "public",
     "table": "employee",
     "name": "emp_no",
-    "comment": "员工工号，系统内唯一编号",
+    "comment": "员工编号，格式如E0001",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": true,
     "is_fk": false,
@@ -621,7 +729,7 @@ UNWIND [
     "name": "emp_name",
     "comment": "员工姓名",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "attribute",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -636,9 +744,9 @@ UNWIND [
     "schema": "public",
     "table": "employee",
     "name": "gender",
-    "comment": "性别，M表示男性，F表示女性",
+    "comment": "性别（M-男，F-女）",
     "data_type": "character",
-    "semantic_role": "",
+    "semantic_role": "enum",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -655,7 +763,7 @@ UNWIND [
     "name": "hire_date",
     "comment": "入职日期",
     "data_type": "date",
-    "semantic_role": "",
+    "semantic_role": "audit",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -670,14 +778,14 @@ UNWIND [
     "schema": "public",
     "table": "employee",
     "name": "salary",
-    "comment": "月薪金额，单位为元",
+    "comment": "月薪，单位为元",
     "data_type": "numeric",
-    "semantic_role": "",
+    "semantic_role": "metric",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
     "is_time": false,
-    "is_measure": false,
+    "is_measure": true,
     "pk_position": 0,
     "uniqueness": 1.0,
     "null_rate": 0.0
@@ -687,9 +795,9 @@ UNWIND [
     "schema": "public",
     "table": "employee",
     "name": "dept_id",
-    "comment": "所属部门ID，关联部门表",
+    "comment": "所属部门ID",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": true,
@@ -706,7 +814,7 @@ UNWIND [
     "name": "equipment_id",
     "comment": "设备ID（资产编号）",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -723,7 +831,7 @@ UNWIND [
     "name": "config_version",
     "comment": "配置版本/改造批次（可为语义化版本或批次号）",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "audit",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -740,7 +848,7 @@ UNWIND [
     "name": "controller_model",
     "comment": "控制器型号",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "attribute",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -757,7 +865,7 @@ UNWIND [
     "name": "firmware_version",
     "comment": "固件版本号（语义化版本等）",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "audit",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -774,7 +882,7 @@ UNWIND [
     "name": "store_id",
     "comment": "店铺ID（外键）",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -791,11 +899,11 @@ UNWIND [
     "name": "date_day",
     "comment": "交易日期（日粒度）",
     "data_type": "date",
-    "semantic_role": "",
+    "semantic_role": "datetime",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
-    "is_time": false,
+    "is_time": true,
     "is_measure": false,
     "pk_position": 0,
     "uniqueness": 0.0278,
@@ -808,7 +916,7 @@ UNWIND [
     "name": "product_type_id",
     "comment": "商品类型ID（外键）",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -825,12 +933,12 @@ UNWIND [
     "name": "amount",
     "comment": "销售金额（当日）",
     "data_type": "numeric",
-    "semantic_role": "",
+    "semantic_role": "metric",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
     "is_time": false,
-    "is_measure": false,
+    "is_measure": true,
     "pk_position": 0,
     "uniqueness": 0.625,
     "null_rate": 0.0
@@ -842,7 +950,7 @@ UNWIND [
     "name": "store_id",
     "comment": "店铺ID（外键）",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -859,11 +967,11 @@ UNWIND [
     "name": "date_month",
     "comment": "月份（建议为当月第一天）",
     "data_type": "date",
-    "semantic_role": "",
+    "semantic_role": "datetime",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
-    "is_time": false,
+    "is_time": true,
     "is_measure": false,
     "pk_position": 0,
     "uniqueness": 0.0278,
@@ -876,7 +984,7 @@ UNWIND [
     "name": "product_type_id",
     "comment": "商品类型ID（外键）",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -893,12 +1001,12 @@ UNWIND [
     "name": "amount",
     "comment": "销售金额（当月累计值）",
     "data_type": "numeric",
-    "semantic_role": "",
+    "semantic_role": "metric",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
     "is_time": false,
-    "is_measure": false,
+    "is_measure": true,
     "pk_position": 0,
     "uniqueness": 0.75,
     "null_rate": 0.0
@@ -910,7 +1018,7 @@ UNWIND [
     "name": "product_line_code",
     "comment": "产线/产品线编码",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -927,7 +1035,7 @@ UNWIND [
     "name": "subsystem_code",
     "comment": "子系统编码",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -944,7 +1052,7 @@ UNWIND [
     "name": "fault_code",
     "comment": "故障码",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -961,7 +1069,7 @@ UNWIND [
     "name": "fault_name",
     "comment": "故障名称（标准名）",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "attribute",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -978,7 +1086,7 @@ UNWIND [
     "name": "recommended_action",
     "comment": "建议处理措施/排查步骤（长文本）",
     "data_type": "text",
-    "semantic_role": "",
+    "semantic_role": "description",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -995,7 +1103,7 @@ UNWIND [
     "name": "wo_id",
     "comment": "工单ID",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -1012,7 +1120,7 @@ UNWIND [
     "name": "wo_line_no",
     "comment": "工单行号/条目序号",
     "data_type": "smallint",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -1029,7 +1137,7 @@ UNWIND [
     "name": "fault_ts",
     "comment": "故障发生时间",
     "data_type": "timestamp without time zone",
-    "semantic_role": "",
+    "semantic_role": "audit",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -1046,7 +1154,7 @@ UNWIND [
     "name": "equipment_id",
     "comment": "设备ID（资产编号）",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -1063,7 +1171,7 @@ UNWIND [
     "name": "config_version",
     "comment": "设备配置版本/改造批次（与设备配置表形成2列关联）",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "audit",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -1080,7 +1188,7 @@ UNWIND [
     "name": "product_line_code",
     "comment": "产线/产品线编码（与故障码字典形成3列关联之一）",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -1097,7 +1205,7 @@ UNWIND [
     "name": "subsystem_code",
     "comment": "子系统编码（与故障码字典形成3列关联之一）",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -1114,7 +1222,7 @@ UNWIND [
     "name": "fault_code",
     "comment": "故障码（与故障码字典形成3列关联之一）",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -1131,7 +1239,7 @@ UNWIND [
     "name": "downtime_minutes",
     "comment": "停机时长（分钟）",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -1148,12 +1256,12 @@ UNWIND [
     "name": "spare_part_cost",
     "comment": "备件费用（金额）",
     "data_type": "numeric",
-    "semantic_role": "",
+    "semantic_role": "metric",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
     "is_time": false,
-    "is_measure": false,
+    "is_measure": true,
     "pk_position": 0,
     "uniqueness": 1.0,
     "null_rate": 0.0
@@ -1163,9 +1271,9 @@ UNWIND [
     "schema": "public",
     "table": "order_header",
     "name": "order_id",
-    "comment": "订单唯一标识编号，用于区分每笔订单",
+    "comment": "订单唯一标识ID",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": true,
     "is_uk": false,
     "is_fk": false,
@@ -1180,9 +1288,9 @@ UNWIND [
     "schema": "public",
     "table": "order_header",
     "name": "order_date",
-    "comment": "订单创建的日期，表示交易发生的时间",
+    "comment": "订单创建日期",
     "data_type": "date",
-    "semantic_role": "",
+    "semantic_role": "audit",
     "is_pk": true,
     "is_uk": false,
     "is_fk": false,
@@ -1197,9 +1305,9 @@ UNWIND [
     "schema": "public",
     "table": "order_header",
     "name": "customer",
-    "comment": "下单客户的姓名",
+    "comment": "客户姓名",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -1214,9 +1322,9 @@ UNWIND [
     "schema": "public",
     "table": "order_item",
     "name": "item_id",
-    "comment": "订单项唯一标识符",
+    "comment": "订单项唯一标识ID",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": true,
     "is_uk": false,
     "is_fk": false,
@@ -1231,9 +1339,9 @@ UNWIND [
     "schema": "public",
     "table": "order_item",
     "name": "order_id",
-    "comment": "所属订单的编号",
+    "comment": "关联订单的唯一标识ID",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": true,
@@ -1250,7 +1358,7 @@ UNWIND [
     "name": "order_date",
     "comment": "订单创建日期",
     "data_type": "date",
-    "semantic_role": "",
+    "semantic_role": "audit",
     "is_pk": false,
     "is_uk": false,
     "is_fk": true,
@@ -1267,7 +1375,7 @@ UNWIND [
     "name": "product",
     "comment": "商品名称",
     "data_type": "character varying",
-    "semantic_role": "",
+    "semantic_role": "identifier",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
@@ -1282,14 +1390,14 @@ UNWIND [
     "schema": "public",
     "table": "order_item",
     "name": "quantity",
-    "comment": "商品数量",
+    "comment": "商品购买数量",
     "data_type": "integer",
-    "semantic_role": "",
+    "semantic_role": "metric",
     "is_pk": false,
     "is_uk": false,
     "is_fk": false,
     "is_time": false,
-    "is_measure": false,
+    "is_measure": true,
     "pk_position": 0,
     "uniqueness": 0.4,
     "null_rate": 0.0
@@ -1567,8 +1675,8 @@ MERGE (t)-[:HAS_COLUMN]->(c);
 
 UNWIND [
   {
-    "src_full_name": "public.department",
-    "dst_full_name": "public.employee",
+    "src_full_name": "public.employee",
+    "dst_full_name": "public.department",
     "cardinality": "1:1",
     "constraint_name": null,
     "join_type": "INNER JOIN",
@@ -1639,9 +1747,9 @@ UNWIND [
     ]
   },
   {
-    "src_full_name": "public.dim_region",
-    "dst_full_name": "public.dim_store",
-    "cardinality": "M:N",
+    "src_full_name": "public.dim_store",
+    "dst_full_name": "public.dim_region",
+    "cardinality": "N:1",
     "constraint_name": null,
     "join_type": "INNER JOIN",
     "on": "SRC.region_id = DST.region_id",
@@ -1694,22 +1802,6 @@ UNWIND [
     "target_columns": [
       "equipment_id",
       "config_version"
-    ]
-  },
-  {
-    "src_full_name": "public.fact_store_sales_day",
-    "dst_full_name": "public.fact_store_sales_month",
-    "cardinality": "M:N",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.store_id = DST.store_id AND SRC.product_type_id = DST.product_type_id",
-    "source_columns": [
-      "store_id",
-      "product_type_id"
-    ],
-    "target_columns": [
-      "store_id",
-      "product_type_id"
     ]
   },
   {

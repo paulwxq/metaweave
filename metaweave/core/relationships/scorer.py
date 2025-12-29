@@ -52,9 +52,8 @@ class RelationshipScorer:
         self.weights = config.get("weights", DEFAULT_WEIGHTS)
         self.name_similarity_service = name_similarity_service
 
-        # 采样配置
-        sampling_config = config.get("sampling", {})
-        self.sample_size = sampling_config.get("sample_size", 1000)
+        # 采样配置（评分阶段从数据库取样的行数上限）
+        self.sample_size = config.get("sample_size", 1000)
 
         logger.info(f"关系评分器已初始化（4维度评分体系）:")
         logger.info(f"  - sample_size={self.sample_size}")

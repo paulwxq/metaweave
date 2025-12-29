@@ -74,8 +74,11 @@ class CQLGenerator:
             path = get_project_root() / path
         return path
 
-    def generate(self) -> CQLGenerationResult:
+    def generate(self, step_name: str = "cql") -> CQLGenerationResult:
         """执行 CQL 生成
+
+        Args:
+            step_name: 执行的步骤名称（"cql" 或 "cql_llm"），用于元数据记录
 
         Returns:
             生成结果
@@ -106,14 +109,42 @@ class CQLGenerator:
             for file_path in output_files:
                 logger.info(f"    * {file_path}")
 
+            # 3. 生成元数据文档
+            logger.info("\n[额外] 生成元数据文档...")
+
+            # ✅ 实施时建议：添加调试日志确认数据可用性
+            logger.debug(f"has_column_rels count: {len(has_column_rels)}")
+            logger.debug(f"join_on_rels count: {len(join_on_rels)}")
+            logger.debug("Calling write_metadata after write_all")
+
+            # ✅ 保护主流程：元数据生成失败不应影响 CQL 生成
+            errors = []
+            try:
+                metadata_file = writer.write_metadata(
+                    tables=tables,
+                    columns=columns,
+                    has_column_rels=has_column_rels,
+                    join_on_rels=join_on_rels,
+                    step_name=step_name,
+                    json_dir=self.json_dir,
+                    rel_dir=self.rel_dir
+                )
+                logger.info(f"  - 元数据文档: {metadata_file}")
+                output_files.append(str(metadata_file))
+            except Exception as e:
+                error_msg = f"元数据文档生成失败: {e}"
+                logger.warning(f"{error_msg}（不影响主流程）")
+                errors.append(error_msg)
+
             # 构造结果
             result = CQLGenerationResult(
                 success=True,
                 output_files=output_files,
                 tables_count=len(tables),
                 columns_count=len(columns),
+                has_column_count=len(has_column_rels),
                 relationships_count=len(join_on_rels),
-                errors=[]
+                errors=errors
             )
 
             logger.info("\n" + "=" * 60)

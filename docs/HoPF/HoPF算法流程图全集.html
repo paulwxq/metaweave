@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HoPF算法流程图全集</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .nav {
+            background: #f8f9fa;
+            padding: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .nav-btn {
+            padding: 12px 24px;
+            background: white;
+            border: 2px solid #667eea;
+            color: #667eea;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+        
+        .nav-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .nav-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .diagram-section {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        
+        .diagram-section.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .section-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .section-header h2 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .section-header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .info-box ul {
+            margin-left: 20px;
+        }
+        
+        .info-box li {
+            margin: 8px 0;
+        }
+        
+        .diagram-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+        
+        .mermaid {
+            text-align: center;
+        }
+        
+        .footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #6c757d;
+            border-top: 2px solid #e9ecef;
+        }
+        
+        .tag {
+            display: inline-block;
+            padding: 5px 15px;
+            background: #e7f3ff;
+            color: #0066cc;
+            border-radius: 15px;
+            font-size: 0.9em;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 HoPF算法流程图全集</h1>
+            <p>Holistic Primary Key and Foreign Key Detection - 主外键自动发现算法</p>
+        </div>
+        
+        <div class="nav">
+            <button class="nav-btn active" onclick="showDiagram('simple')">📊 简化版流程</button>
+            <button class="nav-btn" onclick="showDiagram('example')">💡 实例演示</button>
+            <button class="nav-btn" onclick="showDiagram('detailed')">🔍 完整流程</button>
+            <button class="nav-btn" onclick="showDiagram('dataflow')">🔄 数据流图</button>
+            <button class="nav-btn" onclick="showDiagram('decision')">🌲 决策树</button>
+        </div>
+        
+        <div class="content">
+            <!-- 简化版流程图 -->
+            <div id="simple" class="diagram-section active">
+                <div class="section-header">
+                    <h2>📊 简化版流程图</h2>
+                    <p>快速理解HoPF的三大核心阶段</p>
+                </div>
+                
+                <div class="info-box">
+                    <h3>适用场景</h3>
+                    <ul>
+                        <li>✅ 初次了解HoPF算法</li>
+                        <li>✅ 向非技术人员介绍算法思路</li>
+                        <li>✅ 快速回顾算法框架</li>
+                    </ul>
+                </div>
+                
+                <div class="info-box">
+                    <h3>三大阶段概览</h3>
+                    <ul>
+                        <li><strong>阶段一 - 候选生成:</strong> 发现所有可能的主键(UCC)和外键(IND)候选</li>
+                        <li><strong>阶段二 - 评分筛选:</strong> 使用6个维度计算综合得分，排序筛选</li>
+                        <li><strong>阶段三 - 验证输出:</strong> 冲突检测、环检测、完整性验证</li>
+                    </ul>
+                </div>
+                
+                <div class="diagram-container">
+                    <div class="mermaid">
+graph TB
+    Start([输入: 数据库所有表]) --> P1
+    
+    subgraph Phase1 [阶段一: 候选生成]
+        P1A[1.1 发现唯一列组合UCC<br/>检测哪些列/列组合能唯一标识行]
+        P1B[1.2 发现包含依赖IND<br/>检测表A的列值是否包含于表B]
+        P1A --> P1C
+        P1B --> P1C
+        P1C[输出: 主键候选 + 外键候选]
+    end
+    
+    P1 --> P1A
+    
+    P1C --> P2
+    
+    subgraph Phase2 [阶段二: 评分筛选]
+        P2A[2.1 多维度评分<br/>- 唯一性30%<br/>- 包含度25%<br/>- 命名规范20%<br/>- 列数15%<br/>- 其他10%]
+        P2B[2.2 计算综合得分<br/>加权求和]
+        P2C[2.3 过滤低分候选<br/>保留高置信度关系]
+        P2A --> P2B --> P2C
+        P2D[输出: Top K 关联关系]
+        P2C --> P2D
+    end
+    
+    P2 --> P2A
+    
+    P2D --> P3
+    
+    subgraph Phase3 [阶段三: 验证输出]
+        P3A[3.1 冲突检测<br/>解决一对多映射]
+        P3B[3.2 循环引用检测<br/>识别并打破环]
+        P3C[3.3 完整性验证<br/>孤儿记录检查]
+        P3A --> P3B --> P3C
+        P3D[输出: 最终主外键关系]
+        P3C --> P3D
+    end
+    
+    P3 --> P3A
+    
+    P3D --> End([输出: JSON格式结果<br/>主键列表 + 外键列表 + 警告])
+    
+    style Phase1 fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style Phase2 fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style Phase3 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style Start fill:#c8e6c9,stroke:#2e7d32
+    style End fill:#c8e6c9,stroke:#2e7d32
+    style P1C fill:#bbdefb
+    style P2D fill:#ffe0b2
+    style P3D fill:#c5e1a5
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 实例演示流程图 -->
+            <div id="example" class="diagram-section">
+                <div class="section-header">
+                    <h2>💡 实例演示流程图</h2>
+                    <p>通过orders和customers表的具体案例理解算法</p>
+                </div>
+                
+                <div class="info-box">
+                    <h3>示例数据</h3>
+                    <p><strong>orders表:</strong> order_id, customer_id, amount</p>
+                    <p><strong>customers表:</strong> customer_id, name, email</p>
+                </div>
+                
+                <div class="info-box">
+                    <h3>核心发现</h3>
+                    <ul>
+                        <li>✅ <strong>主键:</strong> customers.customer_id (唯一性=1.0)</li>
+                        <li>✅ <strong>外键:</strong> orders.customer_id → customers.customer_id</li>
+                        <li>📊 <strong>综合得分:</strong> 10.0分 (满分,极高置信度)</li>
+                        <li>🔗 <strong>关系类型:</strong> N:1 (一对多)</li>
+                    </ul>
+                </div>
+                
+                <div class="diagram-container">
+                    <div class="mermaid">
+graph TD
+    Start([示例: orders和customers表]) --> Input
+    
+    Input[输入数据<br/>orders: order_id, customer_id, amount<br/>customers: customer_id, name, email]
+    
+    Input --> Stage1[阶段一: 候选生成]
+    
+    Stage1 --> UCC_Process
+    
+    subgraph UCC_Process [UCC发现过程]
+        UCC1[检查 orders.order_id]
+        UCC1 --> UCC1A{唯一性=1.0?}
+        UCC1A -->|是| UCC1B[✓ orders.order_id 是UCC]
+        
+        UCC2[检查 orders.customer_id]
+        UCC2 --> UCC2A{唯一性=0.3?}
+        UCC2A -->|否| UCC2B[✗ orders.customer_id 不是UCC]
+        
+        UCC3[检查 customers.customer_id]
+        UCC3 --> UCC3A{唯一性=1.0?}
+        UCC3A -->|是| UCC3B[✓ customers.customer_id 是UCC]
+    end
+    
+    UCC1B --> UCCResult
+    UCC2B --> UCCResult
+    UCC3B --> UCCResult
+    
+    UCCResult[UCC结果:<br/>• orders.order_id<br/>• customers.customer_id]
+    
+    Stage1 --> IND_Process
+    
+    subgraph IND_Process [IND发现过程]
+        IND1[检查 orders.customer_id ⊆ customers.customer_id]
+        IND1 --> IND1A[提取值集:<br/>orders: C001,C002,C001<br/>customers: C001,C002,C003]
+        IND1A --> IND1B{所有值都包含?}
+        IND1B -->|是| IND1C[✓ orders.customer_id → customers.customer_id]
+        
+        IND2[检查 customers.customer_id ⊆ orders.customer_id]
+        IND2 --> IND2A{C003在orders中?}
+        IND2A -->|否| IND2B[✗ 不是IND]
+    end
+    
+    IND1C --> INDResult
+    IND2B --> INDResult
+    
+    INDResult[IND结果:<br/>• orders.customer_id → customers.customer_id]
+    
+    UCCResult --> Stage2
+    INDResult --> Stage2
+    
+    Stage2[阶段二: 评分]
+    
+    Stage2 --> Scoring
+    
+    subgraph Scoring [评分计算]
+        S1[唯一性得分<br/>customers.customer_id=1.0 → 10分]
+        S2[包含度得分<br/>100%包含 → 10分]
+        S3[命名规范得分<br/>都是*_id模式 → 10分]
+        S4[列数得分<br/>单列 → 10分]
+        S5[基数比例<br/>300/300=1.0 → 10分]
+        S6[类型匹配<br/>VARCHAR→VARCHAR → 10分]
+        
+        S1 --> Total
+        S2 --> Total
+        S3 --> Total
+        S4 --> Total
+        S5 --> Total
+        S6 --> Total
+        
+        Total[总分计算<br/>0.3×10 + 0.25×10 + 0.2×10 + 0.15×10 + 0.05×10 + 0.05×10<br/>= 10.0分]
+    end
+    
+    Total --> Stage3[阶段三: 验证]
+    
+    Stage3 --> Validation
+    
+    subgraph Validation [验证检查]
+        V1[冲突检测<br/>无其他高分候选 ✓]
+        V2[循环检测<br/>无环 ✓]
+        V3[孤儿检测<br/>0条孤儿记录 ✓]
+        
+        V1 --> V4
+        V2 --> V4
+        V3 --> V4
+        
+        V4[验证通过]
+    end
+    
+    V4 --> Output
+    
+    Output[最终输出]
+    Output --> Result1[主键:<br/>• customers.customer_id 置信度99%<br/>• orders.order_id 置信度99%]
+    Output --> Result2[外键:<br/>• orders.customer_id → customers.customer_id<br/>  置信度95%, 关系N:1]
+    
+    Result1 --> End([完成])
+    Result2 --> End
+    
+    style UCC_Process fill:#e1f5ff,stroke:#01579b
+    style IND_Process fill:#e1f5ff,stroke:#01579b
+    style Scoring fill:#fff3e0,stroke:#e65100
+    style Validation fill:#f1f8e9,stroke:#33691e
+    style UCCResult fill:#81d4fa
+    style INDResult fill:#81d4fa
+    style Total fill:#ffcc80
+    style V4 fill:#aed581
+    style Result1 fill:#c8e6c9
+    style Result2 fill:#c8e6c9
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 完整流程图 -->
+            <div id="detailed" class="diagram-section">
+                <div class="section-header">
+                    <h2>🔍 完整详细流程图</h2>
+                    <p>展示所有技术细节和优化策略</p>
+                </div>
+                
+                <div class="info-box">
+                    <h3>技术亮点</h3>
+                    <ul>
+                        <li>🚀 <strong>剪枝策略:</strong> 避免2^n复杂度的全组合枚举</li>
+                        <li>⚡ <strong>布隆过滤器:</strong> 加速包含依赖检测</li>
+                        <li>🎯 <strong>多阶段过滤:</strong> 逐步缩小候选范围</li>
+                        <li>🔄 <strong>循环检测:</strong> 防止环形引用关系</li>
+                    </ul>
+                </div>
+                
+                <div class="diagram-container">
+                    <div class="mermaid">
+graph TD
+    Start([开始: 输入数据库Schema]) --> Phase1[<b>阶段一: 候选生成</b>]
+    
+    Phase1 --> UCC[发现唯一列组合 UCCs]
+    Phase1 --> IND[发现包含依赖 INDs]
+    
+    UCC --> UCC1[扫描所有表的所有列]
+    UCC1 --> UCC2{单列是否唯一?}
+    UCC2 -->|是| UCC3[记录为单列UCC候选]
+    UCC2 -->|否| UCC4[尝试双列组合]
+    UCC3 --> UCC5[应用剪枝策略]
+    UCC4 --> UCC6{组合是否唯一?}
+    UCC6 -->|是| UCC7[记录为组合UCC候选]
+    UCC6 -->|否| UCC8[继续三列组合...]
+    UCC5 --> UCCResult[(UCC候选列表)]
+    UCC7 --> UCCResult
+    UCC8 --> UCCResult
+    
+    IND --> IND1[遍历所有表对 A, B]
+    IND1 --> IND2[选择表A的列集L1]
+    IND2 --> IND3[选择表B的列集L2]
+    IND3 --> IND4{A.L1 ⊆ B.L2 ?}
+    IND4 -->|是| IND5[记录IND: A.L1 → B.L2]
+    IND4 -->|否| IND6[尝试下一个列组合]
+    IND5 --> IND7[使用布隆过滤器加速]
+    IND6 --> IND8{还有列组合?}
+    IND8 -->|是| IND2
+    IND8 -->|否| INDResult[(IND候选列表)]
+    IND7 --> INDResult
+    
+    UCCResult --> Combine[合并UCC和IND结果]
+    INDResult --> Combine
+    
+    Combine --> Phase2[<b>阶段二: 评分筛选</b>]
+    
+    Phase2 --> Score1[计算唯一性得分]
+    Phase2 --> Score2[计算列数得分]
+    Phase2 --> Score3[计算命名规范得分]
+    Phase2 --> Score4[计算包含度得分]
+    Phase2 --> Score5[计算基数比例得分]
+    Phase2 --> Score6[计算类型匹配度]
+    
+    Score1 --> CalcTotal[综合评分计算]
+    Score2 --> CalcTotal
+    Score3 --> CalcTotal
+    Score4 --> CalcTotal
+    Score5 --> CalcTotal
+    Score6 --> CalcTotal
+    
+    CalcTotal --> Formula[总分 = Σ 权重i × 得分i]
+    Formula --> Threshold{得分 ≥ 阈值?}
+    
+    Threshold -->|是| KeepCandidate[保留候选关系]
+    Threshold -->|否| DropCandidate[丢弃候选关系]
+    
+    KeepCandidate --> SortCandidates[按得分降序排序]
+    DropCandidate --> NextCandidate{还有候选?}
+    NextCandidate -->|是| Score1
+    
+    SortCandidates --> Phase3[<b>阶段三: 验证输出</b>]
+    
+    Phase3 --> Check1[冲突检测]
+    Check1 --> Check1A{同一外键指向<br/>多个主键?}
+    Check1A -->|是| Check1B[保留最高分,<br/>其他标记待确认]
+    Check1A -->|否| Check2
+    Check1B --> Check2
+    
+    Check2[循环引用检测]
+    Check2 --> Check2A{构建关系图}
+    Check2A --> Check2B{检测到环?}
+    Check2B -->|是| Check2C[打破最低分关系,<br/>标记循环警告]
+    Check2B -->|否| Check3
+    Check2C --> Check3
+    
+    Check3[完整性验证]
+    Check3 --> Check3A[检测孤儿记录]
+    Check3A --> Check3B{孤儿率 < 阈值?}
+    Check3B -->|是| Check3C[标记为有效外键]
+    Check3B -->|否| Check3D[标记为弱外键约束]
+    
+    Check3C --> Output
+    Check3D --> Output
+    
+    Output[生成最终输出]
+    Output --> Output1[主键列表 + 置信度]
+    Output --> Output2[外键列表 + 关系类型]
+    Output --> Output3[警告列表]
+    
+    Output1 --> End([结束: 输出主外键关系])
+    Output2 --> End
+    Output3 --> End
+    
+    style Phase1 fill:#e1f5ff,stroke:#01579b,stroke-width:3px
+    style Phase2 fill:#fff3e0,stroke:#e65100,stroke-width:3px
+    style Phase3 fill:#f1f8e9,stroke:#33691e,stroke-width:3px
+    style Start fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+    style End fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+    style UCCResult fill:#bbdefb,stroke:#1976d2,stroke-width:2px
+    style INDResult fill:#bbdefb,stroke:#1976d2,stroke-width:2px
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 数据流图 -->
+            <div id="dataflow" class="diagram-section">
+                <div class="section-header">
+                    <h2>🔄 数据流与系统架构</h2>
+                    <p>展示数据在各个模块间的流转过程</p>
+                </div>
+                
+                <div class="info-box">
+                    <h3>性能指标示例</h3>
+                    <ul>
+                        <li>📊 <strong>输入规模:</strong> 100张表, 1000个字段</li>
+                        <li>🔵 <strong>UCC候选:</strong> 5000个</li>
+                        <li>🔵 <strong>IND候选:</strong> 2000个</li>
+                        <li>🟠 <strong>高分候选:</strong> 500个</li>
+                        <li>✅ <strong>最终输出:</strong> 95个主键 + 230个外键</li>
+                    </ul>
+                </div>
+                
+                <div class="diagram-container">
+                    <div class="mermaid">
+graph LR
+    subgraph Input [输入层]
+        DB[(数据库<br/>100张表<br/>1000个字段)]
+        DDL[DDL定义]
+        Data[样本数据]
+    end
+    
+    DB --> Collector
+    DDL --> Collector
+    Data --> Collector
+    
+    Collector[元数据采集器] --> Stage1
+    
+    subgraph Stage1 [阶段一: 候选生成层]
+        direction TB
+        UCC_Engine[UCC发现引擎<br/>┌─────────┐<br/>│ 并行扫描 │<br/>│ 唯一性检测│<br/>│ 剪枝优化 │<br/>└─────────┘]
+        
+        IND_Engine[IND发现引擎<br/>┌─────────┐<br/>│ 表对遍历 │<br/>│ 包含检测 │<br/>│ 布隆过滤 │<br/>└─────────┘]
+        
+        UCC_Engine --> Cache1[(UCC缓存<br/>5000个候选)]
+        IND_Engine --> Cache2[(IND缓存<br/>2000个候选)]
+    end
+    
+    Cache1 --> Matcher
+    Cache2 --> Matcher
+    
+    Matcher[候选匹配器<br/>UCC + IND → FK候选] --> Stage2
+    
+    subgraph Stage2 [阶段二: 评分层]
+        direction TB
+        
+        Scorer[多维评分引擎<br/>┌─────────────┐<br/>│ 唯一性 30%   │<br/>│ 包含度 25%   │<br/>│ 命名   20%   │<br/>│ 列数   15%   │<br/>│ 其他   10%   │<br/>└─────────────┘]
+        
+        Ranker[排序器<br/>Top K筛选]
+        
+        Scorer --> Ranker
+        Ranker --> Cache3[(候选池<br/>500个高分候选)]
+    end
+    
+    Cache3 --> Stage3
+    
+    subgraph Stage3 [阶段三: 验证层]
+        direction TB
+        
+        Validator1[冲突解决器]
+        Validator2[环检测器]
+        Validator3[完整性检查器]
+        
+        Validator1 --> Validator2
+        Validator2 --> Validator3
+        Validator3 --> Filter[过滤器]
+    end
+    
+    Filter --> Output
+    
+    subgraph Output [输出层]
+        direction TB
+        PK[主键列表<br/>95个主键<br/>平均置信度92%]
+        FK[外键列表<br/>230个外键<br/>平均置信度87%]
+        Warn[警告列表<br/>15个待确认]
+    end
+    
+    PK --> Export
+    FK --> Export
+    Warn --> Export
+    
+    Export[导出器] --> JSON[JSON文件]
+    Export --> UI[Web界面]
+    Export --> API[REST API]
+    
+    style Input fill:#e8eaf6,stroke:#3f51b5
+    style Stage1 fill:#e1f5ff,stroke:#01579b
+    style Stage2 fill:#fff3e0,stroke:#e65100
+    style Stage3 fill:#f1f8e9,stroke:#33691e
+    style Output fill:#fce4ec,stroke:#c2185b
+    style Cache1 fill:#b3e5fc
+    style Cache2 fill:#b3e5fc
+    style Cache3 fill:#ffccbc
+    style JSON fill:#c8e6c9
+    style UI fill:#c8e6c9
+    style API fill:#c8e6c9
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 决策树 -->
+            <div id="decision" class="diagram-section">
+                <div class="section-header">
+                    <h2>🌲 决策树流程图</h2>
+                    <p>展示每个决策点的判断逻辑和置信度分级</p>
+                </div>
+                
+                <div class="info-box">
+                    <h3>置信度分级标准</h3>
+                    <ul>
+                        <li>🟢 <strong>高置信度 (≥80分):</strong> 自动采纳,可直接使用</li>
+                        <li>🟡 <strong>中等置信度 (60-80分):</strong> 推荐人工确认</li>
+                        <li>🟠 <strong>低置信度 (40-60分):</strong> 仅记录,不推荐</li>
+                        <li>🔴 <strong>拒绝 (<40分):</strong> 丢弃候选</li>
+                    </ul>
+                </div>
+                
+                <div class="diagram-container">
+                    <div class="mermaid">
+graph TD
+    Start([发现候选关联:<br/>orders.customer_id → customers.customer_id]) --> D1
+    
+    D1{唯一性检查<br/>customers.customer_id<br/>唯一性 ≥ 0.95?}
+    D1 -->|否| Reject1[❌ 拒绝<br/>理由: 主键候选唯一性不足]
+    D1 -->|是| D2
+    
+    D2{包含度检查<br/>orders.customer_id值<br/>100%包含于customers?}
+    D2 -->|否| D2A{包含度 ≥ 0.8?}
+    D2A -->|否| Reject2[❌ 拒绝<br/>理由: 外键值不在主键域内]
+    D2A -->|是| Warning1[⚠️ 警告<br/>存在孤儿记录,降低置信度]
+    D2 -->|是| D3
+    
+    Warning1 --> D3
+    
+    D3{数据类型检查<br/>类型是否兼容?}
+    D3 -->|否| Reject3[❌ 拒绝<br/>理由: 类型不兼容]
+    D3 -->|是| D4
+    
+    D4{基数比例检查<br/>外键唯一值/主键唯一值<br/>在0.5-2.0之间?}
+    D4 -->|否| D4A{比例 > 2.0?}
+    D4A -->|是| Warning2[⚠️ 警告<br/>可能是反向关联]
+    D4A -->|否| D4B[⚠️ 警告<br/>关系类型不明确]
+    D4 -->|是| D5
+    
+    Warning2 --> D5
+    D4B --> D5
+    
+    D5{命名规范检查<br/>是否符合命名模式?}
+    D5 -->|是| Score_High[高分组<br/>基础分 80-100]
+    D5 -->|否| Score_Mid[中分组<br/>基础分 60-80]
+    
+    Score_High --> D6
+    Score_Mid --> D6
+    
+    D6{综合评分<br/>得分 ≥ 80?}
+    D6 -->|是| Accept_High[✅ 接受 - 高置信度<br/>自动采纳]
+    D6 -->|否| D7
+    
+    D7{得分 ≥ 60?}
+    D7 -->|是| Accept_Mid[✅ 接受 - 中等置信度<br/>推荐人工确认]
+    D7 -->|否| D8
+    
+    D8{得分 ≥ 40?}
+    D8 -->|是| Accept_Low[⚠️ 接受 - 低置信度<br/>仅记录不推荐]
+    D8 -->|否| Reject4[❌ 拒绝<br/>理由: 综合得分过低]
+    
+    Accept_High --> Validate
+    Accept_Mid --> Validate
+    Accept_Low --> Validate
+    
+    Validate{验证阶段}
+    
+    Validate --> V1{冲突检查<br/>是否有其他高分候选?}
+    V1 -->|是| V1A[保留最高分<br/>其他标记待定]
+    V1 -->|否| V2
+    V1A --> V2
+    
+    V2{环路检查<br/>是否形成循环引用?}
+    V2 -->|是| V2A[打破环路<br/>移除最低分边]
+    V2 -->|否| V3
+    V2A --> V3
+    
+    V3{完整性检查<br/>孤儿记录 < 1%?}
+    V3 -->|是| Final_Accept[✅ 最终接受<br/>输出到结果集]
+    V3 -->|否| Final_Warning[⚠️ 接受但标记<br/>弱外键约束]
+    
+    Final_Accept --> Output[输出结果]
+    Final_Warning --> Output
+    
+    Reject1 --> End
+    Reject2 --> End
+    Reject3 --> End
+    Reject4 --> End
+    Output --> End([完成])
+    
+    style Start fill:#e3f2fd,stroke:#1976d2
+    style Reject1 fill:#ffcdd2,stroke:#c62828
+    style Reject2 fill:#ffcdd2,stroke:#c62828
+    style Reject3 fill:#ffcdd2,stroke:#c62828
+    style Reject4 fill:#ffcdd2,stroke:#c62828
+    style Warning1 fill:#fff9c4,stroke:#f57f17
+    style Warning2 fill:#fff9c4,stroke:#f57f17
+    style Accept_High fill:#c8e6c9,stroke:#2e7d32
+    style Accept_Mid fill:#dcedc8,stroke:#558b2f
+    style Accept_Low fill:#f0f4c3,stroke:#9e9d24
+    style Final_Accept fill:#a5d6a7,stroke:#1b5e20
+    style Final_Warning fill:#fff59d,stroke:#f57f17
+    style Output fill:#81c784,stroke:#2e7d32
+    style End fill:#90caf9,stroke:#1565c0
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p><strong>💡 使用提示:</strong> 点击顶部按钮切换不同视角的流程图</p>
+            <p>建议学习顺序: 简化版 → 实例演示 → 决策树 → 完整流程 → 数据流图</p>
+            <p style="margin-top: 20px; color: #999;">HoPF Algorithm Visualization • 2024</p>
+        </div>
+    </div>
+    
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+        
+        function showDiagram(id) {
+            // 隐藏所有图表
+            document.querySelectorAll('.diagram-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // 移除所有按钮的active状态
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // 显示选中的图表
+            document.getElementById(id).classList.add('active');
+            
+            // 给对应按钮添加active状态
+            event.target.classList.add('active');
+            
+            // 滚动到顶部
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>

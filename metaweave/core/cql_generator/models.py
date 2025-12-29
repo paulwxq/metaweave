@@ -176,16 +176,20 @@ class CQLGenerationResult:
     output_files: List[str] = field(default_factory=list)
     tables_count: int = 0
     columns_count: int = 0
+    has_column_count: int = 0
     relationships_count: int = 0
     errors: List[str] = field(default_factory=list)
 
     def __str__(self) -> str:
         status = "成功" if self.success else "失败"
+        total_edges = self.has_column_count + self.relationships_count
         return (
             f"CQL生成结果: {status}\n"
             f"  - 表节点: {self.tables_count}\n"
             f"  - 列节点: {self.columns_count}\n"
-            f"  - 关系: {self.relationships_count}\n"
+            f"  - HAS_COLUMN 关系: {self.has_column_count}\n"
+            f"  - JOIN_ON 关系: {self.relationships_count}\n"
+            f"  - 边总数: {total_edges}\n"
             f"  - 输出文件: {len(self.output_files)}\n"
             f"  - 错误: {len(self.errors)}"
         )

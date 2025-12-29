@@ -25,7 +25,7 @@ database:
 # 数据采样配置
 sampling:
   enabled: true
-  sample_size: 1000
+  sample_size: 1000            # 数据库采样行数上限：用于 --step ddl / --step json（含 json_llm 阶段A）画像计算；以及 --step rel / --step rel_llm 的评分阶段（inclusion_rate/jaccard/join 等需要查库的计算）
   sample_method: limit  # limit | tablesample | range
   
   # 列统计配置
@@ -260,7 +260,7 @@ output:
 
   # Step 2: 表/列画像输出配置
   json_directory: output/json      # --step json 和 --step json_llm 统一输出目录 / --step rel & cql 输入
-  # json_llm_directory: output/json_llm  # 已废弃：json_llm 改为基于 json 的增强式处理，统一输出到 json_directory
+  # json_llm_directory: output/json_llm  # ⚠️ 已废弃，cql_llm 不再读取此配置
 
   # Step 3: 关系发现输出配置
   rel_directory: output/rel    # --step rel/rel_llm 输出 / --step cql 输入
@@ -269,7 +269,11 @@ output:
 
   # Step 4: CQL 生成输出配置
   cql_directory: output/cql    # --step cql/cql_llm 输出 / load 输入
-  # 注意：--step cql 和 --step cql_llm 都从 json_directory 读取（json_llm 已统一输出到 json_directory）
+
+  # 注意：
+  # - --step cql 和 --step cql_llm 功能完全等价
+  # - 都从 json_directory 和 rel_directory 读取数据
+  # - 输出到 cql_directory，生成 import_all.cypher 和 import_all.md
 
   # 输出格式
   formats:
@@ -301,10 +305,7 @@ logging:
 
 # Step 3: 关系发现配置
 relationships:
-  # 采样配置（用于评分）
-  sampling:
-    sample_size: 1000
-  
+  # sample_size: 1000  # 已废弃：关系评分阶段统一使用 sampling.sample_size
   name_similarity:
     method: embedding
     cache_size: 5000

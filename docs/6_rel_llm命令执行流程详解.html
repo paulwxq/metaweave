@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>metaweave metadata --step rel_llm 命令执行流程详解</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .command-box {
+            background: #2d3748;
+            color: #f093fb;
+            padding: 20px;
+            margin: 30px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .toc {
+            background: #f7fafc;
+            border-left: 4px solid #f093fb;
+            padding: 20px;
+            margin-bottom: 40px;
+            border-radius: 4px;
+        }
+
+        .toc h2 {
+            color: #f5576c;
+            margin-bottom: 15px;
+        }
+
+        .toc ul {
+            list-style: none;
+            padding-left: 20px;
+        }
+
+        .toc li {
+            margin: 8px 0;
+        }
+
+        .toc a {
+            color: #4a5568;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .toc a:hover {
+            color: #f5576c;
+        }
+
+        .section {
+            margin-bottom: 50px;
+        }
+
+        .section h2 {
+            color: #2d3748;
+            font-size: 2em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #f093fb;
+        }
+
+        .section h3 {
+            color: #4a5568;
+            font-size: 1.5em;
+            margin: 30px 0 15px 0;
+            padding-left: 15px;
+            border-left: 4px solid #f5576c;
+        }
+
+        .section h4 {
+            color: #718096;
+            font-size: 1.2em;
+            margin: 20px 0 10px 0;
+        }
+
+        .flow-stage {
+            background: linear-gradient(135deg, #fff5f7 0%, #fef5e7 100%);
+            border: 2px solid #f5576c;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .flow-stage::before {
+            content: attr(data-stage);
+            position: absolute;
+            top: -15px;
+            left: 20px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .method-call {
+            background: white;
+            border-left: 4px solid #f093fb;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .method-call .method-name {
+            font-family: 'Courier New', monospace;
+            color: #2d3748;
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+
+        .method-call .file-location {
+            color: #718096;
+            font-size: 0.9em;
+            font-style: italic;
+            margin-bottom: 10px;
+        }
+
+        .method-call .description {
+            color: #4a5568;
+            line-height: 1.8;
+        }
+
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .code-block .keyword {
+            color: #f687b3;
+        }
+
+        .code-block .string {
+            color: #68d391;
+        }
+
+        .code-block .comment {
+            color: #a0aec0;
+            font-style: italic;
+        }
+
+        .parameter-list {
+            background: #fff5f5;
+            border-left: 4px solid #fc8181;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .parameter-list h5 {
+            color: #c53030;
+            margin-bottom: 10px;
+        }
+
+        .parameter-list ul {
+            list-style: none;
+            padding-left: 20px;
+        }
+
+        .parameter-list li {
+            margin: 5px 0;
+            color: #4a5568;
+        }
+
+        .parameter-list code {
+            background: #fed7d7;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .logic-flow {
+            background: #fffaf0;
+            border-left: 4px solid #ed8936;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .logic-flow h5 {
+            color: #c05621;
+            margin-bottom: 10px;
+        }
+
+        .logic-flow ol, .logic-flow ul {
+            padding-left: 25px;
+            color: #4a5568;
+        }
+
+        .logic-flow li {
+            margin: 8px 0;
+        }
+
+        .note-box {
+            background: #ebf8ff;
+            border-left: 4px solid #4299e1;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .note-box strong {
+            color: #2c5282;
+        }
+
+        .warning-box {
+            background: #fffaf0;
+            border-left: 4px solid #ed8936;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .warning-box strong {
+            color: #c05621;
+        }
+
+        .llm-box {
+            background: #f0fff4;
+            border-left: 4px solid #48bb78;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .llm-box strong {
+            color: #22543d;
+        }
+
+        .data-structure {
+            background: #f0fff4;
+            border: 2px solid #9ae6b4;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .data-structure h5 {
+            color: #22543d;
+            margin-bottom: 10px;
+        }
+
+        .data-structure pre {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .arrow {
+            text-align: center;
+            color: #f5576c;
+            font-size: 2em;
+            margin: 10px 0;
+        }
+
+        footer {
+            background: #2d3748;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+        }
+
+        .highlight {
+            background: #fef5e7;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        table th {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        table td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        table tr:hover {
+            background: #fff5f7;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .stat-card h4 {
+            font-size: 1em;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+
+        .stat-card .value {
+            font-size: 2em;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 MetaWeave LLM 辅助关系发现流程详解</h1>
+            <p>metaweave metadata --config configs/metadata_config.yaml --step rel_llm</p>
+        </header>
+
+        <div class="command-box">
+            $ metaweave metadata --config configs/metadata_config.yaml --step rel_llm
+        </div>
+
+        <div class="content">
+            <!-- Table of Contents -->
+            <div class="toc">
+                <h2>📋 目录</h2>
+                <ul>
+                    <li><a href="#overview">1. 命令概述</a></li>
+                    <li><a href="#entry">2. CLI 入口解析</a></li>
+                    <li><a href="#init">3. LLM 发现器初始化</a></li>
+                    <li><a href="#stage1">4. 阶段1: 加载元数据与外键</a></li>
+                    <li><a href="#stage2">5. 阶段2: 生成表对组合</a></li>
+                    <li><a href="#stage3">6. 阶段3: LLM 推断关系</a></li>
+                    <li><a href="#stage4">7. 阶段4: 数据库验证评分</a></li>
+                    <li><a href="#stage5">8. 阶段5: 决策过滤</a></li>
+                    <li><a href="#stage6">9. 阶段6: 结果输出</a></li>
+                    <li><a href="#summary">10. 总结与对比</a></li>
+                </ul>
+            </div>
+
+            <!-- Section 1: Overview -->
+            <div class="section" id="overview">
+                <h2>1. 命令概述</h2>
+
+                <p><code>metaweave metadata --step rel_llm</code> 命令使用 <span class="highlight">LLM（大语言模型）辅助发现数据库表之间的隐式关系</span>，结合传统规则和 AI 语义理解能力。</p>
+
+                <h3>核心特点</h3>
+                <ul>
+                    <li>🤖 <strong>LLM 语义推断</strong>：利用 LLM 理解表结构和字段语义，发现隐式关系</li>
+                    <li>📊 <strong>数据库验证</strong>：通过数据采样验证 LLM 推断的关系</li>
+                    <li>🔗 <strong>外键直通</strong>：保留物理外键关系，与 LLM 推断关系合并</li>
+                    <li>🎯 <strong>Domain 过滤</strong>：支持按业务域过滤表对，减少 LLM 调用次数</li>
+                    <li>⚡ <strong>异步批处理</strong>：支持异步并发调用 LLM，提高效率</li>
+                </ul>
+
+                <h3>与 rel 命令的区别</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>特性</th>
+                            <th>rel（规则驱动）</th>
+                            <th>rel_llm（LLM 辅助）</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>候选生成</td>
+                            <td>基于物理约束和逻辑主键</td>
+                            <td>LLM 语义推断</td>
+                        </tr>
+                        <tr>
+                            <td>数据库访问</td>
+                            <td>候选生成 + 评分</td>
+                            <td>仅评分阶段</td>
+                        </tr>
+                        <tr>
+                            <td>发现能力</td>
+                            <td>依赖约束和命名规则</td>
+                            <td>理解语义和业务逻辑</td>
+                        </tr>
+                        <tr>
+                            <td>性能</td>
+                            <td>快速（无 LLM 调用）</td>
+                            <td>较慢（需调用 LLM）</td>
+                        </tr>
+                        <tr>
+                            <td>成本</td>
+                            <td>无额外成本</td>
+                            <td>LLM API 调用成本</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="llm-box">
+                    <strong>💡 适用场景：</strong>
+                    <ul>
+                        <li>表之间缺少物理外键约束</li>
+                        <li>列名不遵循命名规范</li>
+                        <li>需要发现复杂的业务关系</li>
+                        <li>希望利用 AI 提高关系发现的召回率</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Section 2: CLI Entry -->
+            <div class="section" id="entry">
+                <h2>2. CLI 入口解析</h2>
+
+                <h3>2.1 命令路由</h3>
+                <div class="method-call">
+                    <div class="method-name">metadata_command()</div>
+                    <div class="file-location">📁 metaweave/cli/metadata_cli.py:108</div>
+                    <div class="description">
+                        处理 <code>metadata</code> 子命令，根据 <code>--step</code> 参数路由到 rel_llm 处理逻辑。
+                    </div>
+                </div>
+
+                <div class="code-block">
+<span class="comment"># metaweave/cli/metadata_cli.py:309-378</span>
+<span class="keyword">if</span> step == <span class="string">"rel_llm"</span>:
+    <span class="keyword">from</span> metaweave.core.relationships.llm_relationship_discovery <span class="keyword">import</span> LLMRelationshipDiscovery
+    <span class="keyword">from</span> metaweave.core.relationships.writer <span class="keyword">import</span> RelationshipWriter
+    <span class="keyword">from</span> metaweave.core.metadata.connector <span class="keyword">import</span> DatabaseConnector
+
+    click.echo(<span class="string">"🤖 开始 LLM 辅助关系发现（rel_llm）..."</span>)
+
+    <span class="comment"># 加载配置</span>
+    config = load_config(config_path)
+
+    <span class="comment"># 初始化连接器</span>
+    connector = DatabaseConnector(config.get(<span class="string">"database"</span>, {}))
+
+    <span class="keyword">try</span>:
+        <span class="comment"># 初始化发现器</span>
+        discovery = LLMRelationshipDiscovery(
+            config=config,
+            connector=connector,
+            domain_filter=domain,
+            cross_domain=cross_domain,
+            db_domains_config=db_domains_config
+        )
+
+        <span class="comment"># 发现关系</span>
+        relations, rejected_count, extra_statistics = discovery.discover()
+
+        <span class="comment"># 输出结果</span>
+        writer = RelationshipWriter(config)
+        output_files = writer.write_results(...)
+    <span class="keyword">finally</span>:
+        connector.close()
+                </div>
+
+                <div class="parameter-list">
+                    <h5>关键参数：</h5>
+                    <ul>
+                        <li><code>--domain</code>: 业务域过滤（可选，如 "sales,inventory"）</li>
+                        <li><code>--cross-domain</code>: 是否包含跨域关系（可选）</li>
+                        <li><code>--domains-config</code>: 业务域配置文件路径（默认 configs/db_domains.yaml）</li>
+                    </ul>
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+            <!-- Section 3: Initialization -->
+            <div class="section" id="init">
+                <h2>3. LLM 发现器初始化</h2>
+
+                <div class="method-call">
+                    <div class="method-name">LLMRelationshipDiscovery.__init__()</div>
+                    <div class="file-location">📁 metaweave/core/relationships/llm_relationship_discovery.py:198</div>
+                    <div class="description">
+                        初始化 LLM 辅助关系发现器，配置 LLM 服务、评分器、仓库等组件。
+                    </div>
+                </div>
+
+                <div class="logic-flow">
+                    <h5>初始化步骤：</h5>
+                    <ol>
+                        <li>加载配置（relationships、llm、output、decision 等）</li>
+                        <li>初始化 <code>LLMService</code>（用于调用 LLM API）</li>
+                        <li>初始化 <code>NameSimilarityService</code>（可选，用于语义相似度）</li>
+                        <li>初始化 <code>RelationshipScorer</code>（用于数据库验证评分）</li>
+                        <li>初始化 <code>MetadataRepository</code>（用于加载 JSON 和外键）</li>
+                        <li>读取决策阈值配置（accept_threshold、high/medium_confidence）</li>
+                        <li>读取 LLM 重试配置（max_retries、retry_delay）</li>
+                        <li>读取异步配置（use_async、batch_size）</li>
+                        <li>读取 Domain 过滤配置（domain_filter、cross_domain）</li>
+                    </ol>
+                </div>
+
+                <div class="parameter-list">
+                    <h5>关键配置参数：</h5>
+                    <ul>
+                        <li><code>decision.accept_threshold</code>: 接受阈值（默认 0.65，低于 rel 的 0.80）</li>
+                        <li><code>llm.retry_times</code>: LLM 调用重试次数（默认 2）</li>
+                        <li><code>llm.retry_delay</code>: 重试延迟秒数（默认 1）</li>
+                        <li><code>llm.langchain_config.use_async</code>: 是否使用异步（默认 false）</li>
+                        <li><code>llm.langchain_config.batch_size</code>: 异步批处理大小（默认 50）</li>
+                    </ul>
+                </div>
+
+                <div class="note-box">
+                    <strong>💡 注意：</strong> rel_llm 的 accept_threshold 默认为 0.65，低于 rel 的 0.80，因为 LLM 推断的关系可能在名称相似度上得分较低，但语义上是正确的。
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+            <!-- Section 4: Stage 1 -->
+            <div class="section" id="stage1">
+                <h2>4. 阶段1: 加载元数据与外键</h2>
+
+                <div class="flow-stage" data-stage="阶段 1">
+                    <h3>4.1 加载表元数据</h3>
+                    <div class="method-call">
+                        <div class="method-name">LLMRelationshipDiscovery._load_tables_and_foreign_keys()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/llm_relationship_discovery.py:380</div>
+                        <div class="description">
+                            从 JSON 文件加载表元数据，并提取物理外键关系。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>加载步骤：</h5>
+                        <ol>
+                            <li>调用 <code>MetadataRepository.load_all_tables()</code> 加载所有 JSON 文件</li>
+                            <li>调用 <code>MetadataRepository.collect_foreign_keys()</code> 提取外键</li>
+                            <li>返回：tables 字典、外键 Relation 对象列表、外键 ID 集合</li>
+                        </ol>
+                    </div>
+
+                    <div class="note-box">
+                        <strong>💡 数据来源：</strong> 此阶段<strong>不查询数据库</strong>，仅从 <code>output/json</code> 目录读取 JSON 文件。
+                    </div>
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+            <!-- Section 5: Stage 2 -->
+            <div class="section" id="stage2">
+                <h2>5. 阶段2: 生成表对组合</h2>
+
+                <div class="flow-stage" data-stage="阶段 2">
+                    <h3>5.1 Domain 验证（可选）</h3>
+                    <div class="method-call">
+                        <div class="method-name">LLMRelationshipDiscovery._validate_table_domains()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/llm_relationship_discovery.py:407</div>
+                        <div class="description">
+                            验证表是否包含 table_domains 字段（当使用 domain 过滤时）。
+                        </div>
+                    </div>
+
+                    <h3>5.2 生成表对</h3>
+                    <div class="method-call">
+                        <div class="method-name">get_table_pairs()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/llm_relationship_discovery.py:168</div>
+                        <div class="description">
+                            根据 domain 和 cross_domain 参数生成需要 LLM 分析的表对组合。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>表对生成策略：</h5>
+                        <ol>
+                            <li><strong>无过滤</strong>（domain=None, cross_domain=False）：
+                                <ul>
+                                    <li>生成所有表的两两组合（C(n,2)）</li>
+                                </ul>
+                            </li>
+                            <li><strong>域内关系</strong>（domain="A,B", cross_domain=False）：
+                                <ul>
+                                    <li>只生成同一 domain 内的表对</li>
+                                    <li>例如：sales 域内的表两两组合</li>
+                                </ul>
+                            </li>
+                            <li><strong>域内+跨域</strong>（domain="A,B", cross_domain=True）：
+                                <ul>
+                                    <li>生成域内表对 + 跨域表对</li>
+                                    <li>例如：sales 域内 + sales↔inventory 跨域</li>
+                                </ul>
+                            </li>
+                            <li><strong>仅跨域</strong>（domain=None, cross_domain=True）：
+                                <ul>
+                                    <li>只生成不同 domain 之间的表对</li>
+                                </ul>
+                            </li>
+                        </ol>
+                    </div>
+
+                    <div class="warning-box">
+                        <strong>⚠️ 性能优化：</strong> 使用 domain 过滤可以显著减少 LLM 调用次数。例如，100 张表的全组合是 4950 对，但按 5 个 domain 分组后可能只需要几百对。
+                    </div>
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+            <!-- Section 6: Stage 3 -->
+            <div class="section" id="stage3">
+                <h2>6. 阶段3: LLM 推断关系</h2>
+
+                <div class="flow-stage" data-stage="阶段 3">
+                    <h3>6.1 调用 LLM 分析表对</h3>
+                    <div class="method-call">
+                        <div class="method-name">LLMRelationshipDiscovery._call_llm_for_pairs()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/llm_relationship_discovery.py:440</div>
+                        <div class="description">
+                            根据配置选择同步或异步方式调用 LLM 分析表对。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>调用策略：</h5>
+                        <ol>
+                            <li><strong>同步模式</strong>（use_async=False）：
+                                <ul>
+                                    <li>逐个调用 LLM，带进度条显示</li>
+                                    <li>适合小规模数据或调试</li>
+                                </ul>
+                            </li>
+                            <li><strong>异步模式</strong>（use_async=True）：
+                                <ul>
+                                    <li>批量并发调用 LLM（batch_size 控制并发数）</li>
+                                    <li>显著提高效率，适合大规模数据</li>
+                                </ul>
+                            </li>
+                        </ol>
+                    </div>
+
+                    <h3>6.2 LLM 提示词构造</h3>
+                    <div class="method-call">
+                        <div class="method-name">LLMRelationshipDiscovery._build_prompt()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/llm_relationship_discovery.py:598</div>
+                        <div class="description">
+                            构造 LLM 提示词，包含两个表的元数据和采样数据。
+                        </div>
+                    </div>
+
+                    <div class="data-structure">
+                        <h5>提示词结构：</h5>
+                        <pre>你是一个数据库关系分析专家。请分析以下两个表...
+
+## 表 1: public.department
+```json
+{
+  "table_info": {...},
+  "columns": [...],
+  "sample_data": [...]
+}
+```
+
+## 表 2: public.employee
+```json
+{
+  "table_info": {...},
+  "columns": [...],
+  "sample_data": [...]
+}
+```
+
+## 任务
+分析这两个表之间可能的关联关系（外键关系）。考虑：
+1. 字段名相同或相似
+2. 数据类型兼容
+3. 字段注释的语义关联
+4. 样例数据的值域匹配
+5. 复合键的可能性
+
+## 输出格式
+返回 JSON 格式...</pre>
+                    </div>
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+                    <h3>6.3 LLM 响应解析</h3>
+                    <div class="method-call">
+                        <div class="method-name">LLMRelationshipDiscovery._parse_llm_response()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/llm_relationship_discovery.py:651</div>
+                        <div class="description">
+                            解析 LLM 返回的 JSON 响应，提取关系信息。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>解析步骤：</h5>
+                        <ol>
+                            <li>清理响应文本（移除 markdown 代码块标记）</li>
+                            <li>尝试解析 JSON（支持重试机制）</li>
+                            <li>验证 JSON 结构（必须包含 "relationships" 字段）</li>
+                            <li>提取关系列表并返回</li>
+                        </ol>
+                    </div>
+
+                    <div class="data-structure">
+                        <h5>LLM 响应示例：</h5>
+                        <pre>{
+  "relationships": [
+    {
+      "type": "single_column",
+      "from_table": {"schema": "public", "table": "employee"},
+      "from_column": "dept_id",
+      "to_table": {"schema": "public", "table": "department"},
+      "to_column": "dept_id"
+    }
+  ]
+}</pre>
+                    </div>
+
+                    <div class="warning-box">
+                        <strong>⚠️ 重试机制：</strong> 如果 LLM 返回格式错误或解析失败，会自动重试（最多 retry_times 次），每次重试间隔 retry_delay 秒。
+                    </div>
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+            <!-- Section 7: Stage 4 -->
+            <div class="section" id="stage4">
+                <h2>7. 阶段4: 数据库验证评分</h2>
+
+                <div class="flow-stage" data-stage="阶段 4">
+                    <h3>7.1 转换为候选格式</h3>
+                    <div class="method-call">
+                        <div class="method-name">LLMRelationshipDiscovery._convert_to_candidates()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/llm_relationship_discovery.py:721</div>
+                        <div class="description">
+                            将 LLM 推断的关系转换为候选格式，准备进行数据库验证。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>转换步骤：</h5>
+                        <ol>
+                            <li>遍历 LLM 推断的关系列表</li>
+                            <li>提取源表、目标表、源列、目标列信息</li>
+                            <li>查找表元数据（从 tables 字典）</li>
+                            <li>构造候选字典（包含 source、target、source_columns、target_columns）</li>
+                            <li>标记候选类型为 "llm_assisted"</li>
+                        </ol>
+                    </div>
+
+                    <h3>7.2 数据库采样评分</h3>
+                    <div class="method-call">
+                        <div class="method-name">RelationshipScorer.score_candidates()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/scorer.py:64</div>
+                        <div class="description">
+                            复用 rel 命令的评分器，对 LLM 推断的关系进行数据库验证。
+                        </div>
+                    </div>
+
+                    <div class="note-box">
+                        <strong>💡 评分维度：</strong> 与 rel 命令相同，使用 4 维度评分：
+                        <ul>
+                            <li>inclusion_rate (55%): 数据包含率</li>
+                            <li>name_similarity (20%): 列名相似度</li>
+                            <li>type_compatibility (15%): 类型兼容性</li>
+                            <li>jaccard_index (10%): Jaccard 相似度</li>
+                        </ul>
+                    </div>
+
+                    <h4>7.2.1 维度1: inclusion_rate（数据包含率）</h4>
+                    <div class="method-call">
+                        <div class="method-name">RelationshipScorer._sample_and_calculate_inclusion()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/scorer.py:246</div>
+                        <div class="description">
+                            从数据库采样并计算包含率和 Jaccard 指数。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>算法步骤：</h5>
+                        <ol>
+                            <li><strong>采样源表</strong>：<code>SELECT source_columns FROM source_table LIMIT 1000</code></li>
+                            <li><strong>采样目标表</strong>：<code>SELECT target_columns FROM target_table LIMIT 1000</code></li>
+                            <li><strong>提取值集合</strong>：
+                                <ul>
+                                    <li>单列：直接提取列值（排除 NULL）</li>
+                                    <li>复合列：组合为元组（如 (order_id, product_id)）</li>
+                                </ul>
+                            </li>
+                            <li><strong>计算交集</strong>：<code>intersection = source_values ∩ target_values</code></li>
+                            <li><strong>计算包含率</strong>：<code>inclusion_rate = |intersection| / |source_values|</code></li>
+                        </ol>
+                    </div>
+
+                    <div class="data-structure">
+                        <h5>计算示例：</h5>
+                        <pre>源表 employee 采样 1000 行，dept_id 值集合：
+source_values = {1, 2, 3, 4, 5}  # 5 个不同值
+
+目标表 department 采样 1000 行，dept_id 值集合：
+target_values = {1, 2, 3, 6, 7}  # 5 个不同值
+
+交集：
+intersection = {1, 2, 3}  # 3 个共同值
+
+包含率：
+inclusion_rate = 3 / 5 = 0.60 (60%)</pre>
+                    </div>
+
+                    <div class="warning-box">
+                        <strong>⚠️ NULL 值处理：</strong> 包含 NULL 的行会被排除，只计算有效值。如果 NULL 率超过 50%，会记录警告。
+                    </div>
+
+                    <h4>7.2.2 维度2: jaccard_index（Jaccard 相似度）</h4>
+                    <div class="method-call">
+                        <div class="method-name">RelationshipScorer._sample_and_calculate_inclusion()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/scorer.py:305</div>
+                        <div class="description">
+                            计算 Jaccard 相似度，衡量两个集合的重叠程度。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>算法公式：</h5>
+                        <ol>
+                            <li><strong>计算并集</strong>：<code>union = source_values ∪ target_values</code></li>
+                            <li><strong>计算 Jaccard</strong>：<code>jaccard_index = |intersection| / |union|</code></li>
+                        </ol>
+                    </div>
+
+                    <div class="data-structure">
+                        <h5>计算示例：</h5>
+                        <pre>使用上面相同的数据：
+source_values = {1, 2, 3, 4, 5}
+target_values = {1, 2, 3, 6, 7}
+intersection = {1, 2, 3}
+
+并集：
+union = {1, 2, 3, 4, 5, 6, 7}  # 7 个不同值
+
+Jaccard 相似度：
+jaccard_index = 3 / 7 = 0.43 (43%)</pre>
+                    </div>
+
+                    <div class="note-box">
+                        <strong>💡 与 inclusion_rate 的区别：</strong>
+                        <ul>
+                            <li><strong>inclusion_rate</strong>：关注源表值在目标表中的覆盖率（外键视角）</li>
+                            <li><strong>jaccard_index</strong>：关注两个集合的整体相似度（对称性）</li>
+                        </ul>
+                    </div>
+
+                    <h4>7.2.3 维度3: name_similarity（列名相似度）</h4>
+                    <div class="method-call">
+                        <div class="method-name">RelationshipScorer._calculate_name_similarity()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/scorer.py:511</div>
+                        <div class="description">
+                            计算列名相似度，使用 Levenshtein 算法（SequenceMatcher）。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>算法步骤：</h5>
+                        <ol>
+                            <li><strong>检查列数</strong>：源列和目标列数量必须相等，否则返回 0.0</li>
+                            <li><strong>逐对计算</strong>：对每对列名计算相似度
+                                <ul>
+                                    <li>完全相同：similarity = 1.0</li>
+                                    <li>不同：使用 SequenceMatcher.ratio() 计算</li>
+                                </ul>
+                            </li>
+                            <li><strong>平均值</strong>：<code>avg_similarity = sum(similarities) / len(columns)</code></li>
+                        </ol>
+                    </div>
+
+                    <div class="data-structure">
+                        <h5>计算示例：</h5>
+                        <pre>单列示例：
+source_column = "dept_id"
+target_column = "department_id"
+
+SequenceMatcher.ratio("dept_id", "department_id") = 0.73
+
+复合列示例：
+source_columns = ["order_id", "product_id"]
+target_columns = ["order_id", "prod_id"]
+
+逐对计算：
+- "order_id" vs "order_id": 1.0 (完全相同)
+- "product_id" vs "prod_id": 0.73
+
+平均值：
+name_similarity = (1.0 + 0.73) / 2 = 0.865</pre>
+                    </div>
+
+                    <div class="note-box">
+                        <strong>💡 SequenceMatcher 算法：</strong> 基于 Levenshtein 距离，计算两个字符串的相似度（0-1），考虑字符的插入、删除、替换操作。
+                    </div>
+
+                    <h4>7.2.4 维度4: type_compatibility（类型兼容性）</h4>
+                    <div class="method-call">
+                        <div class="method-name">RelationshipScorer._calculate_type_compatibility()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/scorer.py:541</div>
+                        <div class="description">
+                            计算数据类型兼容性，评估 JOIN 操作的性能。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>算法步骤：</h5>
+                        <ol>
+                            <li><strong>检查列数</strong>：源列和目标列数量必须相等，否则返回 0.0</li>
+                            <li><strong>逐对计算</strong>：对每对列的数据类型计算兼容性</li>
+                            <li><strong>类型标准化</strong>：移除精度/长度（如 numeric(10,2) → numeric）</li>
+                            <li><strong>兼容性判断</strong>：根据类型族判断兼容程度</li>
+                            <li><strong>平均值</strong>：<code>avg_compatibility = sum(compatibilities) / len(columns)</code></li>
+                        </ol>
+                    </div>
+
+                    <h5>类型兼容性规则：</h5>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>类型组合</th>
+                                <th>兼容性得分</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>完全相同</td>
+                                <td>1.0</td>
+                                <td>类型完全一致</td>
+                            </tr>
+                            <tr>
+                                <td>整数族内部</td>
+                                <td>1.0</td>
+                                <td>int, bigint, smallint, serial 等</td>
+                            </tr>
+                            <tr>
+                                <td>数值族内部</td>
+                                <td>0.8</td>
+                                <td>numeric, decimal, float, real 等</td>
+                            </tr>
+                            <tr>
+                                <td>整数 ↔ 数值</td>
+                                <td>0.6</td>
+                                <td>部分兼容（可能损失精度）</td>
+                            </tr>
+                            <tr>
+                                <td>字符串族内部</td>
+                                <td>0.5</td>
+                                <td>varchar, char, text 等（长度可能不同）</td>
+                            </tr>
+                            <tr>
+                                <td>其他组合</td>
+                                <td>0.0</td>
+                                <td>不兼容</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+            <!-- Section 8: Stage 5 -->
+            <div class="section" id="stage5">
+                <h2>8. 阶段5: 决策过滤</h2>
+
+                <div class="flow-stage" data-stage="阶段 5">
+                    <h3>8.1 阈值过滤</h3>
+                    <div class="method-call">
+                        <div class="method-name">LLMRelationshipDiscovery._filter_by_threshold()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/llm_relationship_discovery.py:789</div>
+                        <div class="description">
+                            根据 accept_threshold 过滤低置信度的关系。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>过滤逻辑：</h5>
+                        <ol>
+                            <li>检查 composite_score >= accept_threshold（默认 0.65）</li>
+                            <li>低于阈值的候选被拒绝</li>
+                            <li>高于阈值的候选被接受</li>
+                        </ol>
+                    </div>
+
+                    <div class="note-box">
+                        <strong>💡 阈值差异：</strong> rel_llm 的默认阈值（0.65）低于 rel（0.80），因为 LLM 推断的关系可能在名称相似度上得分较低，但语义上是正确的。
+                    </div>
+
+                    <h3>8.2 转换为 Relation 对象</h3>
+                    <div class="method-call">
+                        <div class="method-name">LLMRelationshipDiscovery._convert_to_relations()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/llm_relationship_discovery.py:819</div>
+                        <div class="description">
+                            将接受的候选转换为 Relation 对象。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>转换步骤：</h5>
+                        <ol>
+                            <li>提取表和列信息</li>
+                            <li>生成 relationship_id（使用 MetadataRepository.compute_relationship_id）</li>
+                            <li>设置 relationship_type = "inferred"</li>
+                            <li>设置 inference_method = "llm_assisted"</li>
+                            <li>创建 Relation 对象</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+            <!-- Section 9: Stage 6 -->
+            <div class="section" id="stage6">
+                <h2>9. 阶段6: 结果输出</h2>
+
+                <div class="flow-stage" data-stage="阶段 6">
+                    <h3>9.1 合并外键和推断关系</h3>
+                    <div class="logic-flow">
+                        <h5>合并步骤：</h5>
+                        <ol>
+                            <li>将外键直通关系（阶段1提取）添加到结果列表</li>
+                            <li>将 LLM 推断关系（阶段5过滤后）添加到结果列表</li>
+                            <li>计算统计信息（总数、外键数、推断数、置信度分布）</li>
+                        </ol>
+                    </div>
+
+                    <h3>9.2 输出 JSON 和 Markdown</h3>
+                    <div class="method-call">
+                        <div class="method-name">RelationshipWriter.write_results()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/writer.py:58</div>
+                        <div class="description">
+                            输出关系发现结果为 JSON 和 Markdown 格式。
+                        </div>
+                    </div>
+
+                    <div class="data-structure">
+                        <h5>JSON 输出结构：</h5>
+                        <pre>{
+  "generated_by": "rel_llm",
+  "metadata_source": "json_files",
+  "analysis_timestamp": "2025-12-28T10:30:00Z",
+  "statistics": {
+    "total_relationships_found": 45,
+    "foreign_key_relationships": 12,
+    "llm_assisted_relationships": 33,
+    "high_confidence_count": 20,
+    "medium_confidence_count": 13
+  },
+  "relationships": [...]
+}</pre>
+                    </div>
+
+                    <div class="note-box">
+                        <strong>💡 输出文件：</strong>
+                        <ul>
+                            <li><code>output/rel/relationships_global.json</code></li>
+                            <li><code>output/rel/relationships_global.md</code></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+            <!-- Section 10: Summary -->
+            <div class="section" id="summary">
+                <h2>10. 总结与对比</h2>
+
+                <h3>10.1 执行流程总结</h3>
+                <div class="flow-stage" data-stage="总结">
+                    <p>整个 <code>rel_llm</code> 命令的执行流程可以概括为以下 6 个阶段：</p>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>阶段</th>
+                                <th>核心模块</th>
+                                <th>主要功能</th>
+                                <th>数据库访问</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>阶段 1</td>
+                                <td>MetadataRepository</td>
+                                <td>加载 JSON 元数据，提取外键</td>
+                                <td>❌ 否</td>
+                            </tr>
+                            <tr>
+                                <td>阶段 2</td>
+                                <td>get_table_pairs</td>
+                                <td>生成表对组合（支持 domain 过滤）</td>
+                                <td>❌ 否</td>
+                            </tr>
+                            <tr>
+                                <td>阶段 3</td>
+                                <td>LLMService</td>
+                                <td>LLM 推断关系（同步/异步）</td>
+                                <td>❌ 否</td>
+                            </tr>
+                            <tr>
+                                <td>阶段 4</td>
+                                <td>RelationshipScorer</td>
+                                <td>数据库采样验证评分</td>
+                                <td>✅ 是</td>
+                            </tr>
+                            <tr>
+                                <td>阶段 5</td>
+                                <td>_filter_by_threshold</td>
+                                <td>阈值过滤，转换为 Relation</td>
+                                <td>❌ 否</td>
+                            </tr>
+                            <tr>
+                                <td>阶段 6</td>
+                                <td>RelationshipWriter</td>
+                                <td>输出 JSON 和 Markdown</td>
+                                <td>❌ 否</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>10.2 rel vs rel_llm 详细对比</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>维度</th>
+                            <th>rel（规则驱动）</th>
+                            <th>rel_llm（LLM 辅助）</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>候选生成</strong></td>
+                            <td>CandidateGenerator<br>基于物理约束和逻辑主键</td>
+                            <td>LLMService<br>语义推断</td>
+                        </tr>
+                        <tr>
+                            <td><strong>数据库访问</strong></td>
+                            <td>候选生成 + 评分</td>
+                            <td>仅评分阶段</td>
+                        </tr>
+                        <tr>
+                            <td><strong>默认阈值</strong></td>
+                            <td>0.80</td>
+                            <td>0.65（更宽松）</td>
+                        </tr>
+                        <tr>
+                            <td><strong>发现能力</strong></td>
+                            <td>依赖约束和命名规则<br>精确但召回率有限</td>
+                            <td>理解语义和业务逻辑<br>召回率更高</td>
+                        </tr>
+                        <tr>
+                            <td><strong>性能</strong></td>
+                            <td>快速（秒级）</td>
+                            <td>较慢（分钟级，取决于表数量）</td>
+                        </tr>
+                        <tr>
+                            <td><strong>成本</strong></td>
+                            <td>无额外成本</td>
+                            <td>LLM API 调用成本</td>
+                        </tr>
+                        <tr>
+                            <td><strong>适用场景</strong></td>
+                            <td>规范的数据库设计<br>有物理约束或命名规范</td>
+                            <td>缺少约束的遗留系统<br>不规范的命名</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>10.3 关键配置参数</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>配置项</th>
+                            <th>默认值</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>decision.accept_threshold</td>
+                            <td>0.65</td>
+                            <td>接受阈值（低于 rel 的 0.80）</td>
+                        </tr>
+                        <tr>
+                            <td>llm.retry_times</td>
+                            <td>2</td>
+                            <td>LLM 调用重试次数</td>
+                        </tr>
+                        <tr>
+                            <td>llm.retry_delay</td>
+                            <td>1</td>
+                            <td>重试延迟（秒）</td>
+                        </tr>
+                        <tr>
+                            <td>llm.langchain_config.use_async</td>
+                            <td>false</td>
+                            <td>是否使用异步调用</td>
+                        </tr>
+                        <tr>
+                            <td>llm.langchain_config.batch_size</td>
+                            <td>50</td>
+                            <td>异步批处理大小</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>10.4 性能指标</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h4>LLM 调用次数</h4>
+                        <div class="value">C(n,2)</div>
+                        <p style="margin-top: 10px; font-size: 0.9em;">n = 表数量（可用 domain 过滤减少）</p>
+                    </div>
+                    <div class="stat-card">
+                        <h4>数据库查询</h4>
+                        <div class="value">~2M</div>
+                        <p style="margin-top: 10px; font-size: 0.9em;">M = LLM 推断的关系数</p>
+                    </div>
+                    <div class="stat-card">
+                        <h4>评分维度</h4>
+                        <div class="value">4</div>
+                        <p style="margin-top: 10px; font-size: 0.9em;">与 rel 相同</p>
+                    </div>
+                    <div class="stat-card">
+                        <h4>输出格式</h4>
+                        <div class="value">2</div>
+                        <p style="margin-top: 10px; font-size: 0.9em;">JSON + Markdown</p>
+                    </div>
+                </div>
+
+                <h3>10.5 核心设计原则</h3>
+                <div class="llm-box">
+                    <strong>🎯 设计原则：</strong>
+                    <ul>
+                        <li><strong>LLM 语义理解</strong>：利用 LLM 理解表结构和字段语义，发现隐式关系</li>
+                        <li><strong>数据驱动验证</strong>：通过数据库采样验证 LLM 推断的准确性</li>
+                        <li><strong>外键直通</strong>：保留物理外键关系，与 LLM 推断关系合并</li>
+                        <li><strong>Domain 优化</strong>：支持按业务域过滤，减少不必要的 LLM 调用</li>
+                        <li><strong>异步批处理</strong>：支持异步并发调用，提高大规模数据处理效率</li>
+                        <li><strong>容错机制</strong>：LLM 调用失败自动重试，确保稳定性</li>
+                    </ul>
+                </div>
+
+                <h3>10.6 使用建议</h3>
+                <div class="note-box">
+                    <strong>💡 最佳实践：</strong>
+                    <ul>
+                        <li><strong>混合使用</strong>：先运行 rel 获取基于规则的关系，再运行 rel_llm 补充遗漏的关系</li>
+                        <li><strong>Domain 过滤</strong>：对于大型数据库，使用 --domain 参数减少 LLM 调用次数</li>
+                        <li><strong>异步模式</strong>：对于 50+ 张表，启用 use_async=true 提高效率</li>
+                        <li><strong>阈值调整</strong>：根据实际情况调整 accept_threshold（0.60-0.70 之间）</li>
+                        <li><strong>成本控制</strong>：使用 domain 过滤和合理的 batch_size 控制 API 成本</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>🤖 MetaWeave LLM 辅助关系发现流程详解 | 生成时间: 2025-12-28</p>
+            <p>💡 提示：使用浏览器的查找功能（Ctrl+F）快速定位特定方法或概念</p>
+        </footer>
+    </div>
+</body>
+</html>

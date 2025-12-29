@@ -328,3 +328,124 @@ SET r.cardinality     = j.cardinality,
 
         logger.info(f"生成 global 模式 CQL 脚本: {output_file}")
         return output_file
+
+    def write_metadata(
+        self,
+        tables: List[TableNode],
+        columns: List[ColumnNode],
+        has_column_rels: List[HASColumnRelation],
+        join_on_rels: List[JOINOnRelation],
+        step_name: str,
+        json_dir: Path,
+        rel_dir: Path
+    ) -> Path:
+        """生成 import_all.md 元数据文档（最小必需字段）
+
+        Args:
+            tables: 表节点列表
+            columns: 列节点列表
+            has_column_rels: HAS_COLUMN 关系列表
+            join_on_rels: JOIN_ON 关系列表
+            step_name: 执行的步骤名称（"cql" 或 "cql_llm"）
+            json_dir: JSON 输入目录
+            rel_dir: 关系输入目录
+
+        Returns:
+            元数据文档路径
+
+        Note:
+            CQL 输出目录使用 self.output_dir，无需额外传递
+        """
+        output_file = self.output_dir / "import_all.md"
+
+        # 生成时间
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # ✅ 统计数据（使用准确的关系列表）
+        has_column_count = len(has_column_rels)
+        join_on_count = len(join_on_rels)
+        edges_total = has_column_count + join_on_count
+
+        # ✅ 获取 import_all.cypher 的行数（完善的容错处理）
+        # 注意：此方法必须在 write_all() 之后调用，确保 Cypher 文件已生成
+        cypher_file = self.output_dir / "import_all.cypher"
+        cypher_lines = 0
+        if cypher_file.exists():
+            try:
+                with open(cypher_file, "r", encoding="utf-8") as f:
+                    cypher_lines = sum(1 for _ in f)
+                logger.debug(f"成功读取 Cypher 文件行数: {cypher_lines}")
+            except Exception as e:
+                logger.warning(f"无法读取 Cypher 文件行数: {e}")
+                cypher_lines = 0  # 降级处理：设为 0
+        else:
+            logger.warning(
+                f"import_all.cypher 不存在，无法统计行数。"
+                f"路径: {cypher_file}"
+            )
+            cypher_lines = 0  # 降级处理：设为 0
+
+        # ✅ 生成最小必需内容
+        content = f"""# Neo4j CQL 导入脚本元数据
+
+> **自动生成文档**
+> 本文件记录 CQL 脚本的生成信息和统计数据。
+
+---
+
+## 生成信息
+
+- **生成时间**: {timestamp}
+- **生成命令**: `metaweave metadata --step {step_name}`
+
+---
+
+## 统计数据
+
+### 节点
+
+| 节点类型 | 数量 |
+|---------|------|
+| Table | {len(tables)} |
+| Column | {len(columns)} |
+| **节点总数** | **{len(tables) + len(columns)}** |
+
+### 边
+
+| 边类型 | 数量 |
+|-------|------|
+| HAS_COLUMN | {has_column_count} |
+| JOIN_ON | {join_on_count} |
+| **边总数** | **{edges_total}** |
+
+---
+
+## 输入输出目录
+
+| 类型 | 路径 |
+|-----|------|
+| JSON 元数据 | `{json_dir}` |
+| 关系数据 | `{rel_dir}` |
+| CQL 输出 | `{self.output_dir}` |
+
+---
+
+## 输出文件
+
+| 文件名 | 行数 |
+|-------|------|
+| import_all.cypher | {cypher_lines} |
+| import_all.md | - |
+
+---
+
+**文档生成工具**: metaweave
+**文档版本**: 1.0
+"""
+
+        # 写入文件
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        logger.info(f"元数据文档已生成: {output_file}")
+        return output_file

@@ -1,0 +1,1615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>metaweave metadata --step rel 命令执行流程详解</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .command-box {
+            background: #2d3748;
+            color: #68d391;
+            padding: 20px;
+            margin: 30px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .toc {
+            background: #f7fafc;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 40px;
+            border-radius: 4px;
+        }
+
+        .toc h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .toc ul {
+            list-style: none;
+            padding-left: 20px;
+        }
+
+        .toc li {
+            margin: 8px 0;
+        }
+
+        .toc a {
+            color: #4a5568;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .toc a:hover {
+            color: #667eea;
+        }
+
+        .section {
+            margin-bottom: 50px;
+        }
+
+        .section h2 {
+            color: #2d3748;
+            font-size: 2em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .section h3 {
+            color: #4a5568;
+            font-size: 1.5em;
+            margin: 30px 0 15px 0;
+            padding-left: 15px;
+            border-left: 4px solid #68d391;
+        }
+
+        .section h4 {
+            color: #718096;
+            font-size: 1.2em;
+            margin: 20px 0 10px 0;
+        }
+
+        .flow-stage {
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            border: 2px solid #cbd5e0;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .flow-stage::before {
+            content: attr(data-stage);
+            position: absolute;
+            top: -15px;
+            left: 20px;
+            background: #667eea;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .method-call {
+            background: white;
+            border-left: 4px solid #48bb78;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .method-call .method-name {
+            font-family: 'Courier New', monospace;
+            color: #2d3748;
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+
+        .method-call .file-location {
+            color: #718096;
+            font-size: 0.9em;
+            font-style: italic;
+            margin-bottom: 10px;
+        }
+
+        .method-call .description {
+            color: #4a5568;
+            line-height: 1.8;
+        }
+
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .code-block .keyword {
+            color: #f687b3;
+        }
+
+        .code-block .string {
+            color: #68d391;
+        }
+
+        .code-block .comment {
+            color: #a0aec0;
+            font-style: italic;
+        }
+
+        .parameter-list {
+            background: #fff5f5;
+            border-left: 4px solid #fc8181;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .parameter-list h5 {
+            color: #c53030;
+            margin-bottom: 10px;
+        }
+
+        .parameter-list ul {
+            list-style: none;
+            padding-left: 20px;
+        }
+
+        .parameter-list li {
+            margin: 5px 0;
+            color: #4a5568;
+        }
+
+        .parameter-list code {
+            background: #fed7d7;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .logic-flow {
+            background: #fffaf0;
+            border-left: 4px solid #ed8936;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .logic-flow h5 {
+            color: #c05621;
+            margin-bottom: 10px;
+        }
+
+        .logic-flow ol {
+            padding-left: 25px;
+            color: #4a5568;
+        }
+
+        .logic-flow li {
+            margin: 8px 0;
+        }
+
+        .note-box {
+            background: #ebf8ff;
+            border-left: 4px solid #4299e1;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .note-box strong {
+            color: #2c5282;
+        }
+
+        .warning-box {
+            background: #fffaf0;
+            border-left: 4px solid #ed8936;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .warning-box strong {
+            color: #c05621;
+        }
+
+        .data-structure {
+            background: #f0fff4;
+            border: 2px solid #9ae6b4;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .data-structure h5 {
+            color: #22543d;
+            margin-bottom: 10px;
+        }
+
+        .data-structure pre {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .arrow {
+            text-align: center;
+            color: #667eea;
+            font-size: 2em;
+            margin: 10px 0;
+        }
+
+        footer {
+            background: #2d3748;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+        }
+
+        .highlight {
+            background: #fef5e7;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        table td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        table tr:hover {
+            background: #f7fafc;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .stat-card h4 {
+            font-size: 1em;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+
+        .stat-card .value {
+            font-size: 2em;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔗 MetaWeave 关系发现流程详解</h1>
+            <p>metaweave metadata --config configs/metadata_config.yaml --step rel</p>
+        </header>
+
+        <div class="command-box">
+            $ metaweave metadata --config configs/metadata_config.yaml --step rel
+        </div>
+
+        <div class="content">
+            <!-- Table of Contents -->
+            <div class="toc">
+                <h2>📋 目录</h2>
+                <ul>
+                    <li><a href="#overview">1. 命令概述</a></li>
+                    <li><a href="#entry">2. CLI 入口解析</a></li>
+                    <li><a href="#stage1">3. 阶段1: JSON加载与外键直通</a></li>
+                    <li><a href="#pipeline">4. 关系发现管道 (Pipeline)</a></li>
+                    <li><a href="#stage2">5. 阶段2: 候选关系生成</a></li>
+                    <li><a href="#stage3">6. 阶段3: 候选关系评分</a></li>
+                    <li><a href="#stage4">7. 阶段4: 决策过滤与抑制</a></li>
+                    <li><a href="#stage5">8. 阶段5: 结果输出</a></li>
+                    <li><a href="#summary">9. 总结与关键指标</a></li>
+                </ul>
+            </div>
+
+            <!-- Section 1: Overview -->
+            <div class="section" id="overview">
+                <h2>1. 命令概述</h2>
+
+                <p><code>metaweave metadata --step rel</code> 命令用于<span class="highlight">自动发现数据库表之间的关系</span>，包括外键直通关系和基于规则推断的隐式关系。</p>
+
+                <h3>核心功能</h3>
+                <ul>
+                    <li>✅ 从 JSON 元数据文件中提取外键直通关系</li>
+                    <li>✅ 基于物理约束（PK/UK/Index）和逻辑主键生成候选关系</li>
+                    <li>✅ 通过数据库采样计算 4 维度评分（包含率、名称相似度、类型兼容性、Jaccard 指数）</li>
+                    <li>✅ 应用决策规则过滤低置信度关系并抑制冗余关系</li>
+                    <li>✅ 输出 JSON 和 Markdown 格式的关系发现报告</li>
+                </ul>
+
+                <h3>执行流程概览</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h4>阶段 1</h4>
+                        <div class="value">JSON 加载</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>阶段 2</h4>
+                        <div class="value">候选生成</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>阶段 3</h4>
+                        <div class="value">候选评分</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>阶段 4</h4>
+                        <div class="value">决策过滤</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>阶段 5</h4>
+                        <div class="value">结果输出</div>
+                    </div>
+                </div>
+
+                <div class="note-box">
+                    <strong>💡 注意：</strong> rel 命令依赖于 <code>--step json</code> 生成的元数据文件，必须先执行 json 步骤才能运行 rel 步骤。
+                </div>
+            </div>
+
+            <!-- Section 2: CLI Entry -->
+            <div class="section" id="entry">
+                <h2>2. CLI 入口解析</h2>
+
+                <h3>2.1 命令行入口</h3>
+                <div class="method-call">
+                    <div class="method-name">cli()</div>
+                    <div class="file-location">📁 metaweave/cli/main.py:28</div>
+                    <div class="description">
+                        Click 命令组的主入口函数，负责初始化日志系统并注册子命令。
+                    </div>
+                </div>
+
+                <div class="logic-flow">
+                    <h5>执行逻辑：</h5>
+                    <ol>
+                        <li>解析全局参数 <code>--debug</code> 和 <code>--log-config</code></li>
+                        <li>调用 <code>setup_metaweave_logging()</code> 初始化日志系统</li>
+                        <li>如果启用 <code>--debug</code>，将所有日志级别提升到 DEBUG</li>
+                        <li>注册子命令：<code>metadata_command</code>、<code>load_command</code>、<code>dim_config_command</code></li>
+                    </ol>
+                </div>
+
+                <h3>2.2 metadata 子命令</h3>
+                <div class="method-call">
+                    <div class="method-name">metadata_command()</div>
+                    <div class="file-location">📁 metaweave/cli/metadata_cli.py:108</div>
+                    <div class="description">
+                        处理 <code>metadata</code> 子命令，根据 <code>--step</code> 参数路由到不同的处理逻辑。
+                    </div>
+                </div>
+
+                <div class="parameter-list">
+                    <h5>关键参数：</h5>
+                    <ul>
+                        <li><code>config</code>: 配置文件路径（必需）</li>
+                        <li><code>step</code>: 执行步骤，可选值：ddl, json, json_llm, rel, rel_llm, cql, cql_llm, md, all</li>
+                        <li><code>schemas</code>: 指定要处理的 schema 列表（可选）</li>
+                        <li><code>tables</code>: 指定要处理的表列表（可选）</li>
+                        <li><code>max_workers</code>: 最大并发数（默认 4）</li>
+                    </ul>
+                </div>
+
+                <h3>2.3 rel 步骤路由</h3>
+                <div class="code-block">
+<span class="comment"># metaweave/cli/metadata_cli.py:481-488</span>
+<span class="keyword">if</span> step == <span class="string">"rel"</span>:
+    <span class="keyword">from</span> metaweave.core.relationships.pipeline <span class="keyword">import</span> RelationshipDiscoveryPipeline
+
+    click.echo(<span class="string">"🔗 开始关系发现..."</span>)
+    click.echo(<span class="string">""</span>)
+
+    pipeline = RelationshipDiscoveryPipeline(config_path)
+    result = pipeline.discover()
+                </div>
+
+                <div class="logic-flow">
+                    <h5>路由逻辑：</h5>
+                    <ol>
+                        <li>检查 <code>step</code> 参数是否为 "rel"</li>
+                        <li>导入 <code>RelationshipDiscoveryPipeline</code> 类</li>
+                        <li>创建 Pipeline 实例，传入配置文件路径</li>
+                        <li>调用 <code>pipeline.discover()</code> 执行关系发现</li>
+                        <li>显示结果统计并输出文件路径</li>
+                    </ol>
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+            <!-- Section 3: Stage 1 -->
+            <div class="section" id="stage1">
+                <h2>3. 阶段1: JSON加载与外键直通</h2>
+
+                <div class="flow-stage" data-stage="阶段 1">
+                    <h3>3.1 加载 JSON 元数据</h3>
+                    <div class="method-call">
+                        <div class="method-name">MetadataRepository.load_all_tables()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/repository.py:41</div>
+                        <div class="description">
+                            从 <code>output/json</code> 目录加载所有表的元数据文件。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>加载逻辑：</h5>
+                        <ol>
+                            <li>使用 <code>glob("*.json")</code> 查找所有 JSON 文件</li>
+                            <li>排除模板文件（文件名以 <code>_template</code> 开头）</li>
+                            <li>逐个读取 JSON 文件并解析</li>
+                            <li>提取 <code>table_info.schema_name</code> 和 <code>table_info.table_name</code></li>
+                            <li>以 <code>"schema.table"</code> 为键存储到字典中</li>
+                        </ol>
+                    </div>
+
+                    <div class="data-structure">
+                        <h5>返回值示例：</h5>
+                        <pre>{
+    "public.employee": {
+        "table_info": {...},
+        "column_profiles": {...},
+        "table_profile": {...}
+    },
+    "public.department": {...}
+}</pre>
+                    </div>
+
+                    <h3>3.2 提取外键直通关系</h3>
+                    <div class="method-call">
+                        <div class="method-name">MetadataRepository.collect_foreign_keys()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/repository.py:79</div>
+                        <div class="description">
+                            从 JSON 元数据中提取物理外键约束，生成外键直通关系列表。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>提取逻辑：</h5>
+                        <ol>
+                            <li>遍历所有表的元数据</li>
+                            <li>从 <code>table_profile.physical_constraints.foreign_keys</code> 读取外键列表</li>
+                            <li>为每个外键生成确定性的 <code>relationship_id</code>（MD5 哈希前12位）</li>
+                            <li>推断外键的基数（1:1, 1:N, N:1, M:N）</li>
+                            <li>创建 <code>Relation</code> 对象并添加到列表</li>
+                            <li>收集外键签名集合（用于后续候选去重）</li>
+                        </ol>
+                    </div>
+
+                    <div class="note-box">
+                        <strong>💡 relationship_id 生成规则：</strong>
+                        <code>rel_ + MD5(source_schema.source_table.[sorted_columns]->target_schema.target_table.[sorted_columns] + salt)[:12]</code>
+                    </div>
+
+                    <h3>3.3 外键基数推断</h3>
+                    <div class="method-call">
+                        <div class="method-name">MetadataRepository._infer_cardinality()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/repository.py:255</div>
+                        <div class="description">
+                            基于物理约束和统计值推断外键关系的基数。
+                        </div>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>源列唯一性</th>
+                                <th>目标列唯一性</th>
+                                <th>推断基数</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>✅ 唯一</td>
+                                <td>✅ 唯一</td>
+                                <td>1:1</td>
+                            </tr>
+                            <tr>
+                                <td>✅ 唯一</td>
+                                <td>❌ 不唯一</td>
+                                <td>1:N</td>
+                            </tr>
+                            <tr>
+                                <td>❌ 不唯一</td>
+                                <td>✅ 唯一</td>
+                                <td>N:1</td>
+                            </tr>
+                            <tr>
+                                <td>❌ 不唯一</td>
+                                <td>❌ 不唯一</td>
+                                <td>M:N</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="warning-box">
+                        <strong>⚠️ 唯一性判断优先级：</strong> 物理约束（PK/UK）> 统计值（uniqueness >= 0.95）
+                    </div>
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+            <!-- Section 4: Pipeline -->
+            <div class="section" id="pipeline">
+                <h2>4. 关系发现管道 (Pipeline)</h2>
+
+                <h3>4.1 Pipeline 初始化</h3>
+                <div class="method-call">
+                    <div class="method-name">RelationshipDiscoveryPipeline.__init__()</div>
+                    <div class="file-location">📁 metaweave/core/relationships/pipeline.py:36</div>
+                    <div class="description">
+                        初始化关系发现管道，加载配置并创建各个模块实例。
+                    </div>
+                </div>
+
+                <div class="logic-flow">
+                    <h5>初始化步骤：</h5>
+                    <ol>
+                        <li>使用 <code>ConfigLoader</code> 加载配置文件（处理环境变量替换）</li>
+                        <li>提取 <code>relationships</code> 配置节点</li>
+                        <li>确定 JSON 目录路径（从 <code>output.json_directory</code> 或推导）</li>
+                        <li>初始化 <code>DatabaseConnector</code>（用于数据采样）</li>
+                        <li>初始化 <code>MetadataRepository</code>（用于加载 JSON 文件）</li>
+                        <li>初始化 <code>NameSimilarityService</code>（可选，用于语义相似度计算）</li>
+                        <li>初始化 <code>RelationshipScorer</code>（用于候选评分）</li>
+                        <li>初始化 <code>DecisionEngine</code>（用于决策过滤）</li>
+                        <li>初始化 <code>RelationshipWriter</code>（用于结果输出）</li>
+                    </ol>
+                </div>
+
+                <div class="note-box">
+                    <strong>💡 注意：</strong> <code>CandidateGenerator</code> 在初始化时不创建，因为它需要外键签名集合（fk_signature_set），该集合在阶段1才能获取。
+                </div>
+
+                <h3>4.2 Pipeline 核心方法</h3>
+                <div class="method-call">
+                    <div class="method-name">RelationshipDiscoveryPipeline.discover()</div>
+                    <div class="file-location">📁 metaweave/core/relationships/pipeline.py:103</div>
+                    <div class="description">
+                        执行 5 阶段关系发现流程，协调各个模块完成关系发现任务。
+                    </div>
+                </div>
+
+                <div class="data-structure">
+                    <h5>返回值结构：</h5>
+                    <pre>RelationshipDiscoveryResult {
+    success: bool                    # 是否成功
+    total_relations: int             # 总关系数
+    foreign_key_relations: int       # 外键直通关系数
+    inferred_relations: int          # 推断关系数
+    high_confidence_count: int       # 高置信度关系数
+    medium_confidence_count: int     # 中置信度关系数
+    suppressed_count: int            # 被抑制的关系数
+    output_files: List[str]          # 输出文件路径列表
+    errors: List[str]                # 错误信息列表
+}</pre>
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+            <!-- Section 5: Stage 2 -->
+            <div class="section" id="stage2">
+                <h2>5. 阶段2: 候选关系生成</h2>
+
+                <div class="flow-stage" data-stage="阶段 2">
+                    <h3>5.1 初始化候选生成器</h3>
+                    <div class="method-call">
+                        <div class="method-name">CandidateGenerator.__init__()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/candidate_generator.py:24</div>
+                        <div class="description">
+                            初始化候选生成器，传入配置和外键签名集合（用于去重）。
+                        </div>
+                    </div>
+
+                    <h3>5.2 生成复合键候选</h3>
+                    <div class="method-call">
+                        <div class="method-name">CandidateGenerator._generate_composite_candidates()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/candidate_generator.py:101</div>
+                        <div class="description">
+                            生成复合键候选关系（2-3列组合）。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>复合键来源：</h5>
+                        <ol>
+                            <li><strong>物理约束</strong>：PK/UK/Index 组合（源表不包含索引）</li>
+                            <li><strong>逻辑主键</strong>：confidence >= 0.8 的候选逻辑主键</li>
+                            <li><strong>动态同名</strong>：精确同名 + 类型兼容（大小写不敏感）</li>
+                        </ol>
+                    </div>
+
+                    <h4>5.2.1 复合键匹配策略：两阶段匹配</h4>
+                    <div class="method-call">
+                        <div class="method-name">CandidateGenerator._find_target_columns()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/candidate_generator.py:224</div>
+                        <div class="description">
+                            在目标表中查找匹配的列组合，使用两阶段策略。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>Stage 1: 特权模式（Privilege Mode）</h5>
+                        <ol>
+                            <li><strong>适用条件</strong>：源表是 PK/UK/逻辑键</li>
+                            <li><strong>目标约束</strong>：检查目标表的 PK/UK/Index/逻辑键</li>
+                            <li><strong>匹配算法</strong>：穷举排列 + 较低的名称相似度阈值</li>
+                            <li><strong>短路机制</strong>：匹配成功立即返回</li>
+                        </ol>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>Stage 2: 动态同名匹配（Dynamic Same-Name）</h5>
+                        <ol>
+                            <li><strong>适用条件</strong>：Stage 1 未找到匹配</li>
+                            <li><strong>匹配规则</strong>：大小写不敏感的列名匹配</li>
+                            <li><strong>类型检查</strong>：type_compatibility >= 配置阈值</li>
+                            <li><strong>过滤规则</strong>：源表不过滤，目标表区分物理/逻辑约束</li>
+                        </ol>
+                    </div>
+
+                    <h4>5.2.2 穷举排列算法</h4>
+                    <div class="method-call">
+                        <div class="method-name">CandidateGenerator._match_columns_as_set()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/candidate_generator.py:353</div>
+                        <div class="description">
+                            使用 O(n! × n) 的穷举排列算法找到最佳匹配。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>算法步骤：</h5>
+                        <ol>
+                            <li><strong>源列过滤</strong>：完全不过滤（尊重所有约束）</li>
+                            <li><strong>目标列过滤</strong>：
+                                <ul>
+                                    <li>物理约束（PK/UK/Index）：不过滤</li>
+                                    <li>逻辑约束：按 composite_exclude_roles 配置过滤</li>
+                                </ul>
+                            </li>
+                            <li><strong>穷举排列</strong>：尝试所有可能的列顺序组合</li>
+                            <li><strong>逐对检查</strong>：每对列必须满足：
+                                <ul>
+                                    <li>name_similarity >= min_name_similarity</li>
+                                    <li>type_compatibility >= min_type_compatibility</li>
+                                </ul>
+                            </li>
+                            <li><strong>综合评分</strong>：0.5×avg_name_sim + 0.5×avg_type_compat</li>
+                            <li><strong>选择最优</strong>：返回综合得分最高的排列</li>
+                        </ol>
+                    </div>
+
+                    <div class="note-box">
+                        <strong>💡 复合键示例：</strong><br>
+                        源表 <code>order_item</code> 有复合主键 <code>(order_id, product_id)</code><br>
+                        目标表 <code>inventory</code> 有索引 <code>(product_id, warehouse_id)</code><br>
+                        → Stage 1 会尝试匹配 <code>product_id</code>，但因列数不等而失败<br>
+                        → Stage 2 会尝试动态同名匹配，但因 <code>order_id</code> 在目标表不存在而失败
+                    </div>
+
+                    <h3>5.3 生成单列候选</h3>
+                    <div class="method-call">
+                        <div class="method-name">CandidateGenerator._generate_single_column_candidates()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/candidate_generator.py:813</div>
+                        <div class="description">
+                            生成单列候选关系。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>单列候选条件：</h5>
+                        <ol>
+                            <li><strong>源列要求</strong>：必须有定义约束（PK/UK）或是逻辑主键</li>
+                            <li><strong>目标列要求</strong>：必须有约束（PK/UK/Index）或是逻辑主键</li>
+                            <li><strong>类型兼容性</strong>：type_compatibility >= 0.5</li>
+                            <li><strong>名称相似度</strong>：动态阈值（重要目标 >= 0.7，普通目标 >= 0.85）</li>
+                        </ol>
+                    </div>
+
+                    <h4>5.3.1 单列候选生成流程</h4>
+                    <div class="logic-flow">
+                        <h5>详细步骤：</h5>
+                        <ol>
+                            <li><strong>遍历源表</strong>：检查每个表的所有列</li>
+                            <li><strong>源列筛选</strong>：
+                                <ul>
+                                    <li>检查是否有定义约束（PK/UK）</li>
+                                    <li>检查是否为逻辑主键（confidence >= 0.8）</li>
+                                    <li>必须至少满足一个条件</li>
+                                    <li><strong>不过滤语义角色</strong>（尊重物理约束和逻辑主键）</li>
+                                </ul>
+                            </li>
+                            <li><strong>遍历目标表</strong>：对每个源列，遍历所有目标表的列</li>
+                            <li><strong>目标列筛选</strong>：
+                                <ul>
+                                    <li>物理约束（PK/UK/Index）：<strong>不过滤</strong></li>
+                                    <li>逻辑约束：按 exclude_semantic_roles 配置过滤</li>
+                                </ul>
+                            </li>
+                            <li><strong>类型兼容性检查</strong>：type_compatibility >= 0.5</li>
+                            <li><strong>名称相似度检查</strong>：
+                                <ul>
+                                    <li>目标列是"重要列"（有约束/逻辑键）：threshold = 0.7</li>
+                                    <li>目标列是"普通列"：threshold = 0.85</li>
+                                </ul>
+                            </li>
+                            <li><strong>FK 去重</strong>：检查是否已存在外键关系</li>
+                            <li><strong>确定候选类型</strong>：
+                                <ul>
+                                    <li>single_defined_constraint_and_logical_pk</li>
+                                    <li>single_defined_constraint</li>
+                                    <li>single_logical_key</li>
+                                </ul>
+                            </li>
+                        </ol>
+                    </div>
+
+                    <h4>5.3.2 单列候选示例</h4>
+                    <div class="note-box">
+                        <strong>💡 示例 1：主键到主键</strong><br>
+                        源表 <code>department</code> 有主键 <code>dept_id</code><br>
+                        目标表 <code>employee</code> 有列 <code>dept_id</code>（有索引）<br>
+                        → 类型兼容：INTEGER ↔ INTEGER = 1.0<br>
+                        → 名称相似度：dept_id ↔ dept_id = 1.0<br>
+                        → 候选类型：single_defined_constraint<br>
+                        → <strong>生成候选</strong>
+                    </div>
+
+                    <div class="note-box">
+                        <strong>💡 示例 2：逻辑主键到索引列</strong><br>
+                        源表 <code>product</code> 有逻辑主键 <code>product_code</code>（confidence=0.95）<br>
+                        目标表 <code>order_item</code> 有列 <code>product_code</code>（有索引）<br>
+                        → 类型兼容：VARCHAR ↔ VARCHAR = 0.85<br>
+                        → 名称相似度：product_code ↔ product_code = 1.0<br>
+                        → 候选类型：single_logical_key<br>
+                        → <strong>生成候选</strong>
+                    </div>
+
+                    <div class="warning-box">
+                        <strong>⚠️ 关键原则：</strong> 源列完全不过滤语义角色（尊重物理约束和逻辑主键），目标列区分物理约束（不过滤）和逻辑约束（按配置过滤）。
+                    </div>
+
+                    <h4>5.3.3 单列候选生成完整条件清单</h4>
+                    <div class="data-structure">
+                        <h5>一、源列（Source Column）必须满足的条件</h5>
+
+                        <h6 style="color: #22543d; margin-top: 15px;">✅ 必要条件（至少满足一项）</h6>
+
+                        <p style="margin-top: 10px;"><strong>1. 有定义约束（Defined Constraint）</strong></p>
+                        <div class="code-block">
+<span class="comment"># 代码位置：candidate_generator.py:995-1014</span>
+<span class="keyword">def</span> _has_defined_constraint(self, col_profile: dict) -> bool:
+    structure_flags = col_profile.get(<span class="string">"structure_flags"</span>, {})
+
+    <span class="comment"># 检查单列主键</span>
+    <span class="keyword">if</span> structure_flags.get(<span class="string">"is_primary_key"</span>):
+        <span class="keyword">if</span> <span class="string">"single_field_primary_key"</span> <span class="keyword">in</span> self.important_constraints:
+            <span class="keyword">return</span> True
+
+    <span class="comment"># 检查单列唯一约束</span>
+    <span class="keyword">if</span> structure_flags.get(<span class="string">"is_unique"</span>) <span class="keyword">or</span> structure_flags.get(<span class="string">"is_unique_constraint"</span>):
+        <span class="keyword">if</span> <span class="string">"single_field_unique_constraint"</span> <span class="keyword">in</span> self.important_constraints:
+            <span class="keyword">return</span> True
+
+    <span class="keyword">return</span> False
+</div>
+
+                        <table style="margin-top: 10px;">
+                            <thead>
+                                <tr>
+                                    <th>约束类型</th>
+                                    <th>检查条件</th>
+                                    <th>配置要求</th>
+                                    <th>默认启用</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>单列主键</td>
+                                    <td><code>structure_flags.is_primary_key = True</code></td>
+                                    <td><code>"single_field_primary_key"</code> 在 <code>important_constraints</code> 中</td>
+                                    <td>✅ 是</td>
+                                </tr>
+                                <tr>
+                                    <td>单列唯一约束</td>
+                                    <td><code>structure_flags.is_unique = True</code></td>
+                                    <td><code>"single_field_unique_constraint"</code> 在 <code>important_constraints</code> 中</td>
+                                    <td>✅ 是</td>
+                                </tr>
+                                <tr>
+                                    <td>单列索引</td>
+                                    <td><code>structure_flags.is_indexed = True</code></td>
+                                    <td><code>"single_field_index"</code> 在 <code>important_constraints</code> 中</td>
+                                    <td>❌ 否（已注释）</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <p style="margin-top: 15px;"><strong>2. 是逻辑主键（Logical Primary Key）</strong></p>
+                        <div class="code-block">
+<span class="comment"># 代码位置：candidate_generator.py:1016-1029</span>
+<span class="keyword">def</span> _is_logical_primary_key(self, col_name: str, table: dict) -> bool:
+    table_profile = table.get(<span class="string">"table_profile"</span>, {})
+    logical_keys = table_profile.get(<span class="string">"logical_keys"</span>, {})
+
+    <span class="keyword">for</span> lk <span class="keyword">in</span> logical_keys.get(<span class="string">"candidate_primary_keys"</span>, []):
+        lk_cols = lk.get(<span class="string">"columns"</span>, [])
+        lk_conf = lk.get(<span class="string">"confidence_score"</span>, 0)
+
+        <span class="comment"># 单列逻辑主键且置信度足够</span>
+        <span class="keyword">if</span> len(lk_cols) == 1 <span class="keyword">and</span> lk_cols[0] == col_name <span class="keyword">and</span> lk_conf >= 0.8:
+            <span class="keyword">return</span> True
+
+    <span class="keyword">return</span> False
+</div>
+
+                        <ul style="margin-top: 10px;">
+                            <li>✅ 在 <code>table_profile.logical_keys.candidate_primary_keys</code> 中</li>
+                            <li>✅ <strong>单列</strong>逻辑主键（<code>len(columns) == 1</code>）</li>
+                            <li>✅ 置信度 <code>>= 0.8</code>（配置：<code>single_column.logical_key_min_confidence</code>）</li>
+                        </ul>
+
+                        <div class="warning-box" style="margin-top: 15px;">
+                            <strong>⚠️ 重要：</strong> 如果源列既无约束，也不是逻辑主键，会在 candidate_generator.py:838 被跳过：
+                            <div class="code-block" style="margin-top: 10px;">
+<span class="keyword">if</span> <span class="keyword">not</span> (has_defined_constraint <span class="keyword">or</span> is_logical_pk):
+    <span class="keyword">continue</span>  <span class="comment"># 直接跳过，不生成候选</span>
+</div>
+                        </div>
+
+                        <h6 style="color: #22543d; margin-top: 20px;">✅ 语义角色过滤规则</h6>
+                        <div class="note-box">
+                            <strong>💡 重要：源列完全不过滤语义角色！</strong>
+                            <ul>
+                                <li>代码行841-846明确说明：源列不进行语义角色过滤</li>
+                                <li><strong>原因1</strong>：物理约束（PK/UK）由 DBA 明确定义，必须完全尊重</li>
+                                <li><strong>原因2</strong>：逻辑主键在元数据生成阶段已按配置过滤，此处不再二次过滤</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="data-structure">
+                        <h5>二、目标列（Target Column）必须满足的条件</h5>
+
+                        <h6 style="color: #22543d; margin-top: 15px;">✅ 条件1：语义角色过滤（区分物理约束和逻辑约束）</h6>
+
+                        <p style="margin-top: 10px;"><strong>物理约束：完全不过滤</strong></p>
+                        <div class="code-block">
+<span class="comment"># 代码位置：candidate_generator.py:870-885</span>
+target_has_physical = (
+    target_structure_flags.get(<span class="string">"is_primary_key"</span>) <span class="keyword">or</span>          <span class="comment"># PK</span>
+    target_structure_flags.get(<span class="string">"is_unique"</span>) <span class="keyword">or</span>               <span class="comment"># UK</span>
+    target_structure_flags.get(<span class="string">"is_unique_constraint"</span>) <span class="keyword">or</span>    <span class="comment"># UK</span>
+    target_structure_flags.get(<span class="string">"is_indexed"</span>)                 <span class="comment"># 索引（目标表特有）</span>
+)
+
+<span class="keyword">if</span> target_has_physical:
+    <span class="keyword">pass</span>  <span class="comment"># ✅ 物理约束不过滤，直接通过</span>
+</div>
+
+                        <p style="margin-top: 15px;"><strong>非物理约束：按配置排除</strong></p>
+                        <div class="code-block">
+<span class="comment"># 代码位置：candidate_generator.py:887-893</span>
+<span class="keyword">else</span>:
+    <span class="keyword">if</span> target_role <span class="keyword">in</span> self.exclude_semantic_roles:
+        <span class="keyword">continue</span>  <span class="comment"># ❌ 跳过该列</span>
+</div>
+
+                        <table style="margin-top: 10px;">
+                            <thead>
+                                <tr>
+                                    <th>语义角色</th>
+                                    <th>说明</th>
+                                    <th>是否排除</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>audit</code></td>
+                                    <td>审计字段（如 created_at, updated_by）</td>
+                                    <td>✅ 排除</td>
+                                </tr>
+                                <tr>
+                                    <td><code>metric</code></td>
+                                    <td>度量字段（如 amount, quantity）</td>
+                                    <td>✅ 排除</td>
+                                </tr>
+                                <tr>
+                                    <td><code>description</code></td>
+                                    <td>描述字段（如 remark, note）</td>
+                                    <td>✅ 排除</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h6 style="color: #22543d; margin-top: 20px;">✅ 条件2：类型兼容性</h6>
+                        <div class="code-block">
+<span class="comment"># 代码位置：candidate_generator.py:899-914</span>
+type_compat = self._get_type_compatibility_score(src_type, tgt_type)
+
+<span class="keyword">if</span> type_compat < self.single_min_type_compatibility:
+    <span class="keyword">continue</span>  <span class="comment"># 类型兼容性不足，跳过</span>
+</div>
+                        <ul style="margin-top: 10px;">
+                            <li>阈值：<code>>= 0.8</code>（配置：<code>single_column.min_type_compatibility</code>）</li>
+                            <li>评分规则：完全相同=1.0，整数族内部=0.9，字符串族=0.85-0.8，跨大类=0.0</li>
+                        </ul>
+
+                        <h6 style="color: #22543d; margin-top: 20px;">✅ 条件3：名称相似度（动态阈值）</h6>
+                        <div class="code-block">
+<span class="comment"># 代码位置：candidate_generator.py:916-940</span>
+is_important_target = self._is_qualified_target_column(...)
+name_sim = self._calculate_name_similarity(col_name, target_col_name)
+
+<span class="keyword">if</span> is_important_target:
+    threshold = self.single_name_similarity_important_target  <span class="comment"># 0.6</span>
+<span class="keyword">else</span>:
+    threshold = self.name_similarity_normal_target  <span class="comment"># 0.9</span>
+
+<span class="keyword">if</span> name_sim < threshold:
+    <span class="keyword">continue</span>  <span class="comment"># 名称相似度不足，跳过</span>
+</div>
+
+                        <p style="margin-top: 15px;"><strong>目标列是否"重要"的判断</strong>（代码行1031-1066）：</p>
+                        <div class="code-block">
+<span class="keyword">def</span> _is_qualified_target_column(self, col_name: str, col_profile: dict, table: dict) -> bool:
+    structure_flags = col_profile.get(<span class="string">"structure_flags"</span>, {})
+
+    <span class="comment"># 满足任一条件即为"重要"</span>
+    <span class="keyword">if</span> structure_flags.get(<span class="string">"is_primary_key"</span>):
+        <span class="keyword">return</span> True
+    <span class="keyword">if</span> structure_flags.get(<span class="string">"is_unique"</span>) <span class="keyword">or</span> structure_flags.get(<span class="string">"is_unique_constraint"</span>):
+        <span class="keyword">return</span> True
+    <span class="keyword">if</span> structure_flags.get(<span class="string">"is_indexed"</span>):
+        <span class="keyword">return</span> True
+    <span class="keyword">if</span> self._is_logical_primary_key(col_name, table):
+        <span class="keyword">return</span> True
+    <span class="keyword">return</span> False
+</div>
+
+                        <table style="margin-top: 10px;">
+                            <thead>
+                                <tr>
+                                    <th>目标列类型</th>
+                                    <th>名称相似度阈值</th>
+                                    <th>说明</th>
+                                    <th>示例</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>重要列<br>（PK/UK/索引/逻辑键）</td>
+                                    <td><code>>= 0.6</code></td>
+                                    <td>宽松阈值<br>这些列本身就有较强的关联语义</td>
+                                    <td><code>dept_id → department_id</code><br>（相似度0.73，可通过）</td>
+                                </tr>
+                                <tr>
+                                    <td>普通列<br>（无约束）</td>
+                                    <td><code>>= 0.9</code></td>
+                                    <td>严格阈值<br>必须名称高度相似才能确认关系</td>
+                                    <td><code>customer_code → customer_code</code><br>（几乎完全相同）</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <h6 style="color: #22543d; margin-top: 20px;">✅ 条件4：外键去重</h6>
+                        <div class="code-block">
+<span class="comment"># 代码位置：candidate_generator.py:942-955</span>
+fk_sig = self._make_signature(...)
+<span class="keyword">if</span> fk_sig <span class="keyword">in</span> self.fk_signature_set:
+    <span class="keyword">continue</span>  <span class="comment"># 已存在物理外键，跳过</span>
+</div>
+                        <ul style="margin-top: 10px;">
+                            <li>检查是否已存在相同的物理外键关系</li>
+                            <li>避免重复生成已有的外键候选</li>
+                        </ul>
+                    </div>
+
+                    <div class="data-structure">
+                        <h5>三、候选类型分类</h5>
+                        <div class="code-block">
+<span class="comment"># 代码位置：candidate_generator.py:957-971</span>
+<span class="keyword">if</span> has_defined_constraint <span class="keyword">and</span> is_logical_pk:
+    candidate_type = <span class="string">"single_defined_constraint_and_logical_pk"</span>
+<span class="keyword">elif</span> has_defined_constraint <span class="keyword">and</span> <span class="keyword">not</span> is_logical_pk:
+    candidate_type = <span class="string">"single_defined_constraint"</span>
+<span class="keyword">elif</span> is_logical_pk <span class="keyword">and</span> <span class="keyword">not</span> has_defined_constraint:
+    candidate_type = <span class="string">"single_logical_key"</span>
+</div>
+
+                        <table style="margin-top: 10px;">
+                            <thead>
+                                <tr>
+                                    <th>候选类型</th>
+                                    <th>条件</th>
+                                    <th>说明</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>single_defined_constraint_and_logical_pk</code></td>
+                                    <td>既有物理约束，又是逻辑主键</td>
+                                    <td>最强的候选类型</td>
+                                </tr>
+                                <tr>
+                                    <td><code>single_defined_constraint</code></td>
+                                    <td>有物理约束（PK/UK），但不是逻辑主键</td>
+                                    <td>基于数据库定义的候选</td>
+                                </tr>
+                                <tr>
+                                    <td><code>single_logical_key</code></td>
+                                    <td>是逻辑主键，但无物理约束</td>
+                                    <td>基于统计推断的候选</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="data-structure">
+                        <h5>四、完整条件流程图</h5>
+                        <pre style="background: white; padding: 15px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 0.85em; line-height: 1.5;">
+源列检查
+├─ 1️⃣ 有定义约束？（PK/UK）
+│   └─ ✅ 是 → 继续
+│   └─ ❌ 否 → 检查下一条
+├─ 2️⃣ 是逻辑主键？（单列 + confidence >= 0.8）
+│   └─ ✅ 是 → 继续
+│   └─ ❌ 否 → ❌ 跳过该列
+└─ ✅ 通过源列检查
+
+目标列检查（对每个目标表的每个列）
+├─ 1️⃣ 语义角色过滤
+│   ├─ 目标列有物理约束？（PK/UK/索引）
+│   │   └─ ✅ 是 → 不过滤，继续
+│   └─ 目标列无物理约束
+│       ├─ 语义角色是 audit/metric/description？
+│       │   └─ ✅ 是 → ❌ 跳过
+│       └─ ❌ 否 → 继续
+├─ 2️⃣ 类型兼容性 >= 0.8？
+│   └─ ❌ 否 → 跳过
+├─ 3️⃣ 名称相似度检查
+│   ├─ 目标列是重要列？（PK/UK/索引/逻辑主键）
+│   │   └─ ✅ 是 → 阈值 0.6
+│   │   └─ ❌ 否 → 阈值 0.9
+│   └─ name_sim >= threshold？
+│       └─ ❌ 否 → 跳过
+├─ 4️⃣ 外键去重
+│   └─ 已存在物理外键？
+│       └─ ✅ 是 → ❌ 跳过
+└─ ✅ 通过所有检查 → 生成候选
+</pre>
+                    </div>
+
+                    <div class="note-box">
+                        <strong>🎯 关键要点总结：</strong>
+                        <ol>
+                            <li><strong>源列门槛高</strong>：必须有约束（PK/UK）或是逻辑主键</li>
+                            <li><strong>目标列门槛灵活</strong>：
+                                <ul>
+                                    <li>有物理约束 → 完全不过滤语义角色</li>
+                                    <li>无物理约束 → 排除 audit/metric/description</li>
+                                </ul>
+                            </li>
+                            <li><strong>名称相似度动态阈值</strong>：
+                                <ul>
+                                    <li>重要目标列：0.6（宽松，允许部分匹配）</li>
+                                    <li>普通目标列：0.9（严格，几乎完全相同）</li>
+                                </ul>
+                            </li>
+                            <li><strong>类型兼容性要求高</strong>：统一阈值 0.8</li>
+                            <li><strong>源列完全不过滤语义角色</strong>：尊重DBA定义和逻辑主键推断结果</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+            <!-- Section 6: Stage 3 -->
+            <div class="section" id="stage3">
+                <h2>6. 阶段3: 候选关系评分</h2>
+
+                <div class="flow-stage" data-stage="阶段 3">
+                    <h3>6.1 评分器初始化</h3>
+                    <div class="method-call">
+                        <div class="method-name">RelationshipScorer.score_candidates()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/scorer.py:64</div>
+                        <div class="description">
+                            为所有候选关系计算 4 维度评分。
+                        </div>
+                    </div>
+
+                    <h3>6.2 评分维度</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>维度</th>
+                                <th>权重</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>inclusion_rate</td>
+                                <td>55%</td>
+                                <td>源列值在目标列中的包含率（数据库采样）</td>
+                            </tr>
+                            <tr>
+                                <td>name_similarity</td>
+                                <td>20%</td>
+                                <td>列名相似度（Levenshtein 算法）</td>
+                            </tr>
+                            <tr>
+                                <td>type_compatibility</td>
+                                <td>15%</td>
+                                <td>类型兼容性（体现 JOIN 性能）</td>
+                            </tr>
+                            <tr>
+                                <td>jaccard_index</td>
+                                <td>10%</td>
+                                <td>Jaccard 相似度（辅助判断）</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="note-box">
+                        <strong>💡 综合评分公式：</strong>
+                        <code>composite_score = 0.55×inclusion_rate + 0.20×name_similarity + 0.15×type_compatibility + 0.10×jaccard_index</code>
+                    </div>
+
+                    <h3>6.3 数据库采样与评分</h3>
+                    <div class="method-call">
+                        <div class="method-name">RelationshipScorer._sample_and_calculate_inclusion()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/scorer.py:246</div>
+                        <div class="description">
+                            从数据库采样并计算包含率、Jaccard 指数、唯一性和 JOIN 倍率。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>采样与计算流程：</h5>
+                        <ol>
+                            <li>从源表和目标表各采样 1000 行（可配置）</li>
+                            <li>提取值集合（排除 NULL 值）</li>
+                            <li>计算交集和并集</li>
+                            <li>计算 inclusion_rate = |交集| / |源集合|</li>
+                            <li>计算 jaccard_index = |交集| / |并集|</li>
+                            <li>计算源列和目标列的唯一性</li>
+                            <li>执行 JOIN COUNT 查询获取 JOIN 倍率</li>
+                        </ol>
+                    </div>
+
+                    <h3>6.4 基数推断</h3>
+                    <div class="method-call">
+                        <div class="method-name">RelationshipScorer._calculate_cardinality()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/scorer.py:412</div>
+                        <div class="description">
+                            基于唯一性和 JOIN 倍率推断关系基数。
+                        </div>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>源唯一性</th>
+                                <th>目标唯一性</th>
+                                <th>JOIN 倍率</th>
+                                <th>推断基数</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>>= 0.95</td>
+                                <td>>= 0.95</td>
+                                <td>-</td>
+                                <td>1:1</td>
+                            </tr>
+                            <tr>
+                                <td>>= 0.95</td>
+                                <td>< 0.80</td>
+                                <td>-</td>
+                                <td>1:N</td>
+                            </tr>
+                            <tr>
+                                <td>< 0.80</td>
+                                <td>>= 0.95</td>
+                                <td>-</td>
+                                <td>N:1</td>
+                            </tr>
+                            <tr>
+                                <td>[0.80, 0.95)</td>
+                                <td>[0.80, 0.95)</td>
+                                <td><= 1.1</td>
+                                <td>1:1 或 N:1</td>
+                            </tr>
+                            <tr>
+                                <td>[0.80, 0.95)</td>
+                                <td>[0.80, 0.95)</td>
+                                <td>> 1.5</td>
+                                <td>1:N 或 M:N</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+            <!-- Section 7: Stage 4 -->
+            <div class="section" id="stage4">
+                <h2>7. 阶段4: 决策过滤与抑制</h2>
+
+                <div class="flow-stage" data-stage="阶段 4">
+                    <h3>7.1 决策引擎初始化</h3>
+                    <div class="method-call">
+                        <div class="method-name">DecisionEngine.filter_and_suppress()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/decision_engine.py:43</div>
+                        <div class="description">
+                            应用决策规则过滤低置信度关系并抑制冗余关系。
+                        </div>
+                    </div>
+
+                    <h3>7.2 阈值过滤</h3>
+                    <div class="logic-flow">
+                        <h5>过滤规则：</h5>
+                        <ol>
+                            <li>检查 <code>composite_score >= accept_threshold</code>（默认 0.80）</li>
+                            <li>低于阈值的候选直接丢弃</li>
+                            <li>高于阈值的候选进入抑制规则检查</li>
+                        </ol>
+                    </div>
+
+                    <h3>7.3 抑制规则</h3>
+                    <div class="method-call">
+                        <div class="method-name">DecisionEngine._apply_suppression()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/decision_engine.py:102</div>
+                        <div class="description">
+                            应用抑制规则，避免复合关系和单列关系的冗余。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>抑制逻辑：</h5>
+                        <ol>
+                            <li>按表对（source_table -> target_table）分组</li>
+                            <li>如果存在复合关系，检查单列关系：
+                                <ul>
+                                    <li>✅ 单列有独立约束（PK/UK/Index）→ 保留</li>
+                                    <li>❌ 单列无独立约束 → 抑制</li>
+                                </ul>
+                            </li>
+                            <li>如果不存在复合关系，保留所有单列关系</li>
+                        </ol>
+                    </div>
+
+                    <div class="warning-box">
+                        <strong>⚠️ 抑制原则：</strong> 复合关系优先，单列关系只有在有独立约束时才能与复合关系共存。
+                    </div>
+
+                    <h3>7.4 转换为 Relation 对象</h3>
+                    <div class="method-call">
+                        <div class="method-name">DecisionEngine._candidate_to_relation()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/decision_engine.py:217</div>
+                        <div class="description">
+                            将候选字典转换为 Relation 对象，生成 relationship_id。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+            <!-- Section 8: Stage 5 -->
+            <div class="section" id="stage5">
+                <h2>8. 阶段5: 结果输出</h2>
+
+                <div class="flow-stage" data-stage="阶段 5">
+                    <h3>8.1 输出器初始化</h3>
+                    <div class="method-call">
+                        <div class="method-name">RelationshipWriter.write_results()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/writer.py:58</div>
+                        <div class="description">
+                            输出关系发现结果为 JSON 和 Markdown 格式。
+                        </div>
+                    </div>
+
+                    <h3>8.2 JSON 输出（v3.2 格式）</h3>
+                    <div class="method-call">
+                        <div class="method-name">RelationshipWriter._write_json_v32()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/writer.py:98</div>
+                        <div class="description">
+                            输出符合 v3.2 规范的 JSON 文件。
+                        </div>
+                    </div>
+
+                    <div class="data-structure">
+                        <h5>JSON 结构：</h5>
+                        <pre>{
+    "generated_by": "rel",
+    "metadata_source": "json_files",
+    "analysis_timestamp": "2025-12-28T10:30:00Z",
+    "statistics": {
+        "total_relationships_found": 45,
+        "foreign_key_relationships": 12,
+        "composite_key_relationships": 8,
+        "single_column_relationships": 25,
+        "total_suppressed_single_relations": 5
+    },
+    "relationships": [...]
+}</pre>
+                    </div>
+
+                    <h3>8.3 Markdown 输出</h3>
+                    <div class="method-call">
+                        <div class="method-name">RelationshipWriter._write_markdown()</div>
+                        <div class="file-location">📁 metaweave/core/relationships/writer.py:579</div>
+                        <div class="description">
+                            生成人类可读的 Markdown 报告。
+                        </div>
+                    </div>
+
+                    <div class="logic-flow">
+                        <h5>Markdown 内容：</h5>
+                        <ol>
+                            <li>标题和生成时间</li>
+                            <li>统计摘要（总数、外键、推断、置信度分布）</li>
+                            <li>关系详情列表（每个关系的详细信息）</li>
+                        </ol>
+                    </div>
+
+                    <div class="note-box">
+                        <strong>💡 输出文件：</strong>
+                        <ul>
+                            <li><code>output/rel/relationships_global.json</code></li>
+                            <li><code>output/rel/relationships_global.md</code></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="arrow">⬇️</div>
+            </div>
+
+            <!-- Section 9: Summary -->
+            <div class="section" id="summary">
+                <h2>9. 总结与关键指标</h2>
+
+                <h3>9.1 执行流程总结</h3>
+                <div class="flow-stage" data-stage="总结">
+                    <p>整个 <code>rel</code> 命令的执行流程可以概括为以下 5 个阶段：</p>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>阶段</th>
+                                <th>核心模块</th>
+                                <th>主要功能</th>
+                                <th>输出</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>阶段 1</td>
+                                <td>MetadataRepository</td>
+                                <td>加载 JSON 元数据，提取外键直通关系</td>
+                                <td>外键关系列表 + 外键签名集合</td>
+                            </tr>
+                            <tr>
+                                <td>阶段 2</td>
+                                <td>CandidateGenerator</td>
+                                <td>生成复合键和单列候选关系</td>
+                                <td>候选关系列表</td>
+                            </tr>
+                            <tr>
+                                <td>阶段 3</td>
+                                <td>RelationshipScorer</td>
+                                <td>计算 4 维度评分和基数</td>
+                                <td>评分后的候选列表</td>
+                            </tr>
+                            <tr>
+                                <td>阶段 4</td>
+                                <td>DecisionEngine</td>
+                                <td>阈值过滤 + 抑制规则</td>
+                                <td>接受的关系 + 被抑制的关系</td>
+                            </tr>
+                            <tr>
+                                <td>阶段 5</td>
+                                <td>RelationshipWriter</td>
+                                <td>输出 JSON 和 Markdown</td>
+                                <td>relationships_global.json/md</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>9.2 关键配置参数</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>配置项</th>
+                            <th>默认值</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>sampling.sample_size</td>
+                            <td>1000</td>
+                            <td>数据库采样行数</td>
+                        </tr>
+                        <tr>
+                            <td>decision.accept_threshold</td>
+                            <td>0.80</td>
+                            <td>接受阈值（低于此值的候选被丢弃）</td>
+                        </tr>
+                        <tr>
+                            <td>decision.high_confidence_threshold</td>
+                            <td>0.90</td>
+                            <td>高置信度阈值</td>
+                        </tr>
+                        <tr>
+                            <td>decision.suppress_single_if_composite</td>
+                            <td>true</td>
+                            <td>是否启用抑制规则</td>
+                        </tr>
+                        <tr>
+                            <td>weights.inclusion_rate</td>
+                            <td>0.55</td>
+                            <td>包含率权重</td>
+                        </tr>
+                        <tr>
+                            <td>weights.name_similarity</td>
+                            <td>0.20</td>
+                            <td>名称相似度权重</td>
+                        </tr>
+                        <tr>
+                            <td>weights.type_compatibility</td>
+                            <td>0.15</td>
+                            <td>类型兼容性权重</td>
+                        </tr>
+                        <tr>
+                            <td>weights.jaccard_index</td>
+                            <td>0.10</td>
+                            <td>Jaccard 指数权重</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>9.3 性能指标</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h4>数据库查询</h4>
+                        <div class="value">~2N</div>
+                        <p style="margin-top: 10px; font-size: 0.9em;">N = 候选关系数</p>
+                    </div>
+                    <div class="stat-card">
+                        <h4>采样行数</h4>
+                        <div class="value">1000</div>
+                        <p style="margin-top: 10px; font-size: 0.9em;">每个表采样</p>
+                    </div>
+                    <div class="stat-card">
+                        <h4>评分维度</h4>
+                        <div class="value">4</div>
+                        <p style="margin-top: 10px; font-size: 0.9em;">inclusion + name + type + jaccard</p>
+                    </div>
+                    <div class="stat-card">
+                        <h4>输出格式</h4>
+                        <div class="value">2</div>
+                        <p style="margin-top: 10px; font-size: 0.9em;">JSON + Markdown</p>
+                    </div>
+                </div>
+
+                <h3>9.4 核心设计原则</h3>
+                <div class="note-box">
+                    <strong>🎯 设计原则：</strong>
+                    <ul>
+                        <li><strong>尊重物理约束</strong>：源列的物理约束（PK/UK）完全不过滤</li>
+                        <li><strong>数据驱动</strong>：通过数据库采样验证关系的真实性</li>
+                        <li><strong>多维度评分</strong>：综合考虑包含率、名称、类型、Jaccard 四个维度</li>
+                        <li><strong>避免冗余</strong>：复合关系优先，抑制无独立约束的单列关系</li>
+                        <li><strong>确定性输出</strong>：relationship_id 基于 MD5 哈希，保证可重现</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>📚 MetaWeave 关系发现流程详解 | 生成时间: 2025-12-28</p>
+            <p>💡 提示：使用浏览器的查找功能（Ctrl+F）快速定位特定方法或概念</p>
+        </footer>
+    </div>
+</body>
+</html>

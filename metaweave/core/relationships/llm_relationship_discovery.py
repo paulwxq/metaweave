@@ -211,6 +211,8 @@ class LLMRelationshipDiscovery:
         for key in ["single_column", "composite", "decision", "weights"]:
             if key in config and key not in self.rel_config:
                 self.rel_config[key] = config[key]
+        # 关系评分阶段的数据库采样行数上限：统一使用 sampling.sample_size
+        self.rel_config["sample_size"] = config.get("sampling", {}).get("sample_size", 1000)
 
         # 初始化名称相似度服务
         embedding_config = config.get("embedding", {})
@@ -1186,4 +1188,3 @@ class LLMRelationshipDiscovery:
             "statistics": stats,
             "relationships": relations
         }
-

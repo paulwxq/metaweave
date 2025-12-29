@@ -377,40 +377,40 @@ def metadata_command(
 
             return
 
-        # Step: cql_llm - CQL 生成（LLM 流程）
+        # Step: cql_llm - CQL 生成（等同于 cql）
         if step == "cql_llm":
             from metaweave.core.cql_generator.generator import CQLGenerator
 
-            click.echo("🔧 开始生成 Neo4j CQL（LLM 流程）...")
+            click.echo("🔧 开始生成 Neo4j CQL...")
             click.echo("")
 
             generator = CQLGenerator(config_path)
-            
-            # 覆盖 json_dir 为 json_llm 目录
-            json_llm_dir = generator._resolve_path(
-                generator.config.get("output", {}).get("json_llm_directory", "output/json_llm")
-            )
-            
-            # 检查 json_llm 目录是否存在
-            if not json_llm_dir.exists():
-                raise FileNotFoundError(
-                    f"json_llm 目录不存在: {json_llm_dir}\n"
-                    f"请先执行 --step json_llm 生成 LLM 增强后的 JSON"
+
+            # ✅ 检测废弃配置（帮助用户平滑过渡）
+            if generator.config.get("output", {}).get("json_llm_directory"):
+                logger.warning(
+                    "⚠️ 配置项 'json_llm_directory' 已废弃，"
+                    "cql_llm 现在使用 'json_directory'，与 cql 行为一致"
                 )
-            
-            generator.json_dir = json_llm_dir
-            logger.info(f"cql_llm: 使用 json_llm 目录: {json_llm_dir}")
-            
-            result = generator.generate()
+
+            # ✅ 统一使用 json_directory（不再读取 json_llm_directory）
+            # generator.json_dir 默认已指向 output.json_directory
+            logger.info(f"使用 cql_llm 命令（功能等同于 cql）")
+            logger.info(f"使用 JSON 目录: {generator.json_dir}")
+
+            # ✅ 传递命令名称（用于元数据生成）
+            result = generator.generate(step_name="cql_llm")
 
             # 显示结果统计
             click.echo("")
             click.echo("=" * 60)
-            click.echo("📊 CQL 生成结果统计（LLM 流程）")
+            click.echo("📊 CQL 生成结果统计")
             click.echo("=" * 60)
             click.echo(f"✅ 表节点: {result.tables_count} 个")
             click.echo(f"✅ 列节点: {result.columns_count} 个")
-            click.echo(f"✅ 关系: {result.relationships_count} 个")
+            click.echo(f"✅ HAS_COLUMN 关系: {result.has_column_count} 个")
+            click.echo(f"✅ JOIN_ON 关系: {result.relationships_count} 个")
+            click.echo(f"✅ 边总数: {result.has_column_count + result.relationships_count} 个")
             click.echo(f"📁 输出文件: {len(result.output_files)} 个")
 
             for file_path in result.output_files:
@@ -426,7 +426,7 @@ def metadata_command(
             click.echo("=" * 60)
 
             if result.success:
-                click.echo("✨ CQL 生成完成（LLM 流程）！")
+                click.echo("✨ CQL 生成完成！")
             else:
                 click.echo("⚠️  CQL 生成完成，但存在错误", err=True)
                 raise click.Abort()
@@ -441,7 +441,9 @@ def metadata_command(
             click.echo("")
 
             generator = CQLGenerator(config_path)
-            result = generator.generate()
+
+            # ✅ 传递命令名称（用于元数据生成）
+            result = generator.generate(step_name="cql")
 
             # 显示结果统计
             click.echo("")
@@ -450,7 +452,9 @@ def metadata_command(
             click.echo("=" * 60)
             click.echo(f"✅ 表节点: {result.tables_count} 个")
             click.echo(f"✅ 列节点: {result.columns_count} 个")
-            click.echo(f"✅ 关系: {result.relationships_count} 个")
+            click.echo(f"✅ HAS_COLUMN 关系: {result.has_column_count} 个")
+            click.echo(f"✅ JOIN_ON 关系: {result.relationships_count} 个")
+            click.echo(f"✅ 边总数: {result.has_column_count + result.relationships_count} 个")
             click.echo(f"📁 输出文件: {len(result.output_files)} 个")
 
             for file_path in result.output_files:
