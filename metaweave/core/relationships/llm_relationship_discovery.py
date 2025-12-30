@@ -619,8 +619,7 @@ class LLMRelationshipDiscovery:
                 is_physical = (
                     structure_flags.get("is_primary_key") or
                     structure_flags.get("is_unique") or
-                    structure_flags.get("is_unique_constraint") or
-                    structure_flags.get("is_indexed")
+                    structure_flags.get("is_unique_constraint")
                 )
 
                 if is_physical:

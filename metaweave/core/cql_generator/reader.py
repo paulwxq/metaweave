@@ -144,7 +144,6 @@ class JSONReader:
         table_info = data.get("table_info", {})
         table_profile = data.get("table_profile", {})
         physical_constraints = table_profile.get("physical_constraints", {})
-        logical_keys = table_profile.get("logical_keys", {})
 
         schema = table_info.get("schema_name", "")
         name = table_info.get("table_name", "")
@@ -182,15 +181,18 @@ class JSONReader:
                 fk.append(source_columns)
 
         # 提取索引（只保留列名列表，符合 list<list<string>> 规范）
+        # 注意：indexes 现在位于 table_profile 层级，不在 physical_constraints 中
         indexes = []
-        for idx_data in physical_constraints.get("indexes", []):
+        for idx_data in table_profile.get("indexes", []):
             columns = idx_data.get("columns", [])
             if columns:  # 只添加非空的列列表
                 indexes.append(columns)
 
         # 提取候选逻辑主键（confidence >= 0.8）
+        # 注意：使用 unique_column_sets 替代 logical_keys.candidate_primary_keys
         logic_pk = []
-        for candidate in logical_keys.get("candidate_primary_keys", []):
+        unique_column_sets = table_profile.get("unique_column_sets", [])
+        for candidate in unique_column_sets:
             confidence = candidate.get("confidence_score", 0.0)
             if confidence >= 0.8:
                 logic_pk.append(candidate.get("columns", []))

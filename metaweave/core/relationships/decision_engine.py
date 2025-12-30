@@ -178,7 +178,7 @@ class DecisionEngine:
         return accepted, suppressed
 
     def _has_independent_constraint(self, candidate: Dict[str, Any]) -> bool:
-        """检查源列是否有独立约束（PK/UK/单列Index）
+        """检查源列是否有独立约束（PK/UK）
 
         Args:
             candidate: 候选关系
@@ -204,12 +204,6 @@ class DecisionEngine:
 
         # 检查单列唯一约束
         if structure_flags.get("is_unique") or structure_flags.get("is_unique_constraint"):
-            return True
-
-        # 检查单列索引
-        if structure_flags.get("is_indexed"):
-            # 需要确认是否为单列索引（而非复合索引的一部分）
-            # Phase 1简化实现：有索引就算
             return True
 
         return False

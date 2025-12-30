@@ -411,7 +411,6 @@ class RelationshipWriter:
             约束类型字符串，可能的值：
             - "single_field_primary_key": 单列主键
             - "single_field_unique_constraint": 单列唯一约束
-            - "single_field_index": 单列索引
             - None: 没有物理约束（只是数据唯一或逻辑主键）
         """
         if not hasattr(self, 'tables') or not self.tables or not rel.is_single_column:
@@ -442,14 +441,12 @@ class RelationshipWriter:
             return "single_field_primary_key"
         elif structure_flags.get("is_unique_constraint"):
             return "single_field_unique_constraint"
-        elif structure_flags.get("is_indexed"):
-            return "single_field_index"
         else:
             # 没有物理约束（可能只是数据唯一或逻辑主键）
             return None
 
     def _get_target_source_type(self, rel: Relation) -> Optional[str]:
-        """获取目标列的实际来源类型
+        """获取目标列的实际来源类型（仅物理约束和逻辑键）
         
         Args:
             rel: 关系对象
@@ -457,10 +454,13 @@ class RelationshipWriter:
         Returns:
             目标列类型字符串，可能的值：
             - "primary_key": 物理主键
-            - "unique_constraint": 唯一约束
-            - "index": 索引
-            - "candidate_logical_key": 逻辑主键
-            - None: 无法确定
+            - "unique_constraint": 物理唯一约束
+            - "candidate_logical_key": 逻辑主键（置信度 >= 0.8）
+            - None: 无物理约束或逻辑键（可能只是统计唯一）
+            
+        注意：
+            - 只认物理约束（is_unique_constraint），不认统计唯一（is_unique）
+            - 与 _get_source_constraint() 保持相同的口径
         """
         if not hasattr(self, 'tables') or not self.tables or not rel.is_single_column:
             return None
@@ -482,23 +482,21 @@ class RelationshipWriter:
             logger.debug(f"未找到目标列元数据: {target_table_key}.{target_column}")
             return None
         
-        # 检查 structure_flags（按优先级：PK > UK > Index）
+        # 检查 structure_flags（按优先级：PK > UK）
         structure_flags = col_profile.get("structure_flags", {})
         
         if structure_flags.get("is_primary_key"):
             return "primary_key"
         
-        if structure_flags.get("is_unique") or structure_flags.get("is_unique_constraint"):
+        # 只认物理唯一约束，不认统计唯一（与源侧保持一致）
+        if structure_flags.get("is_unique_constraint"):
             return "unique_constraint"
-        
-        if structure_flags.get("is_indexed"):
-            return "index"
         
         # 检查是否为逻辑主键
         table_profile = target_table.get("table_profile", {})
-        logical_keys = table_profile.get("logical_keys", {})
+        unique_column_sets = table_profile.get("unique_column_sets", [])
         
-        for lk in logical_keys.get("candidate_primary_keys", []):
+        for lk in unique_column_sets:
             lk_cols = lk.get("columns", [])
             lk_conf = lk.get("confidence_score", 0)
             

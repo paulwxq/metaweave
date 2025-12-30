@@ -101,6 +101,7 @@ class TableMetadata:
     """表元数据"""
     schema_name: str
     table_name: str
+    database: Optional[str] = None  # 数据库名称
     table_type: str = "table"  # table, view, materialized_view
     comment: str = ""
     comment_source: str = "db"  # 'db' or 'llm_generated'
@@ -156,6 +157,7 @@ class TableMetadata:
             "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             
             "table_info": {
+                "database": self.database,
                 "schema_name": self.schema_name,
                 "table_name": self.table_name,
                 "table_type": self.table_type,
@@ -494,23 +496,23 @@ class TableProfile:
             "inference_basis": self.inference_basis,
         }
         
-        # 添加 physical_constraints（从 metadata 获取）
+        # 添加 physical_constraints（从 metadata 获取，不包含 indexes）
         if metadata:
             result["physical_constraints"] = {
                 "primary_key": metadata.primary_keys[0].to_dict() if metadata.primary_keys else None,
                 "foreign_keys": [fk.to_dict() for fk in metadata.foreign_keys],
                 "unique_constraints": [uc.to_dict() for uc in metadata.unique_constraints],
-                "indexes": [idx.to_dict() for idx in metadata.indexes],
             }
+            
+            # indexes 提升到 table_profile 层级
+            result["indexes"] = [idx.to_dict() for idx in metadata.indexes]
         
         # column_statistics
         result["column_statistics"] = self.column_statistics.to_dict()
         
-        # logical_keys（包装 candidate_logical_primary_keys）
+        # unique_column_sets 替代 logical_keys
         if self.candidate_logical_primary_keys:
-            result["logical_keys"] = {
-                "candidate_primary_keys": [lk.to_dict() for lk in self.candidate_logical_primary_keys]
-            }
+            result["unique_column_sets"] = [lk.to_dict() for lk in self.candidate_logical_primary_keys]
 
         # 已移除：表类型特定信息（fact_table_info/dim_table_info/bridge_table_info）
         # 这些字段在项目中未被使用，已于 2025-12-26 移除以减少维护成本

@@ -1,7 +1,8 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-30T06:15:17.699725Z",
+  "generated_at": "2025-12-30T13:13:12.274211Z",
   "table_info": {
+    "database": "store_db",
     "schema_name": "public",
     "table_name": "dim_product_type",
     "table_type": "table",
@@ -122,17 +123,14 @@
     "table_category": "dim",
     "confidence": 0.95,
     "inference_basis": [
-      "dim_identifier_columns",
-      "dim_has_primary_key",
-      "dim_name_pattern",
-      "dim_comment_keyword"
+      "llm_inferred"
     ],
     "physical_constraints": {
       "primary_key": null,
       "foreign_keys": [],
-      "unique_constraints": [],
-      "indexes": []
+      "unique_constraints": []
     },
+    "indexes": [],
     "column_statistics": {
       "total_columns": 2,
       "identifier_count": 1,
@@ -144,18 +142,24 @@
       "primary_key_count": 0,
       "foreign_key_count": 0
     },
-    "logical_keys": {
-      "candidate_primary_keys": [
-        {
-          "columns": [
-            "product_type_id"
-          ],
-          "confidence_score": 1.0,
-          "uniqueness": 1.0,
-          "null_rate": 0.0
-        }
-      ]
-    }
+    "unique_column_sets": [
+      {
+        "columns": [
+          "product_type_id"
+        ],
+        "confidence_score": 1.0,
+        "uniqueness": 1.0,
+        "null_rate": 0.0
+      }
+    ],
+    "table_category_rule_based": "dim",
+    "confidence_rule_based": 0.95,
+    "inference_basis_rule_based": [
+      "dim_identifier_columns",
+      "dim_has_primary_key",
+      "dim_name_pattern",
+      "dim_comment_keyword"
+    ]
   },
   "sample_records": {
     "sample_method": "random",
@@ -180,5 +184,6 @@
         "product_type_name": "水果"
       }
     ]
-  }
+  },
+  "llm_enhanced_at": "2025-12-30T13:13:15.842593+00:00"
 }

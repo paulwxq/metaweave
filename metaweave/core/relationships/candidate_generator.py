@@ -49,8 +49,6 @@ class CandidateGenerator:
         # 复合键配置（composite 节点）
         composite_config = config["composite"]
         self.max_columns = composite_config["max_columns"]
-        # 防御性处理：如果 target_sources 为 None 或缺失，默认为空列表
-        self.target_sources = composite_config.get("target_sources") or []
         self.composite_min_type_compatibility = composite_config["min_type_compatibility"]
         self.composite_logical_key_min_confidence = composite_config["logical_key_min_confidence"]
         self.composite_name_similarity_important_target = composite_config["name_similarity_important_target"]
@@ -102,9 +100,11 @@ class CandidateGenerator:
         """生成复合键候选
 
         来源：
-        1. physical_constraints（PK/UK/Index组合）
-        2. candidate_logical_keys（confidence >= 0.8）
+        1. physical_constraints（PK/UK，不含索引）
+        2. unique_column_sets（逻辑主键候选，confidence >= 配置阈值）
         3. dynamic_same_name（精确同名 + 类型兼容）
+        
+        注意：索引已完全排除在候选生成逻辑之外
         """
         candidates = []
 
@@ -113,8 +113,8 @@ class CandidateGenerator:
             source_schema = source_info.get("schema_name")
             source_table_name = source_info.get("table_name")
 
-            # 收集源表的复合键组合（源表永不包含索引）
-            source_combinations = self._collect_source_combinations(source_table, include_indexes=False)
+            # 收集源表的复合键组合（仅包含 PK/UK/逻辑键，不含索引）
+            source_combinations = self._collect_source_combinations(source_table)
 
             # 对每个组合，在目标表中查找匹配
             for combo in source_combinations:
@@ -167,17 +167,19 @@ class CandidateGenerator:
 
     def _collect_source_combinations(
             self,
-            table: dict,
-            include_indexes: bool = False
+            table: dict
     ) -> List[Dict[str, Any]]:
-        """收集表的复合键组合
+        """收集表的复合键组合（仅物理约束和逻辑键，不含索引）
 
         Args:
             table: 表元数据
-            include_indexes: 是否包含索引（默认False，仅对目标表使用）
 
         Returns:
             [{"columns": [...], "type": "physical|logical"}]
+            
+        说明：
+            - physical: PK/UK (不含索引)
+            - logical: unique_column_sets (置信度 >= 配置阈值)
         """
         combinations = []
         table_profile = table.get("table_profile", {})
@@ -196,19 +198,12 @@ class CandidateGenerator:
             if 2 <= len(uk_cols) <= self.max_columns:
                 combinations.append({"columns": uk_cols, "type": "physical"})
 
-        # 3. 索引（仅当 include_indexes=True 时收集）
-        if include_indexes:
-            for idx in physical.get("indexes", []):
-                idx_cols = idx.get("columns", [])
-                if 2 <= len(idx_cols) <= self.max_columns:
-                    combinations.append({"columns": idx_cols, "type": "physical"})
-
-        # 4. 逻辑主键（总是收集）
-        logical_keys = table_profile.get("logical_keys", {})
+        # 3. 逻辑主键（总是收集）
+        unique_column_sets = table_profile.get("unique_column_sets", [])
         table_name = table.get("table_info", {}).get("table_name", "unknown")
-        logger.debug(f"[_collect_source_combinations] 表 {table_name} 的逻辑主键候选数: {len(logical_keys.get('candidate_primary_keys', []))}")
+        logger.debug(f"[_collect_source_combinations] 表 {table_name} 的逻辑主键候选数: {len(unique_column_sets)}")
         
-        for lk in logical_keys.get("candidate_primary_keys", []):
+        for lk in unique_column_sets:
             lk_cols = lk.get("columns", [])
             lk_conf = lk.get("confidence_score", 0)
             logger.debug(f"[_collect_source_combinations] 检查逻辑主键: {table_name}{lk_cols}, conf={lk_conf}, len={len(lk_cols)}")
@@ -259,12 +254,8 @@ class CandidateGenerator:
         target_table_name = target_table.get("table_info", {}).get("table_name", "unknown")
         
         if combo_type in ["physical", "logical"]:
-            # 收集目标表的约束组合（根据配置决定是否包含索引）
-            include_target_indexes = "composite_indexes" in self.target_sources
-            target_combinations = self._collect_source_combinations(
-                target_table,
-                include_indexes=include_target_indexes
-            )
+            # 收集目标表的约束组合（仅 PK/UK/逻辑键，不含索引）
+            target_combinations = self._collect_source_combinations(target_table)
 
             logger.debug(
                 "[find_target_columns] %s%s → %s: Stage 1 开始（combo_type=%s, 目标约束数=%d）",
@@ -870,8 +861,7 @@ class CandidateGenerator:
                         target_has_physical = (
                             target_structure_flags.get("is_primary_key") or          # ✅ PK
                             target_structure_flags.get("is_unique") or               # ✅ UK
-                            target_structure_flags.get("is_unique_constraint") or    # ✅ UK（另一种标记）
-                            target_structure_flags.get("is_indexed")                 # ✅ 索引（目标表特有）
+                            target_structure_flags.get("is_unique_constraint")       # ✅ UK（另一种标记）
                         )
 
                         # 过滤优先级规则（从高到低）：
@@ -881,7 +871,7 @@ class CandidateGenerator:
                         # 4. 其他目标列：按 exclude_semantic_roles 配置过滤
                         if target_has_physical:
                             logger.debug(
-                                "[single_column_candidate] 目标列为物理约束（PK/UK/索引），不过滤: %s.%s (role=%s, flags=%s)",
+                                "[single_column_candidate] 目标列为物理约束（PK/UK），不过滤: %s.%s (role=%s, flags=%s)",
                                 f"{target_schema}.{target_table_name}", target_col_name, target_role,
                                 {k: v for k, v in target_structure_flags.items() if v}  # 只显示 True 的标志
                             )
@@ -1034,9 +1024,9 @@ class CandidateGenerator:
     def _is_logical_primary_key(self, col_name: str, table: dict) -> bool:
         """检查列是否为逻辑主键（单列）"""
         table_profile = table.get("table_profile", {})
-        logical_keys = table_profile.get("logical_keys", {})
+        unique_column_sets = table_profile.get("unique_column_sets", [])
 
-        for lk in logical_keys.get("candidate_primary_keys", []):
+        for lk in unique_column_sets:
             lk_cols = lk.get("columns", [])
             lk_conf = lk.get("confidence_score", 0)
 
@@ -1052,8 +1042,7 @@ class CandidateGenerator:
         按照文档要求，目标列必须满足以下条件之一：
         1. structure_flags.is_primary_key = true （物理主键）
         2. structure_flags.is_unique = true （唯一约束）
-        3. structure_flags.is_indexed = true （有索引）
-        4. 在 candidate_primary_keys 的任一候选组合中（单列且 confidence_score >= 0.8）
+        3. 在 unique_column_sets 的任一候选组合中（单列且 confidence_score >= 0.8）
 
         Args:
             col_name: 列名
@@ -1073,11 +1062,7 @@ class CandidateGenerator:
         if structure_flags.get("is_unique") or structure_flags.get("is_unique_constraint"):
             return True
 
-        # 3. 检查索引
-        if structure_flags.get("is_indexed"):
-            return True
-
-        # 4. 检查是否为单列逻辑主键（confidence >= 0.8）
+        # 3. 检查是否为单列逻辑主键（confidence >= 0.8）
         if self._is_logical_primary_key(col_name, table):
             return True
 

@@ -1,7 +1,8 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-30T06:15:17.804052Z",
+  "generated_at": "2025-12-30T11:36:27.045864Z",
   "table_info": {
+    "database": "store_db",
     "schema_name": "public",
     "table_name": "employee",
     "table_type": "table",
@@ -419,9 +420,9 @@
           ],
           "is_partial": false
         }
-      ],
-      "indexes": []
+      ]
     },
+    "indexes": [],
     "column_statistics": {
       "total_columns": 7,
       "identifier_count": 3,

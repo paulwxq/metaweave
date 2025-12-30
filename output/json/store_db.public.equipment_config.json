@@ -1,7 +1,8 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-30T06:15:17.836053Z",
+  "generated_at": "2025-12-30T11:36:27.101026Z",
   "table_info": {
+    "database": "store_db",
     "schema_name": "public",
     "table_name": "equipment_config",
     "table_type": "table",
@@ -245,9 +246,9 @@
     "physical_constraints": {
       "primary_key": null,
       "foreign_keys": [],
-      "unique_constraints": [],
-      "indexes": []
+      "unique_constraints": []
     },
+    "indexes": [],
     "column_statistics": {
       "total_columns": 4,
       "identifier_count": 1,
@@ -259,28 +260,26 @@
       "primary_key_count": 0,
       "foreign_key_count": 0
     },
-    "logical_keys": {
-      "candidate_primary_keys": [
-        {
-          "columns": [
-            "equipment_id",
-            "config_version"
-          ],
-          "confidence_score": 0.88,
-          "uniqueness": 1.0,
-          "null_rate": 0.0
-        },
-        {
-          "columns": [
-            "equipment_id",
-            "firmware_version"
-          ],
-          "confidence_score": 0.88,
-          "uniqueness": 1.0,
-          "null_rate": 0.0
-        }
-      ]
-    }
+    "unique_column_sets": [
+      {
+        "columns": [
+          "equipment_id",
+          "config_version"
+        ],
+        "confidence_score": 0.88,
+        "uniqueness": 1.0,
+        "null_rate": 0.0
+      },
+      {
+        "columns": [
+          "equipment_id",
+          "firmware_version"
+        ],
+        "confidence_score": 0.88,
+        "uniqueness": 1.0,
+        "null_rate": 0.0
+      }
+    ]
   },
   "sample_records": {
     "sample_method": "random",

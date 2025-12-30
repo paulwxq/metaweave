@@ -333,6 +333,9 @@ class MetadataGenerator:
             if not metadata:
                 raise ValueError(f"提取元数据失败: {schema}.{table}")
             
+            # 设置数据库名称
+            metadata.database = self.connector.database
+            
             # 2. 数据采样
             sample_data = None
             ddl_only_mode = self.active_step == "ddl" and self.active_formats == ["ddl"]
@@ -414,6 +417,9 @@ class MetadataGenerator:
         try:
             parsed = self._get_ddl_loader().load_table(schema, table)
             metadata = parsed.metadata
+            
+            # 设置数据库名称（从 DDL loader 获取）
+            metadata.database = self._get_ddl_loader().database_name
         except DDLLoaderError as exc:
             logger.error(f"DDL 解析失败 ({schema}.{table}): {exc}")
             result.failed_tables += 1

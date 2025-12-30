@@ -426,8 +426,7 @@ class JsonLlmEnhancer:
             "physical_constraints": table_profile.get("physical_constraints", {
                 "primary_key": None,
                 "foreign_keys": [],
-                "unique_constraints": [],
-                "indexes": []
+                "unique_constraints": []
             }),
         }
 

@@ -1,7 +1,8 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-30T06:15:17.688718Z",
+  "generated_at": "2025-12-30T11:36:26.875512Z",
   "table_info": {
+    "database": "store_db",
     "schema_name": "public",
     "table_name": "department",
     "table_type": "table",
@@ -232,9 +233,9 @@
           ],
           "is_partial": false
         }
-      ],
-      "indexes": []
+      ]
     },
+    "indexes": [],
     "column_statistics": {
       "total_columns": 4,
       "identifier_count": 2,

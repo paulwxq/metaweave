@@ -163,24 +163,32 @@
 | `models.py` | 100-117 | 新增字段 | `TableMetadata` dataclass 添加 `database: Optional[str] = None` |
 | `generator.py` | ~332 | 赋值(DB路径) | `_process_table_from_db()` 中设置 `metadata.database` |
 | `generator.py` | ~416 | 赋值(DDL路径) | `_process_table_from_ddl()` 中设置 `metadata.database` |
-| **JSON_LLM 步骤（无需修改）** |
-| `json_llm_enhancer.py` | - | ✅ 无需修改 | 增强器只读写JSON，Schema由 models.py 控制 |
+| **JSON_LLM 步骤** |
+| `json_llm_enhancer.py` | 426-431 | 🔧 清理 | 删除 fallback 中的 `"indexes": []`，与新 Schema 保持一致 |
 | **REL 步骤 - 访问路径修改** |
 | `candidate_generator.py` | 1037-1047 | 路径修改 | `_is_logical_primary_key()` - 改用 unique_column_sets |
 | `candidate_generator.py` | 207-211 | 路径修改 | `_collect_source_combinations()` - 改用 unique_column_sets |
 | **REL 步骤 - 索引完全排除** |
 | `candidate_generator.py` | 199-204 | ❌ 删除 | 复合键候选生成删除索引收集代码 |
+| `candidate_generator.py` | 103-106 | 📝 注释 | 修正函数文档注释，删除"Index"，更新术语 |
+| `candidate_generator.py` | 168-181 | 🔧 清理 | 删除 `include_indexes` 参数和相关文档 |
+| `candidate_generator.py` | 117 & 256-262 | 🔧 清理 | 删除调用点的 `include_indexes` 参数 |
+| `candidate_generator.py` | 49-53 | 🔧 清理 | 删除死配置 `self.target_sources` 的读取 |
 | `candidate_generator.py` | 868-875 | ❌ 删除 | 单列候选：目标列物理约束判断删除 is_indexed |
 | `candidate_generator.py` | 1076-1078 | ❌ 删除 | 单列目标列筛选不检查 is_indexed |
 | `decision_engine.py` | 210-213 | ❌ 删除 | 独立约束判断不检查 is_indexed |
 | `writer.py` | 445-446 | ❌ 删除 | source_constraint 不使用 is_indexed |
-| `writer.py` | 494-495 | ❌ 删除 | target_source_type 不使用 is_indexed |
+| `writer.py` | 487-488 | 🔧 修正 | target_source_type 只认物理约束，不认统计唯一 |
+| `writer.py` | 448-460 | 📝 注释 | 更新函数文档，明确"只认物理约束" |
 | `writer.py` | 499-509 | 路径修改 | 改用 unique_column_sets |
 | **REL_LLM 步骤** |
 | `llm_relationship_discovery.py` | 623 | ❌ 删除 | 物理约束判断不包含 is_indexed |
 | **CQL 步骤** |
 | `reader.py` | 186-189 | 路径修改 | 索引访问路径改为 `table_profile.indexes` |
 | `reader.py` | 192-196 | 路径修改 | 改用 unique_column_sets |
+| **配置文件** |
+| `metadata_config.yaml` | 387-395 | 🔧 废弃 | 标记 `composite.target_sources` 为废弃配置 |
+| `metadata_config.yaml` | 401 | 🔧 修正 | 注释中删除"索引"，改为"PK/UK" |
 
 ---
 
@@ -321,17 +329,44 @@ except DDLLoaderError as exc:
     database_name: ${DB_NAME}  # 必须与 database.database 一致
   ```
 
-#### C. JSON_LLM 增强器（无需修改）
+#### C. JSON_LLM 增强器
 
 **文件：** `metaweave/core/metadata/json_llm_enhancer.py`
 
+**位置：** `_build_llm_input_view()` - 第426-431行
+
+**修改内容：** 删除 fallback 中的 `"indexes": []`
+
+```python
+# ❌ 修改前
+"physical_constraints": table_profile.get("physical_constraints", {
+    "primary_key": None,
+    "foreign_keys": [],
+    "unique_constraints": [],
+    "indexes": []  # ❌ 旧 Schema 遗留
+}),
+
+# ✅ 修改后
+"physical_constraints": table_profile.get("physical_constraints", {
+    "primary_key": None,
+    "foreign_keys": [],
+    "unique_constraints": []
+}),
+```
+
+**修改原因：**
+- 新 Schema 中 `indexes` 已从 `physical_constraints` 提升到 `table_profile` 层级
+- Fallback 中包含 `"indexes": []` 会造成认知噪声，虽然不影响运行
+- 保持代码与新 Schema 完全一致
+
 **说明：**
-- ✅ **无需修改**：增强器只负责读取 JSON、调用 LLM、写回 JSON
-- ✅ JSON Schema 结构由 `models.py` 的 `to_dict()` 控制
-- ✅ `--step json_llm` 工作流程：
+- `_build_llm_input_view()` 方法用于构建 LLM 输入视图（Token 优化裁剪）
+- 从 `table_profile.physical_constraints` 读取，fallback 应与新 Schema 一致
+- 此方法只读取 JSON，不会修改 JSON 结构
+- ✅ **增强器工作流程**：
   1. 先执行 `--step json`（使用新 Schema 生成 JSON）
   2. 读取 `output/json/*.json`
-  3. LLM 增强（添加分类、评论等）
+  3. LLM 增强（添加分类、注释等）
   4. 写回 `output/json/*.json`（覆盖）
 
 ---
@@ -459,7 +494,7 @@ for candidate in unique_column_sets:
 #### 场景 1：复合键候选生成
 
 **文件：** `candidate_generator.py`  
-**位置：** 第199-204行
+**位置 1：** 第199-204行 - 删除索引收集代码
 
 **修改内容：**
 ```python
@@ -472,8 +507,141 @@ if include_indexes:
             combinations.append({"columns": idx_cols, "type": "physical"})
 ```
 
-**配置废弃：**
-- `target_sources: ["composite_indexes"]` - 不再使用
+**位置 2：** 第103-106行 - 修正函数文档注释
+
+**修改内容：**
+```python
+# ❌ 修改前
+def _generate_composite_candidates(self, tables: Dict[str, dict]) -> List[Dict[str, Any]]:
+    """生成复合键候选
+
+    来源：
+    1. physical_constraints（PK/UK/Index组合）
+    2. candidate_logical_keys（confidence >= 0.8）
+    3. dynamic_same_name（精确同名 + 类型兼容）
+    """
+
+# ✅ 修改后
+def _generate_composite_candidates(self, tables: Dict[str, dict]) -> List[Dict[str, Any]]:
+    """生成复合键候选
+
+    来源：
+    1. physical_constraints（PK/UK，不含索引）
+    2. unique_column_sets（逻辑主键候选，confidence >= 配置阈值）
+    3. dynamic_same_name（精确同名 + 类型兼容）
+    
+    注意：索引已完全排除在候选生成逻辑之外
+    """
+```
+
+**修改原因：**
+- 删除误导性的"Index组合"描述
+- 更新术语：`candidate_logical_keys` → `unique_column_sets`
+- 明确标注索引排除策略
+
+**位置 3：** 第168-181行 - 清理函数签名和文档
+
+**修改内容：**
+```python
+# ❌ 删除 include_indexes 参数
+def _collect_source_combinations(
+        self,
+        table: dict,
+        include_indexes: bool = False  # ❌ 删除此参数
+) -> List[Dict[str, Any]]:
+    """收集表的复合键组合
+    
+    Args:
+        table: 表元数据
+        include_indexes: 是否包含索引（默认False，仅对目标表使用）  # ❌ 删除此文档
+    
+    Returns:
+        [{"columns": [...], "type": "physical|logical"}]
+    """
+
+# ✅ 修改为
+def _collect_source_combinations(
+        self,
+        table: dict
+) -> List[Dict[str, Any]]:
+    """收集表的复合键组合（仅物理约束和逻辑键，不含索引）
+    
+    Args:
+        table: 表元数据
+    
+    Returns:
+        [{"columns": [...], "type": "physical|logical"}]
+        
+    说明：
+        - physical: PK/UK (不含索引)
+        - logical: unique_column_sets (置信度 >= 配置阈值)
+    """
+```
+
+**位置 4：** 第117行 - 清理调用点
+
+**修改内容：**
+```python
+# ❌ 修改前
+source_combinations = self._collect_source_combinations(source_table, include_indexes=False)
+
+# ✅ 修改后
+source_combinations = self._collect_source_combinations(source_table)
+```
+
+**位置 5：** 第256-262行 - 清理调用点
+
+**修改内容：**
+```python
+# ❌ 修改前
+include_target_indexes = "composite_indexes" in self.target_sources
+target_combinations = self._collect_source_combinations(
+    target_table,
+    include_indexes=include_target_indexes
+)
+
+# ✅ 修改后
+target_combinations = self._collect_source_combinations(target_table)
+```
+
+**位置 6：** 第49-53行 - 删除死配置读取
+
+**修改内容：**
+```python
+# ❌ 修改前
+composite_config = config["composite"]
+self.max_columns = composite_config["max_columns"]
+# 防御性处理：如果 target_sources 为 None 或缺失，默认为空列表
+self.target_sources = composite_config.get("target_sources") or []
+self.composite_min_type_compatibility = composite_config["min_type_compatibility"]
+
+# ✅ 修改后
+composite_config = config["composite"]
+self.max_columns = composite_config["max_columns"]
+self.composite_min_type_compatibility = composite_config["min_type_compatibility"]
+```
+
+**配置文件修改：** `configs/metadata_config.yaml`
+
+```yaml
+# ❌ 修改前
+composite:
+  max_columns: 3
+  target_sources: []  # 默认不包含索引（空列表）
+    # 取消下面注释以启用索引收集：
+    # - composite_indexes
+
+# ✅ 修改后
+composite:
+  max_columns: 3
+  # ❌ target_sources 配置已废弃（2025-12-30）
+  # 说明：索引已完全排除在关系发现逻辑之外，此配置项不再生效
+  # target_sources: []
+```
+
+**配置废弃说明：**
+- `composite.target_sources` - 完全废弃，代码不再读取
+- `composite_indexes` - 配置值失效
 
 **目标表只保留：** PK + UK + 逻辑键（unique_column_sets）
 
@@ -618,25 +786,73 @@ if target_is_physical:
 #### 场景 6：关系输出时的约束类型识别
 
 **文件：** `writer.py`  
-**位置 1：** `_get_source_constraint()` (第445-446行)
 
-**修改内容：**
+**问题背景：源/目标约束判断口径不一致**
+
+在修复前存在一个语义不一致的问题：
+- `is_unique`: 数据层面的**统计唯一性**（非约束），由采样数据推断
+- `is_unique_constraint`: 物理唯一约束（真实的 `UNIQUE CONSTRAINT`）
+
+**位置 1：** `_get_source_constraint()` (第439-446行)
+
+原实现：
 ```python
-# ❌ 删除此段代码
-elif structure_flags.get("is_indexed"):
-    return "single_field_index"
+# 按优先级检查约束类型
+if structure_flags.get("is_primary_key"):
+    return "single_field_primary_key"
+elif structure_flags.get("is_unique_constraint"):
+    return "single_field_unique_constraint"
+else:
+    # ❌ 索引不作为约束（已删除）
+    # 没有物理约束（可能只是数据唯一或逻辑主键）
+    return None
 ```
 
-**位置 2：** `_get_target_source_type()` (第494-495行)
+✅ **源侧口径正确**：只认物理约束（PK/UK），不认统计唯一（`is_unique`）
 
-**修改内容：**
+**位置 2：** `_get_target_source_type()` (第487-488行)
+
+**修改前（❌ 语义混淆）：**
 ```python
-# ❌ 删除此段代码
-if structure_flags.get("is_indexed"):
-    return "index"
+# ❌ 同时认 is_unique（统计唯一）和 is_unique_constraint（物理约束）
+if structure_flags.get("is_unique") or structure_flags.get("is_unique_constraint"):
+    return "unique_constraint"  # ❌ 返回值叫"约束"，但可能只是统计唯一
 ```
 
-**说明：** 生成关系 JSON 时，不再将索引标记为约束类型。
+**修改后（✅ 与源侧保持一致）：**
+```python
+# ✅ 只认物理唯一约束，不认统计唯一（与源侧保持一致）
+if structure_flags.get("is_unique_constraint"):
+    return "unique_constraint"
+```
+
+**函数文档更新：**
+```python
+def _get_target_source_type(self, rel: Relation) -> Optional[str]:
+    """获取目标列的实际来源类型（仅物理约束和逻辑键）
+    
+    Returns:
+        目标列类型字符串，可能的值：
+        - "primary_key": 物理主键
+        - "unique_constraint": 物理唯一约束
+        - "candidate_logical_key": 逻辑主键（置信度 >= 0.8）
+        - None: 无物理约束或逻辑键（可能只是统计唯一）
+        
+    注意：
+        - 只认物理约束（is_unique_constraint），不认统计唯一（is_unique）
+        - 与 _get_source_constraint() 保持相同的口径
+    """
+```
+
+**修复原因：**
+1. **语义准确性**：统计唯一 ≠ 物理约束，不应标记为 `"unique_constraint"`
+2. **源/目标一致性**：源侧和目标侧应使用相同的判断标准
+3. **系统设计原则**：清晰区分"约束"和"统计特征"
+
+**影响分析：**
+- 修复前：目标列如果只是"采样唯一"（无真实约束），会被误标为 `"unique_constraint"`
+- 修复后：只有真实的物理唯一约束才会标记为 `"unique_constraint"`
+- 可能导致部分关系的 `target_source_type` 从 `"unique_constraint"` 变为 `None` 或 `"candidate_logical_key"`
 
 ---
 

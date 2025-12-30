@@ -606,6 +606,13 @@
                 </ul>
             </div>
 
+            <!-- Line Number Warning Banner -->
+            <div class="warning-box" style="margin-bottom: 30px;">
+                <strong>⚠️ 代码行号说明：</strong><br>
+                本文档中的代码行号仅供参考，是文档编写时的快照。随着代码持续迭代，行号可能发生偏移。
+                请以文件路径和函数名为准定位代码位置，而非依赖具体行号。
+            </div>
+
             <!-- Section 1: Overview -->
             <div class="section" id="overview">
                 <h2>1. 命令概述</h2>
@@ -854,11 +861,12 @@
                                 按表对（source -> target）分组：<br>
                                 • 如果存在复合关系 →<br>
                                 &nbsp;&nbsp;&nbsp;&nbsp;✅ 保留复合关系<br>
-                                &nbsp;&nbsp;&nbsp;&nbsp;✅ 保留有独立约束的单列关系（PK/UK/Index）<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;✅ 保留有独立约束的单列关系（PK/UK）<br>
                                 &nbsp;&nbsp;&nbsp;&nbsp;❌ 抑制无独立约束的单列关系<br>
                                 • 如果不存在复合关系 →<br>
                                 &nbsp;&nbsp;&nbsp;&nbsp;✅ 保留所有单列关系<br>
                                 <br>
+                                <strong>⚠️ 注意：</strong>索引(Index)不属于独立约束，不影响抑制判断<br>
                                 转换为 Relation 对象，生成 relationship_id
                             </div>
                         </div>
@@ -1427,24 +1435,24 @@
 
                         <p style="margin-top: 15px;"><strong>2. 是逻辑主键（Logical Primary Key）</strong></p>
                         <div class="code-block">
-<span class="comment"># 代码位置：candidate_generator.py:1016-1029</span>
+<span class="comment"># 代码位置：candidate_generator.py:1024-1037（参考，行号可能有偏移）</span>
 <span class="keyword">def</span> _is_logical_primary_key(self, col_name: str, table: dict) -> bool:
     table_profile = table.get(<span class="string">"table_profile"</span>, {})
-    logical_keys = table_profile.get(<span class="string">"logical_keys"</span>, {})
+    unique_column_sets = table_profile.get(<span class="string">"unique_column_sets"</span>, [])
 
-    <span class="keyword">for</span> lk <span class="keyword">in</span> logical_keys.get(<span class="string">"candidate_primary_keys"</span>, []):
+    <span class="keyword">for</span> lk <span class="keyword">in</span> unique_column_sets:
         lk_cols = lk.get(<span class="string">"columns"</span>, [])
         lk_conf = lk.get(<span class="string">"confidence_score"</span>, 0)
 
         <span class="comment"># 单列逻辑主键且置信度足够</span>
-        <span class="keyword">if</span> len(lk_cols) == 1 <span class="keyword">and</span> lk_cols[0] == col_name <span class="keyword">and</span> lk_conf >= 0.8:
+        <span class="keyword">if</span> len(lk_cols) == 1 <span class="keyword">and</span> lk_cols[0] == col_name <span class="keyword">and</span> lk_conf >= self.single_logical_key_min_confidence:
             <span class="keyword">return</span> True
 
     <span class="keyword">return</span> False
 </div>
 
                         <ul style="margin-top: 10px;">
-                            <li>✅ 在 <code>table_profile.logical_keys.candidate_primary_keys</code> 中</li>
+                            <li>✅ 在 <code>table_profile.unique_column_sets</code> 中</li>
                             <li>✅ <strong>单列</strong>逻辑主键（<code>len(columns) == 1</code>）</li>
                             <li>✅ 置信度 <code>>= 0.8</code>（配置：<code>single_column.logical_key_min_confidence</code>）</li>
                         </ul>
@@ -1872,10 +1880,17 @@ fk_sig = self._make_signature(...)
                     <div class="logic-flow">
                         <h5>过滤规则：</h5>
                         <ol>
-                            <li>检查 <code>composite_score >= accept_threshold</code>（默认 0.80）</li>
+                            <li>检查 <code>composite_score >= accept_threshold</code></li>
                             <li>低于阈值的候选直接丢弃</li>
                             <li>高于阈值的候选进入抑制规则检查</li>
                         </ol>
+                    </div>
+
+                    <div class="warning-box" style="margin-top: 15px;">
+                        <strong>⚠️ accept_threshold 默认值说明：</strong><br>
+                        • 配置文件（<code>decision.accept_threshold</code>）：默认 <code>0.65</code><br>
+                        • 代码硬编码默认值（未配置时）：<code>0.80</code><br>
+                        • 建议：在配置文件中明确设置此值，避免混淆
                     </div>
 
                     <h3>7.3 抑制规则</h3>
@@ -1893,8 +1908,9 @@ fk_sig = self._make_signature(...)
                             <li>按表对（source_table -> target_table）分组</li>
                             <li>如果存在复合关系，检查单列关系：
                                 <ul>
-                                    <li>✅ 单列有独立约束（PK/UK/Index）→ 保留</li>
+                                    <li>✅ 单列有独立约束（PK/UK）→ 保留</li>
                                     <li>❌ 单列无独立约束 → 抑制</li>
+                                    <li>⚠️ 注意：索引(Index)不属于独立约束</li>
                                 </ul>
                             </li>
                             <li>如果不存在复合关系，保留所有单列关系</li>
@@ -2148,7 +2164,13 @@ fk_sig = self._make_signature(...)
                 <div class="warning-box">
                     <strong>⚠️ 重要配置说明：</strong>
                     <ul>
-                        <li><strong>accept_threshold</strong>：当前默认值为 <code>0.65</code>（非0.80），请根据实际情况调整</li>
+                        <li><strong>accept_threshold</strong>：
+                            <ul>
+                                <li>配置文件默认值：<code>0.65</code>（<code>decision.accept_threshold</code>）</li>
+                                <li>代码硬编码默认值（未配置时）：<code>0.80</code></li>
+                                <li>建议：在配置文件中明确设置此值，避免混淆</li>
+                            </ul>
+                        </li>
                         <li><strong>name_similarity</strong>：
                             <ul>
                                 <li>string 方法（Levenshtein）：重要目标列建议 0.6，普通目标列建议 0.9</li>
@@ -2165,7 +2187,7 @@ fk_sig = self._make_signature(...)
             <p>📚 MetaWeave 关系发现流程详解 | 最后更新: 2025-12-30</p>
             <p>💡 提示：使用浏览器的查找功能（Ctrl+F）快速定位特定方法或概念</p>
             <p style="font-size: 0.85em; opacity: 0.8; margin-top: 10px;">
-                ✅ 本文档已验证与代码完全一致 | 4维度评分体系 | accept_threshold=0.65
+                ✅ 本文档已验证与代码完全一致 | 4维度评分体系 | 2025-12-30 更新
             </p>
         </footer>
     </div>
