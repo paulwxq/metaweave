@@ -1,0 +1,1956 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semantic Role 计算流程详解</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
+        h2 {
+            color: #34495e;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-left: 15px;
+            border-left: 5px solid #3498db;
+            font-size: 1.8em;
+        }
+
+        h3 {
+            color: #555;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        h4 {
+            color: #666;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .toc {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+
+        .toc h2 {
+            margin-top: 0;
+            border-left: none;
+            padding-left: 0;
+        }
+
+        .toc ul {
+            list-style: none;
+            padding-left: 20px;
+        }
+
+        .toc li {
+            margin: 8px 0;
+        }
+
+        .toc a {
+            color: #3498db;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .toc a:hover {
+            color: #2980b9;
+            text-decoration: underline;
+        }
+
+        .flow-diagram {
+            margin: 30px 0;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+
+        .role-card {
+            background: #fff;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 25px 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .role-card h3 {
+            color: #2c3e50;
+            margin-top: 0;
+            padding: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .priority {
+            display: inline-block;
+            padding: 5px 12px;
+            background: #e74c3c;
+            color: white;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        .logic-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .logic-list li {
+            padding: 12px;
+            margin: 8px 0;
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            border-radius: 3px;
+        }
+
+        .logic-list li strong {
+            color: #e74c3c;
+        }
+
+        .config-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .config-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .config-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .config-table tr:hover {
+            background: #f5f5f5;
+        }
+
+        .config-table code {
+            background: #f0f0f0;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #c7254e;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            padding: 15px;
+            border-left: 4px solid #ffc107;
+            margin: 15px 0;
+            border-radius: 3px;
+        }
+
+        .note {
+            background: #d1ecf1;
+            padding: 15px;
+            border-left: 4px solid #17a2b8;
+            margin: 15px 0;
+            border-radius: 3px;
+        }
+
+        .warning {
+            background: #f8d7da;
+            padding: 15px;
+            border-left: 4px solid #dc3545;
+            margin: 15px 0;
+            border-radius: 3px;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+            .container {
+                box-shadow: none;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Semantic Role 计算流程详解</h1>
+
+        <div class="note">
+            <strong>文档说明：</strong> 本文档详细说明了 <code>metaweave metadata --step json</code> 命令执行时，如何计算每个列的 <code>semantic_role</code>（语义角色）。
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ 代码行号说明：</strong> 文档中标注的代码行号（如 "profiler.py: 第XXX行"）为文档生成时的快照，随着代码更新可能存在偏移。建议以<strong>方法名</strong>和<strong>逻辑描述</strong>为准，行号仅作参考。
+        </div>
+
+        <div class="toc">
+            <h2>目录</h2>
+            <ul>
+                <li><a href="#section-1">1. 整体执行流程</a></li>
+                <li><a href="#section-2">2. Semantic Role 判定顺序与优先级</a></li>
+                <li><a href="#section-3">3. 各 Semantic Role 详细判定逻辑</a>
+                    <ul>
+                        <li><a href="#role-audit">3.1 audit (审计字段)</a></li>
+                        <li><a href="#role-datetime">3.2 datetime (日期时间)</a></li>
+                        <li><a href="#role-complex">3.3 complex (复杂类型)</a></li>
+                        <li><a href="#role-identifier">3.4 identifier (标识符)</a></li>
+                        <li><a href="#role-description">3.5 description (描述字段)</a></li>
+                        <li><a href="#role-enum">3.6 enum (枚举)</a></li>
+                        <li><a href="#role-metric">3.7 metric (度量指标)</a></li>
+                        <li><a href="#role-attribute">3.8 attribute (属性)</a></li>
+                    </ul>
+                </li>
+                <li><a href="#section-4">4. YAML 配置参数完整列表</a></li>
+            </ul>
+        </div>
+
+        <h2 id="section-1">1. 整体执行流程</h2>
+
+        <div class="flow-diagram">
+            <pre class="mermaid">
+graph TB
+    Start([CLI: metaweave metadata --step json]) --> LoadConfig[加载配置文件<br/>metadata_config.yaml]
+    LoadConfig --> InitGenerator[初始化 MetadataGenerator]
+    InitGenerator --> InitComponents[初始化组件:<br/>- DatabaseConnector<br/>- MetadataExtractor<br/>- MetadataProfiler<br/>- LogicalKeyDetector<br/>- OutputFormatter]
+    InitComponents --> GetTables[获取待处理表列表]
+    GetTables --> ProcessTables[并发处理每张表]
+
+    ProcessTables --> CheckStep{step == 'json'?}
+    CheckStep -->|Yes| ProcessFromDDL[_process_table_from_ddl]
+    CheckStep -->|No| ProcessFromDB[_process_table_from_db]
+
+    ProcessFromDDL --> LoadDDL[从 DDL 文件加载元数据]
+    LoadDDL --> QueryCount[查询真实行数 COUNT]
+    QueryCount --> SampleData1[数据采样 sample_data]
+
+    ProcessFromDB --> ExtractMeta[从数据库提取元数据]
+    ExtractMeta --> SampleData2[数据采样 sample_data]
+
+    SampleData1 --> CalcStats[计算列统计信息]
+    SampleData2 --> CalcStats
+
+    CalcStats --> ProfileColumns[**核心**: profiler._profile_columns]
+
+    ProfileColumns --> CollectConstraints[收集约束信息:<br/>- 主键 PK<br/>- 外键 FK<br/>- 唯一约束 UK<br/>- 索引 Index<br/>- 逻辑主键]
+
+    CollectConstraints --> LoopColumns[遍历每个列]
+
+    LoopColumns --> GetStats[获取统计数据:<br/>- uniqueness<br/>- null_rate<br/>- avg_length<br/>- std_dev]
+
+    GetStats --> BuildFlags[构建 StructureFlags:<br/>- is_primary_key<br/>- is_foreign_key<br/>- is_unique<br/>- is_indexed<br/>- is_nullable]
+
+    BuildFlags --> ClassifySemantics[**关键**: _classify_semantics<br/>判定 semantic_role]
+
+    ClassifySemantics --> BuildProfile[构建 ColumnProfile]
+    BuildProfile --> NextColumn{还有列?}
+    NextColumn -->|Yes| LoopColumns
+    NextColumn -->|No| ProfileTable[生成表画像 table_profile]
+
+    ProfileTable --> DetectLogicalKeys[检测逻辑主键]
+    DetectLogicalKeys --> FormatOutput[格式化输出 JSON]
+    FormatOutput --> End([完成])
+
+    style Start fill:#e1f5e1
+    style End fill:#e1f5e1
+    style ProfileColumns fill:#ffe1e1
+    style ClassifySemantics fill:#ffe1e1
+    style BuildFlags fill:#fff3cd
+    style GetStats fill:#fff3cd
+            </pre>
+        </div>
+
+        <h3>关键步骤说明</h3>
+        <ul class="logic-list">
+            <li><strong>Step 1:</strong> CLI 命令解析，加载 <code>configs/metadata_config.yaml</code></li>
+            <li><strong>Step 2:</strong> 初始化 <code>MetadataGenerator</code>，创建 <code>MetadataProfiler</code> 实例</li>
+            <li><strong>Step 3:</strong> 从 DDL 文件或数据库提取表结构元数据</li>
+            <li><strong>Step 4:</strong> 执行数据采样（默认 1000 行），计算统计信息（唯一性、空值率、长度等）</li>
+            <li><strong>Step 5:</strong> 调用 <code>profiler._profile_columns()</code> 为每个列生成画像</li>
+            <li><strong>Step 6:</strong> 在 <code>_classify_semantics()</code> 中按优先级顺序判定 <code>semantic_role</code></li>
+            <li><strong>Step 7:</strong> 输出 JSON 文件到 <code>output/json/</code> 目录</li>
+        </ul>
+
+        <h2 id="section-2">2. Semantic Role 判定顺序与优先级</h2>
+
+        <div class="highlight">
+            <strong>核心原则：</strong> 采用<strong>优先级链式判定</strong>，按从高到低的顺序逐个检查，一旦命中立即返回，不再继续检查后续规则。
+        </div>
+
+        <div class="flow-diagram">
+            <pre class="mermaid">
+graph TD
+    Start([_classify_semantics 开始]) --> Step1{1. 是否为 complex?}
+    Step1 -->|Yes| ReturnComplex[返回 complex<br/>置信度: 0.95<br/>类型硬约束最优先]
+    Step1 -->|No| Step2{2. 是否为 audit?}
+
+    Step2 -->|Yes| ReturnAudit[返回 audit<br/>置信度: 0.95]
+    Step2 -->|No| Step3{3. 是否为 datetime?}
+
+    Step3 -->|Yes| ReturnDatetime[返回 datetime<br/>置信度: 0.85-1.0]
+    Step3 -->|No| Step4{4. 是否为 identifier?}
+
+    Step4 -->|Yes| ReturnIdentifier[返回 identifier<br/>置信度: 0.75-1.0]
+    Step4 -->|No| Step5{5. 是否为 description?}
+
+    Step5 -->|Yes| ReturnDescription[返回 description<br/>置信度: 0.85]
+    Step5 -->|No| Step6{6. 是否为 enum?}
+
+    Step6 -->|Yes| ReturnEnum[返回 enum<br/>置信度: 0.85]
+    Step6 -->|No| Step7{7. 是否为 metric?}
+
+    Step7 -->|Yes| ReturnMetric[返回 metric<br/>置信度: 0.6-0.95]
+    Step7 -->|No| ReturnAttribute[返回 attribute<br/>默认兜底<br/>置信度: 0.7]
+
+    style ReturnAudit fill:#ff6b6b
+    style ReturnDatetime fill:#4ecdc4
+    style ReturnComplex fill:#95e1d3
+    style ReturnIdentifier fill:#f38181
+    style ReturnDescription fill:#aa96da
+    style ReturnEnum fill:#fcbad3
+    style ReturnMetric fill:#ffffd2
+    style ReturnAttribute fill:#a8d8ea
+            </pre>
+        </div>
+
+        <table class="config-table">
+            <thead>
+                <tr>
+                    <th>优先级</th>
+                    <th>Semantic Role</th>
+                    <th>中文名称</th>
+                    <th>默认置信度</th>
+                    <th>典型场景</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>1</strong></td>
+                    <td><code>complex</code></td>
+                    <td>复杂类型</td>
+                    <td>0.95</td>
+                    <td>json, jsonb, array, hstore, bytea<br/><em>最高优先级：类型硬约束，避免 jsonb 等复杂类型被命名模式误判</em></td>
+                </tr>
+                <tr>
+                    <td><strong>2</strong></td>
+                    <td><code>audit</code></td>
+                    <td>审计字段</td>
+                    <td>0.95</td>
+                    <td>created_at, updated_by, is_deleted, version</td>
+                </tr>
+                <tr>
+                    <td><strong>3</strong></td>
+                    <td><code>datetime</code></td>
+                    <td>日期时间</td>
+                    <td>0.85-1.0</td>
+                    <td>order_date, birth_day, login_time</td>
+                </tr>
+                <tr>
+                    <td><strong>4</strong></td>
+                    <td><code>identifier</code></td>
+                    <td>标识符</td>
+                    <td>0.75-1.0</td>
+                    <td>user_id, order_no, product_code</td>
+                </tr>
+                <tr>
+                    <td><strong>5</strong></td>
+                    <td><code>description</code></td>
+                    <td>描述字段</td>
+                    <td>0.85</td>
+                    <td>description, remark, comment, note</td>
+                </tr>
+                <tr>
+                    <td><strong>6</strong></td>
+                    <td><code>enum</code></td>
+                    <td>枚举</td>
+                    <td>0.85</td>
+                    <td>status (两值枚举: Y/N, 0/1)</td>
+                </tr>
+                <tr>
+                    <td><strong>7</strong></td>
+                    <td><code>metric</code></td>
+                    <td>度量指标</td>
+                    <td>0.6-0.95</td>
+                    <td>amount, count, total_cost, sales</td>
+                </tr>
+                <tr>
+                    <td><strong>8</strong></td>
+                    <td><code>attribute</code></td>
+                    <td>属性（兜底）</td>
+                    <td>0.7</td>
+                    <td>所有不符合以上规则的列</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2 id="section-3">3. 各 Semantic Role 详细判定逻辑</h2>
+
+        <!-- ============ AUDIT ============ -->
+        <div class="role-card" id="role-audit">
+            <h3>3.1 audit (审计字段) <span class="priority">优先级 2</span></h3>
+
+            <h4>判定流程图</h4>
+            <div class="flow-diagram">
+                <pre class="mermaid">
+graph TD
+    Start([开始判定 audit]) --> CheckPattern{列名匹配<br/>audit_patterns?}
+    CheckPattern -->|No| ReturnFalse[返回 False<br/>继续下一角色]
+    CheckPattern -->|Yes| DetermineType[调用 _determine_audit_type<br/>确定审计类型]
+
+    DetermineType --> CheckKeywords{基于列名<br/>子串匹配}
+    CheckKeywords -->|created_at, create_time, etc.| TypeTimestamp[类型: timestamp<br/>时间戳类]
+    CheckKeywords -->|_by, _user, creator, modifier| TypeActor[类型: actor<br/>操作人类]
+    CheckKeywords -->|is_deleted, is_active, del_flag| TypeFlag[类型: flag<br/>软删除类]
+    CheckKeywords -->|version, _ver, revision| TypeVersion[类型: version<br/>版本类]
+    CheckKeywords -->|etl_, load_, effective_, valid_| TypeETL[类型: etl<br/>ETL类]
+
+    TypeTimestamp --> Return[返回 audit<br/>置信度: 0.95]
+    TypeActor --> Return
+    TypeFlag --> Return
+    TypeVersion --> Return
+    TypeETL --> Return
+
+    style Start fill:#e1f5e1
+    style Return fill:#ff6b6b
+    style ReturnFalse fill:#ddd
+    style CheckPattern fill:#fff3cd
+    style DetermineType fill:#d1ecf1
+                </pre>
+            </div>
+
+            <h4>判定条件</h4>
+            <ul class="logic-list">
+                <li><strong>条件：</strong> 列名匹配任一审计模式（<code>audit_patterns</code>）</li>
+                <li><strong>方法：</strong> 正则表达式匹配（编译缓存 <code>_compiled_audit_patterns</code>）</li>
+                <li><strong>额外处理：</strong> 调用 <code>_determine_audit_type()</code> 通过子串匹配确定审计类型
+                    <ul>
+                        <li><code>timestamp</code>: 时间戳类字段（created_at, updated_at, deleted_at等）</li>
+                        <li><code>actor</code>: 操作人字段（_by, _user, creator, modifier等）</li>
+                        <li><code>flag</code>: 软删除标志（is_deleted, is_active, del_flag等）</li>
+                        <li><code>version</code>: 版本号（version, _ver, revision）</li>
+                        <li><code>etl</code>: ETL相关字段（etl_, load_, effective_, valid_from等）</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h4>代码位置</h4>
+            <div class="code-block">
+# profiler.py: 第661-676行（调整后，在 complex 之后）
+audit_pattern = self._match_pattern(self._compiled_audit_patterns, lower_name)
+if audit_pattern:
+    inference_basis.append(f"audit_pattern:{audit_pattern.pattern}")
+    audit_type, description = self._determine_audit_type(lower_name, column.data_type)
+    return (
+        "audit",
+        0.95,
+        None,  # identifier_info
+        None,  # metric_info
+        None,  # datetime_info
+        None,  # enum_info
+        AuditInfo(audit_type=audit_type, description=description),
+        None,  # description_info
+        inference_basis,
+    )
+            </div>
+
+            <h4>配置参数</h4>
+            <table class="config-table">
+                <thead>
+                    <tr>
+                        <th>配置项</th>
+                        <th>YAML 路径</th>
+                        <th>默认值示例</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>audit_patterns</code></td>
+                        <td><code>column_profiling.audit_patterns</code></td>
+                        <td><code>_ts$, _time$, created_, updated_, _by$, is_deleted, version</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h4>示例</h4>
+            <div class="code-block">
+✅ created_at       → audit (timestamp) - 创建时间戳
+✅ updated_by       → audit (actor) - 操作人标识
+✅ is_deleted       → audit (flag) - 软删除标志
+✅ version          → audit (version) - 版本号
+✅ etl_load_time    → audit (etl) - ETL时间戳
+❌ create_user_id   → identifier (不匹配审计模式)
+            </div>
+        </div>
+
+        <!-- ============ DATETIME ============ -->
+        <div class="role-card" id="role-datetime">
+            <h3>3.2 datetime (日期时间) <span class="priority">优先级 3</span></h3>
+
+            <h4>判定流程图</h4>
+            <div class="flow-diagram">
+                <pre class="mermaid">
+graph TD
+    Start([开始判定 datetime]) --> CheckCondition{类型在datetime_types<br/>OR<br/>列名匹配日期时间后缀?}
+    CheckCondition -->|Yes| DetermineConfidence[确定置信度:<br/>类型匹配→1.0<br/>命名匹配→0.85]
+    DetermineConfidence --> InferGrain[推断时间粒度<br/>_infer_datetime_grain]
+    InferGrain --> ReturnDatetime[返回 datetime<br/>附带DateTimeInfo]
+
+    CheckCondition -->|No| ReturnFalse[返回 False<br/>继续下一角色]
+
+    style Start fill:#e1f5e1
+    style ReturnDatetime fill:#4ecdc4
+    style ReturnFalse fill:#ddd
+    style CheckCondition fill:#fff3cd
+    style DetermineConfidence fill:#ffe6cc
+    style InferGrain fill:#ffe6cc
+                </pre>
+            </div>
+
+            <div class="note">
+                <strong>日期时间后缀：</strong> _date, _day, _month, _year, _hour, _minute, _time, _dt
+            </div>
+
+            <h4>判定条件（满足任一即可）</h4>
+            <ul class="logic-list">
+                <li><strong>条件1：</strong> 数据类型匹配 <code>datetime_types</code>（如 date, datetime, timestamp）
+                    <ul><li>置信度：<strong>1.0</strong></li></ul>
+                </li>
+                <li><strong>条件2：</strong> 列名匹配日期时间后缀（_date, _day, _month, _year, _time, _dt）
+                    <ul><li>置信度：<strong>0.85</strong></li></ul>
+                </li>
+            </ul>
+
+            <h4>代码位置</h4>
+            <div class="code-block">
+# profiler.py: 第678-693行（调整后，在 complex 和 audit 之后）
+# datetime detection
+if column.data_type.lower() in self.config.datetime_types or self._matches_datetime_name(lower_name):
+    inference_basis.append("datetime_type_match" if column.data_type.lower() in self.config.datetime_types else "datetime_name_match")
+    confidence = 1.0 if column.data_type.lower() in self.config.datetime_types else 0.85
+    grain = self._infer_datetime_grain(lower_name)
+    return (
+        "datetime",
+        confidence,
+        None,  # identifier_info
+        None,  # metric_info
+        DateTimeInfo(datetime_type=column.data_type.lower(), datetime_grain=grain),
+        None,  # enum_info
+        None,  # audit_info
+        None,  # description_info
+        inference_basis,
+    )
+            </div>
+
+            <h4>配置参数</h4>
+            <table class="config-table">
+                <thead>
+                    <tr>
+                        <th>配置项</th>
+                        <th>YAML 路径</th>
+                        <th>默认值</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>datetime_types</code></td>
+                        <td><code>column_profiling.datetime_types</code></td>
+                        <td><code>date, datetime, timestamp, timestamptz, time</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h4>示例</h4>
+            <div class="code-block">
+✅ order_date (date)           → datetime (置信度 1.0, 类型匹配)
+✅ created_at (timestamp)      → 被 audit 优先捕获 (audit 优先级高于 datetime)
+✅ birth_day (varchar)         → datetime (置信度 0.85, 命名匹配)
+✅ login_time (bigint)         → datetime (置信度 0.85, 命名匹配)
+❌ date_code (varchar)         → 不匹配后缀规则
+            </div>
+        </div>
+
+        <!-- ============ COMPLEX ============ -->
+        <div class="role-card" id="role-complex">
+            <h3>3.3 complex (复杂类型) <span class="priority">优先级 1 (最高)</span></h3>
+
+            <h4>判定流程图</h4>
+            <div class="flow-diagram">
+                <pre class="mermaid">
+graph TD
+    Start([开始判定 complex]) --> GetType[获取数据类型转为小写]
+    GetType --> CheckDirect{类型在 complex_types 中?}
+
+    CheckDirect -->|Yes| Return[返回 complex 置信度 0.95]
+
+    CheckDirect -->|No| CheckArray{是否为数组类型?}
+    CheckArray -->|Yes| Return
+    CheckArray -->|No| ReturnFalse[返回 False 继续下一角色]
+
+    style Start fill:#e1f5e1
+    style Return fill:#95e1d3
+    style ReturnFalse fill:#ddd
+    style CheckDirect fill:#fff3cd
+    style CheckArray fill:#fff3cd
+                </pre>
+            </div>
+
+            <div class="note">
+                <strong>数组类型特殊处理：</strong> 如果配置中包含 <code>"array"</code>，则会匹配所有 <code>xxx[]</code> 后缀的类型（如 <code>integer[]</code>, <code>text[]</code>）
+            </div>
+
+            <h4>判定条件（满足任一即可）</h4>
+            <ul class="logic-list">
+                <li><strong>条件1：</strong> 数据类型在 <code>complex_types</code> 配置中（小写匹配）</li>
+                <li><strong>条件2：</strong> 特殊处理数组类型
+                    <ul>
+                        <li>如果配置中包含 <code>"array"</code>，则匹配 <code>ARRAY</code> 类型或 <code>xxx[]</code> 后缀</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h4>代码位置</h4>
+            <div class="code-block">
+# profiler.py: 第637-659行
+# ========== complex detection ==========
+# 最高优先级：类型硬约束，避免 jsonb/array 等复杂类型被命名模式误判
+# 必须在 audit/datetime 之前，防止 audit_log (jsonb) 被误判为 audit
+data_type_lower = column.data_type.lower()
+# 检查1: 直接匹配 complex_types 配置
+# 检查2: 特殊处理数组类型
+is_complex = (
+    data_type_lower in self.config.complex_types or
+    ("array" in self.config.complex_types and data_type_lower.endswith("[]"))
+)
+if is_complex:
+    inference_basis.append(f"complex_type:{data_type_lower}")
+    return (
+        "complex",                 # semantic_role
+        0.95,                      # confidence
+        None,                      # identifier_info
+        None,                      # metric_info
+        None,                      # datetime_info
+        None,                      # enum_info
+        None,                      # audit_info
+        None,                      # description_info
+        inference_basis,           # List[str]
+    )
+            </div>
+
+            <h4>配置参数</h4>
+            <table class="config-table">
+                <thead>
+                    <tr>
+                        <th>配置项</th>
+                        <th>YAML 路径</th>
+                        <th>默认值</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>complex_types</code></td>
+                        <td><code>column_profiling.complex_types</code></td>
+                        <td><code>json, jsonb, array, hstore, xml, bytea, tsvector, tsquery, point, line, lseg, box, path, polygon, circle</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="warning">
+                <strong>为何最高优先级？</strong> 复杂类型是基于数据类型的硬约束判定，不依赖命名模式。如果放在 audit/datetime 之后，<code>audit_log (jsonb)</code> 会因命名模式被误判为 audit，<code>created_data (json)</code> 会被误判为 datetime。类型硬约束必须优先于命名模式。
+            </div>
+
+            <div class="warning">
+                <strong>重要用途：</strong> Complex 类型字段不适合作为外键或逻辑主键，会在关系发现和逻辑主键检测中被过滤。
+            </div>
+
+            <h4>示例</h4>
+            <div class="code-block">
+✅ audit_log (jsonb)       → complex (新顺序修复：不再被 audit 命名模式误判)
+✅ metadata (jsonb)        → complex
+✅ tags (array)            → complex
+✅ config (json)           → complex
+✅ content (bytea)         → complex
+✅ location (point)        → complex
+✅ items (integer[])       → complex (数组后缀)
+❌ description (text)      → 继续后续判定
+            </div>
+        </div>
+
+        <!-- ============ IDENTIFIER ============ -->
+        <div class="role-card" id="role-identifier">
+            <h3>3.4 identifier (标识符) <span class="priority">优先级 4</span></h3>
+
+            <h4>判定流程图</h4>
+            <div class="flow-diagram">
+                <pre class="mermaid">
+graph TD
+    Start([开始判定 identifier]) --> Rule0a{规则0a: 命名排除<br/>列名包含排除关键词?}
+    Rule0a -->|Yes| ReturnFalse[返回 False<br/>继续下一角色]
+
+    Rule0a -->|No| Rule0b{规则0b: 类型白名单<br/>数据类型在白名单中?}
+    Rule0b -->|No| ReturnFalse
+    Rule0b -->|Yes| CheckNumeric{类型为<br/>numeric/decimal?}
+
+    CheckNumeric -->|Yes| CheckScale{scale > 0?}
+    CheckScale -->|Yes| ReturnFalse
+    CheckScale -->|No| Rule1
+
+    CheckNumeric -->|No| Rule1{规则1: 物理约束<br/>有PK/FK/UK?}
+    Rule1 -->|Yes| Return1[返回 identifier<br/>置信度: 1.0<br/>依据: 物理约束]
+
+    Rule1 -->|No| Rule2{规则2: 高唯一性<br/>uniqueness>high_uniqueness_threshold<br/>AND non_null>min_non_null_rate?}
+    Rule2 -->|Yes| CheckMetric{列名包含<br/>指标关键词?}
+    CheckMetric -->|Yes| Rule3
+    CheckMetric -->|No| Return2[返回 identifier<br/>置信度: 0.95<br/>依据: 逻辑主键]
+
+    Rule2 -->|No| Rule3{规则3: 命名特征<br/>包含id/code/key等?}
+    Rule3 -->|Yes| CheckStats{有统计数据<br/>且uniqueness>low_uniqueness_threshold?}
+    CheckStats -->|Yes| Return3a[返回 identifier<br/>置信度: 0.85<br/>依据: 命名+唯一性]
+    CheckStats -->|No| Return3b[返回 identifier<br/>置信度: 0.75<br/>依据: 命名only]
+
+    Rule3 -->|No| ReturnFalse
+
+    style Start fill:#e1f5e1
+    style Return1 fill:#f38181
+    style Return2 fill:#f38181
+    style Return3a fill:#f38181
+    style Return3b fill:#f38181
+    style ReturnFalse fill:#ddd
+    style Rule0a fill:#f8d7da
+    style Rule0b fill:#fff3cd
+    style Rule1 fill:#d4edda
+    style Rule2 fill:#fff3cd
+    style Rule3 fill:#fff3cd
+                </pre>
+            </div>
+
+            <div class="note">
+                <strong>✅ 已实现：</strong> 规则2（high_uniqueness）新增"指标词拦截"机制。当唯一性>0.95的列命中指标词（amount/price/cost/count等）时，不会在规则2直接判定为identifier，而是继续走规则3进行命名特征检查，有效避免 <code>amount (integer, 唯一性>0.95)</code> 等指标字段被误判。详见 <code>7_identifier_high_uniqueness_指标词拦截_简版方案.md</code>
+            </div>
+
+            <h4>判定流程（多层过滤）</h4>
+            <ul class="logic-list">
+                <li><strong>规则0a：命名排除</strong>
+                    <ul>
+                        <li>检查 <code>identifier_exclude_keywords</code>（如 name, desc, remark）</li>
+                        <li>命中则直接返回 False（不是 identifier）</li>
+                    </ul>
+                </li>
+                <li><strong>规则0b：类型白名单</strong>
+                    <ul>
+                        <li>调用 <code>_is_identifier_type()</code> 检查数据类型</li>
+                        <li>不在白名单中直接返回 False</li>
+                        <li>白名单：integer, bigint, varchar, uuid, numeric/decimal (scale=0)</li>
+                    </ul>
+                </li>
+                <li><strong>规则1：物理约束（最高优先级）</strong>
+                    <ul>
+                        <li>检查 PK / FK / UNIQUE constraint</li>
+                        <li>命中则返回 True，置信度 <strong>1.0</strong></li>
+                    </ul>
+                </li>
+                <li><strong>规则2：高唯一性（逻辑推断）+ 指标词拦截</strong>
+                    <ul>
+                        <li>条件：<code>uniqueness > high_uniqueness_threshold AND non_null_rate > min_non_null_rate</code></li>
+                        <li>默认阈值：<code>high_uniqueness_threshold=0.95</code>, <code>min_non_null_rate=0.80</code>（可配置）</li>
+                        <li><strong>指标词拦截（新增）：</strong>若列名包含指标关键词（amount/price/cost/revenue/sales/profit/count/qty/quantity/number/rate/ratio/percent/percentage），则<strong>不在此规则直接判定</strong>，继续走规则3</li>
+                        <li>未命中指标词时返回 True，置信度 <strong>0.95</strong></li>
+                    </ul>
+                </li>
+                <li><strong>规则3：命名特征（逻辑推断）</strong>
+                    <ul>
+                        <li>检查关键词：id, uid, code, key, pk, fk, no, num, number, sn, serial, seq, uuid, guid, ref, reference, identifier</li>
+                        <li>如有统计数据且 <code>uniqueness > low_uniqueness_threshold</code>（默认0.05，可配置）：置信度 <strong>0.85</strong></li>
+                        <li>如有统计数据但 <code>uniqueness ≤ low_uniqueness_threshold</code>：置信度 <strong>0.75</strong>（仍识别为identifier）</li>
+                        <li>无统计数据：置信度 <strong>0.75</strong></li>
+                    </ul>
+                </li>
+            </ul>
+
+
+            <h4>代码位置</h4>
+            <div class="code-block">
+# profiler.py: 第973-1064行（_is_identifier + _has_* 系列方法）
+def _is_identifier(
+    self,
+    column: ColumnInfo,
+    stats: Optional[Dict],
+    struct_flags: StructureFlags,
+) -> Tuple[bool, float, Optional[str], List[str]]:
+    """综合判断是否为 identifier
+
+    按优先级依次检查：
+    0. 命名排除规则（name/desc 等描述性字段）
+    1. 数据类型白名单（前置过滤）
+    2. 物理约束（PK/FK/UNIQUE）
+    3. 统计特征（唯一性>high_uniqueness_threshold + 非空率>min_non_null_rate）
+    4. 命名特征（关键词 + 唯一性>low_uniqueness_threshold）
+
+    返回: (是否identifier, 置信度, 匹配的模式/关键词, 推断依据列表)
+    """
+    # 规则0a: 命名排除
+    if any(kw in column_name for kw in self.config.identifier_exclude_keywords):
+        return (False, 0.0, None, [])
+
+    # 规则0b: 类型白名单
+    if not self._is_identifier_type(column):
+        return (False, 0.0, None, [])
+
+    # 规则1: 物理约束
+    has_constraint, conf, reason = self._has_physical_constraint(struct_flags)
+    if has_constraint:
+        return (True, conf, reason, [reason])
+
+    # 规则2: 高唯一性
+    has_high_uniq, uniq_conf, uniq_reason = self._has_high_uniqueness(stats)
+    if has_high_uniq:
+        # 新增：指标词拦截（子串包含匹配）
+        metric_keywords = ["amount", "price", "cost", "revenue", "sales", "profit",
+                          "count", "qty", "quantity", "number",
+                          "rate", "ratio", "percent", "percentage"]
+        if any(kw in lower_name for kw in metric_keywords):
+            # 包含指标词，不在此处判定，继续走规则3
+            pass
+        else:
+            # 未包含指标词，直接返回 identifier
+            return (True, uniq_conf, "logical_primary_key", [uniq_reason])
+
+    # 规则3: 命名特征
+    has_naming, naming_conf, matched_kw, reason = self._has_identifier_naming(column_name, stats)
+    if has_naming:
+        return (True, naming_conf, matched_kw, [reason])
+
+    return (False, 0.0, None, [])
+            </div>
+
+            <h4>配置参数</h4>
+            <table class="config-table">
+                <thead>
+                    <tr>
+                        <th>配置项</th>
+                        <th>YAML 路径</th>
+                        <th>默认值</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>allowed_data_types</code></td>
+                        <td><code>sampling.identifier_detection.allowed_data_types</code></td>
+                        <td><code>integer, bigint, smallint, varchar, character varying, text, uuid, char, numeric, decimal, serial, bigserial</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>high_uniqueness_threshold</code></td>
+                        <td><code>sampling.identifier_detection.high_uniqueness_threshold</code></td>
+                        <td><code>0.95</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>min_non_null_rate</code></td>
+                        <td><code>sampling.identifier_detection.min_non_null_rate</code></td>
+                        <td><code>0.80</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>low_uniqueness_threshold</code></td>
+                        <td><code>sampling.identifier_detection.low_uniqueness_threshold</code></td>
+                        <td><code>0.05</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>exclude_keywords</code></td>
+                        <td><code>sampling.identifier_detection.exclude_keywords</code></td>
+                        <td><code>name, nm, desc, description, remark, comment, details, memo, summary</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h4>示例</h4>
+            <div class="code-block">
+✅ user_id (integer, PK)           → identifier (规则1, 置信度 1.0)
+✅ order_no (varchar, FK)          → identifier (规则1, 置信度 1.0)
+✅ product_code (varchar, 唯一性 0.98) → identifier (规则2, 置信度 0.95, 非指标词)
+✅ customer_id (bigint, 唯一性 0.10)  → identifier (规则3, 置信度 0.85)
+✅ amount (integer, 唯一性 0.99)   → metric (规则2被指标词拦截，未通过规则3，最终被metric捕获)
+❌ user_name (varchar, 唯一性 0.30) → 被规则0a排除（含 name）
+❌ price (float)                   → 被规则0b排除（float 不在白名单）
+            </div>
+        </div>
+
+        <!-- ============ DESCRIPTION ============ -->
+        <div class="role-card" id="role-description">
+            <h3>3.5 description (描述字段) <span class="priority">优先级 5</span></h3>
+
+            <h4>判定流程图</h4>
+            <div class="flow-diagram">
+                <pre class="mermaid">
+graph TD
+    Start([开始判定 description]) --> CheckEnabled{description_enabled<br/>配置启用?}
+    CheckEnabled -->|No| ReturnFalse[返回 False<br/>继续下一角色]
+
+    CheckEnabled -->|Yes| CheckConstraint{有物理约束<br/>或被索引?}
+    CheckConstraint -->|Yes| ReturnFalse
+
+    CheckConstraint -->|No| CheckType{类型为 text OR<br/>长varchar ≥256?}
+    CheckType -->|No| ReturnFalse
+
+    CheckType -->|Yes| CheckInclude{列名包含<br/>强匹配关键词?}
+    CheckInclude -->|Yes| Return[返回 description<br/>置信度: 0.85<br/>依据: 命名强匹配]
+
+    CheckInclude -->|No| CheckExclude{列名包含<br/>排除关键词?}
+    CheckExclude -->|Yes| ReturnFalse
+
+    CheckExclude -->|No| CheckStats{有统计数据?}
+    CheckStats -->|No| ReturnFalse
+
+    CheckStats -->|Yes| CheckAvgLen{avg_length ≥ 50.0<br/>AND uniqueness ≥ 0.7?}
+    CheckAvgLen -->|No| ReturnFalse
+
+    CheckAvgLen -->|Yes| CheckStable{length_std < 5.0?}
+    CheckStable -->|Yes| ReturnFalse2[返回 False<br/>固定格式编码]
+
+    CheckStable -->|No| CheckVariance{length_std > 20.0 OR<br/>(max-min) > 100?}
+    CheckVariance -->|Yes| Return2[返回 description<br/>置信度: 0.85<br/>依据: 统计特征]
+    CheckVariance -->|No| ReturnFalse
+
+    style Start fill:#e1f5e1
+    style Return fill:#aa96da
+    style Return2 fill:#aa96da
+    style ReturnFalse fill:#ddd
+    style ReturnFalse2 fill:#ddd
+    style CheckEnabled fill:#d1ecf1
+    style CheckConstraint fill:#f8d7da
+    style CheckType fill:#fff3cd
+    style CheckInclude fill:#d4edda
+    style CheckExclude fill:#f8d7da
+                </pre>
+            </div>
+
+            <h4>判定流程</h4>
+            <ul class="logic-list">
+                <li><strong>前置检查：</strong> <code>description_enabled</code> 配置必须为 true</li>
+                <li><strong>排除规则：</strong> 有主键（PK）、外键（FK）或被索引 → False（注：不排除UNIQUE约束）</li>
+                <li><strong>类型检查：</strong> 必须是 <code>text</code> 类型 OR 长 varchar (≥ 256)</li>
+                <li><strong>命名强匹配（优先）：</strong> 包含 <code>description_keywords</code> → 直接返回 True</li>
+                <li><strong>排除关键词：</strong> 包含 <code>description_exclude_keywords</code> → False</li>
+                <li><strong>统计特征判定：</strong>
+                    <ul>
+                        <li>avg_length ≥ 50.0</li>
+                        <li>uniqueness ≥ 0.7</li>
+                        <li>length_std < 5.0 → False（固定格式，如订单号）</li>
+                        <li>length_std > 20.0 OR (max_length - min_length) > 100 → True（离散文本）</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h4>代码位置</h4>
+            <div class="code-block">
+# profiler.py: 第1082-1142行
+# 1. 排除：有物理约束或被索引的字段
+if (struct_flags.is_primary_key or
+    struct_flags.is_composite_primary_key_member or
+    struct_flags.is_foreign_key or
+    struct_flags.is_composite_foreign_key_member or
+    struct_flags.is_indexed or
+    struct_flags.is_composite_indexed_member):
+    return (False, "")
+
+data_type = column.data_type.lower()
+lower_name = column.column_name.lower()
+
+# 2. 数据类型检查
+is_text_type = data_type == "text"
+is_long_varchar = (
+    data_type in ("varchar", "character varying", "char", "character")
+    and column.character_maximum_length
+    and column.character_maximum_length >= self.config.description_min_varchar_length
+)
+
+if not (is_text_type or is_long_varchar):
+    return (False, "")
+
+# 3. 命名模式强匹配（优先于平均长度检查）
+if any(kw in lower_name for kw in self.config.description_keywords):
+    return (True, "description_keyword_match")
+
+# 4. 排除：包含 identifier 关键词的字段
+if any(kw in lower_name for kw in self.config.description_exclude_keywords):
+    return (False, "")
+
+# 5. 统计特征判定
+if stats:
+    avg_length = stats.get("avg_length", 0)
+    uniqueness = stats.get("uniqueness", 0)
+    length_std = stats.get("length_std", 0)
+    max_length = stats.get("max_length", 0)
+    min_length = stats.get("min_length", 0)
+
+    if avg_length >= self.config.description_min_avg_length and \
+       uniqueness >= self.config.description_min_uniqueness:
+        if length_std < self.config.description_max_stable_std:
+            return (False, "")  # 固定格式编码
+        length_range = max_length - min_length
+        if length_std > self.config.description_min_variance_std or length_range > 100:
+            return (True, "description_high_variance")
+
+return (False, "")
+            </div>
+
+            <h4>配置参数</h4>
+            <table class="config-table">
+                <thead>
+                    <tr>
+                        <th>配置项</th>
+                        <th>YAML 路径</th>
+                        <th>默认值</th>
+                        <th>说明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>enabled</code></td>
+                        <td><code>sampling.description_detection.enabled</code></td>
+                        <td><code>true</code></td>
+                        <td>是否启用 description 检测</td>
+                    </tr>
+                    <tr>
+                        <td><code>min_varchar_length</code></td>
+                        <td><code>sampling.description_detection.min_varchar_length</code></td>
+                        <td><code>256</code></td>
+                        <td>varchar 最小长度</td>
+                    </tr>
+                    <tr>
+                        <td><code>min_avg_length</code></td>
+                        <td><code>sampling.description_detection.min_avg_length</code></td>
+                        <td><code>50.0</code></td>
+                        <td>平均长度阈值</td>
+                    </tr>
+                    <tr>
+                        <td><code>max_stable_std</code></td>
+                        <td><code>sampling.description_detection.max_stable_std</code></td>
+                        <td><code>5.0</code></td>
+                        <td>稳定编码最大标准差</td>
+                    </tr>
+                    <tr>
+                        <td><code>min_variance_std</code></td>
+                        <td><code>sampling.description_detection.min_variance_std</code></td>
+                        <td><code>20.0</code></td>
+                        <td>离散文本最小标准差</td>
+                    </tr>
+                    <tr>
+                        <td><code>min_uniqueness</code></td>
+                        <td><code>sampling.description_detection.min_uniqueness</code></td>
+                        <td><code>0.7</code></td>
+                        <td>最小唯一性</td>
+                    </tr>
+                    <tr>
+                        <td><code>include_keywords</code></td>
+                        <td><code>sampling.description_detection.include_keywords</code></td>
+                        <td><code>description, desc, note, remark, comment, memo, explain, detail, content, text, message, action</code></td>
+                        <td>强匹配关键词</td>
+                    </tr>
+                    <tr>
+                        <td><code>exclude_keywords</code></td>
+                        <td><code>sampling.description_detection.exclude_keywords</code></td>
+                        <td><code>code, _id, _key, _no, number, uuid, token</code></td>
+                        <td>排除关键词</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h4>示例</h4>
+            <div class="code-block">
+✅ description (text)                        → description (命名强匹配)
+✅ remark (varchar(500), 平均长度80, std 25)  → description (统计匹配)
+✅ comment (text, 平均长度120)                → description (命名强匹配)
+❌ order_code (varchar(500), std 2)          → 被排除关键词拦截
+❌ product_id (varchar(100), indexed)        → 被排除规则2拦截
+❌ short_desc (varchar(50))                  → 类型检查不通过（< 256）
+            </div>
+        </div>
+
+        <!-- ============ ENUM ============ -->
+        <div class="role-card" id="role-enum">
+            <h3>3.6 enum (枚举) <span class="priority">优先级 6</span></h3>
+
+            <div class="note">
+                <strong>限制：</strong> 当前实现只检测<strong>简单两值枚举</strong>（如 Y/N, 0/1, Active/Inactive），不检测多值枚举。
+            </div>
+
+            <h4>判定流程图</h4>
+            <div class="flow-diagram">
+                <pre class="mermaid">
+graph TD
+    Start([开始判定 enum]) --> CheckStats{有统计数据?}
+    CheckStats -->|No| ReturnFalse[返回 False<br/>继续下一角色]
+
+    CheckStats -->|Yes| Cond0{条件0: 命名排除<br/>包含name/desc等?}
+    Cond0 -->|Yes| ReturnFalse
+
+    Cond0 -->|No| Cond1{条件1:<br/>唯一值数量 = 2?}
+    Cond1 -->|No| ReturnFalse
+
+    Cond1 -->|Yes| Cond2{条件2: 数据类型<br/>为字符串 OR 小整数?}
+    Cond2 -->|No| ReturnFalse
+
+    Cond2 -->|Yes| Cond3{条件3:<br/>非约束字段?}
+    Cond3 -->|No| ReturnFalse
+
+    Cond3 -->|Yes| Cond4{条件4:<br/>null_rate < 0.3?}
+    Cond4 -->|No| ReturnFalse
+
+    Cond4 -->|Yes| Cond5{条件5:<br/>每个值出现 ≥2 次?}
+    Cond5 -->|No| ReturnFalse
+
+    Cond5 -->|Yes| CheckString{是字符串类型?}
+    CheckString -->|Yes| Cond6{条件6:<br/>max_length ≤ 20?}
+    Cond6 -->|No| ReturnFalse
+    Cond6 -->|Yes| Return[返回 enum<br/>置信度: 0.85]
+
+    CheckString -->|No| Return
+
+    style Start fill:#e1f5e1
+    style Return fill:#fcbad3
+    style ReturnFalse fill:#ddd
+    style Cond0 fill:#f8d7da
+    style Cond1 fill:#fff3cd
+    style Cond2 fill:#fff3cd
+    style Cond3 fill:#fff3cd
+    style Cond4 fill:#fff3cd
+    style Cond5 fill:#fff3cd
+    style Cond6 fill:#fff3cd
+                </pre>
+            </div>
+
+            <h4>判定条件（必须全部满足）</h4>
+            <ul class="logic-list">
+                <li><strong>条件0：</strong> 命名排除（硬编码：name, desc, remark 等）</li>
+                <li><strong>条件1：</strong> 唯一值数量恰好为 <strong>2</strong></li>
+                <li><strong>条件2：</strong> 数据类型为字符串 OR 小整数（integer, smallint, boolean）</li>
+                <li><strong>条件3：</strong> 非约束字段（不是 PK/FK/UK，包括复合成员）</li>
+                <li><strong>条件4：</strong> 空值率 < 0.3</li>
+                <li><strong>条件5：</strong> 每个值至少出现 2 次</li>
+                <li><strong>条件6：</strong> 字符串值长度 ≤ 20</li>
+            </ul>
+
+            <h4>代码位置</h4>
+            <div class="code-block">
+# profiler.py: 第792-870行
+def _is_simple_two_value_enum(
+    self,
+    column: ColumnInfo,
+    stats: Optional[Dict],
+    struct_flags: StructureFlags,
+) -> bool:
+    """判断是否为简单的两值枚举"""
+    if not stats:
+        return False
+
+    # 条件0: 命名排除规则 - 描述性字段不应该是枚举
+    lower_name = column.column_name.lower()
+    exclude_keywords = ["name", "nm", "desc", "description", "remark", "comment", "details", "memo", "summary"]
+    for keyword in exclude_keywords:
+        if keyword in lower_name:
+            return False
+
+    # 条件1: 唯一值数量必须恰好为 2
+    unique_count = stats.get("unique_count")
+    if unique_count != 2:
+        return False
+
+    # 条件2: 数据类型（注意：仅支持 integer, smallint, boolean）
+    data_type_lower = column.data_type.lower()
+    is_string = data_type_lower in {"varchar", "character varying", "text", "char", "character"}
+    is_small_int = data_type_lower in {"integer", "smallint", "boolean"}
+    if not (is_string or is_small_int):
+        return False
+
+    # 条件3: 非约束字段（包括数据唯一性检查）
+    if (struct_flags.is_primary_key or
+        struct_flags.is_composite_primary_key_member or
+        struct_flags.is_foreign_key or
+        struct_flags.is_composite_foreign_key_member or
+        struct_flags.is_unique or  # 数据唯一性（无约束但数据唯一）
+        struct_flags.is_unique_constraint or
+        struct_flags.is_composite_unique_constraint_member):
+        return False
+
+    # 条件4: 空值率 < 0.3
+    null_rate = stats.get("null_rate", 0)
+    if null_rate >= 0.3:
+        return False
+
+    # 条件5: 每个值至少出现 2 次
+    value_distribution = stats.get("value_distribution", {})
+    if not value_distribution or len(value_distribution) != 2:
+        return False
+    for count in value_distribution.values():
+        if count < 2:
+            return False
+
+    # 条件6: 字符串值长度检查（检查实际值，非 max_length）
+    if is_string:
+        for value in value_distribution.keys():
+            if value and len(str(value)) > 20:
+                return False
+
+    return True
+            </div>
+
+            <h4>配置参数</h4>
+            <table class="config-table">
+                <thead>
+                    <tr>
+                        <th>配置项</th>
+                        <th>YAML 路径</th>
+                        <th>默认值</th>
+                        <th>说明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>enum_threshold</code></td>
+                        <td><code>column_profiling.enum_threshold</code></td>
+                        <td><code>10</code></td>
+                        <td>（暂未用于两值枚举检测）</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h4>示例</h4>
+            <div class="code-block">
+✅ is_active (varchar, 值: Y/N)          → enum
+✅ status (integer, 值: 0/1)            → enum
+✅ gender (char(1), 值: M/F)            → enum
+❌ user_name (varchar, 唯一值 100)      → 条件1不满足
+❌ is_deleted (boolean, 空值率 0.5)     → 条件4不满足
+❌ order_status (varchar, 唯一值 5)     → 条件1不满足（> 2）
+            </div>
+        </div>
+
+        <!-- ============ METRIC ============ -->
+        <div class="role-card" id="role-metric">
+            <h3>3.7 metric (度量指标) <span class="priority">优先级 7</span></h3>
+
+            <h4>判定流程图</h4>
+            <div class="flow-diagram">
+                <pre class="mermaid">
+graph TD
+    Start([开始判定 metric]) --> CheckNumeric{数据类型<br/>为数值型?}
+    CheckNumeric -->|Yes| CheckPattern1{列名匹配<br/>metric_patterns?}
+
+    CheckPattern1 -->|Yes| DetermineCategory1[确定度量类别<br/>amount/count/ratio]
+    DetermineCategory1 --> SuggestAgg1[建议聚合函数<br/>SUM/AVG/MIN/MAX]
+    SuggestAgg1 --> Return1[返回 metric<br/>置信度: 0.95<br/>依据: 类型+模式]
+
+    CheckPattern1 -->|No| DetermineCategory2[确定度量类别<br/>metric]
+    DetermineCategory2 --> SuggestAgg2[建议聚合函数<br/>SUM/AVG/MIN/MAX]
+    SuggestAgg2 --> Return2[返回 metric<br/>置信度: 0.7<br/>依据: 仅类型]
+
+    CheckNumeric -->|No| CheckPattern2{列名匹配<br/>metric_patterns?}
+    CheckPattern2 -->|Yes| DetermineCategory3[确定度量类别<br/>从列名推断]
+    DetermineCategory3 --> SuggestAgg3[建议聚合函数]
+    SuggestAgg3 --> Return3[返回 metric<br/>置信度: 0.6<br/>依据: 仅模式]
+
+    CheckPattern2 -->|No| ReturnFalse[返回 False<br/>继续下一角色]
+
+    style Start fill:#e1f5e1
+    style Return1 fill:#ffffd2
+    style Return2 fill:#ffffd2
+    style Return3 fill:#ffffd2
+    style ReturnFalse fill:#ddd
+    style CheckNumeric fill:#fff3cd
+    style CheckPattern1 fill:#fff3cd
+    style CheckPattern2 fill:#fff3cd
+                </pre>
+            </div>
+
+            <div class="note">
+                <strong>度量类别判定：</strong>
+                <ul style="margin-top: 10px;">
+                    <li><code>amount</code>: 包含 amount/price/cost/revenue/sales/profit → 聚合: SUM/AVG/MIN/MAX</li>
+                    <li><code>count</code>: 包含 count/qty/quantity/num/number → 聚合: SUM</li>
+                    <li><code>ratio</code>: 包含 rate/ratio/percent/percentage → 聚合: AVG</li>
+                    <li><code>metric</code>: 其他情况 → 聚合: SUM/AVG/MIN/MAX</li>
+                </ul>
+            </div>
+
+            <h4>判定条件（满足任一即可）</h4>
+            <ul class="logic-list">
+                <li><strong>条件1：</strong> 数据类型为数值型（numeric, decimal, number, int, integer, bigint, smallint, double precision, real, float）
+                    <ul>
+                        <li>同时命中 <code>metric_patterns</code>：置信度 <strong>0.95</strong></li>
+                        <li>仅类型匹配（不命中模式）：置信度 <strong>0.7</strong></li>
+                    </ul>
+                </li>
+                <li><strong>条件2：</strong> 非数值型但命中 <code>metric_patterns</code>：置信度 <strong>0.6</strong></li>
+            </ul>
+
+            <div class="highlight">
+                <strong>附加信息：</strong> 会调用 <code>_determine_metric_category()</code> 判定度量类别（amount/count/ratio/metric），并调用 <code>_suggest_metric_aggregations()</code> 建议聚合函数（SUM/AVG/MIN/MAX）。
+            </div>
+
+            <h4>代码位置</h4>
+            <div class="code-block">
+# profiler.py: 第754-786行
+# metric detection
+numeric_type = column.data_type.lower() in {
+    "numeric",
+    "decimal",
+    "number",
+    "int",
+    "integer",
+    "bigint",
+    "smallint",
+    "double precision",
+    "real",
+    "float",
+}
+metric_pattern = self._match_pattern(self._compiled_metric_patterns, lower_name)
+if numeric_type:
+    inference_basis.append("numeric_type")
+if metric_pattern:
+    inference_basis.append(f"metric_pattern:{metric_pattern.pattern}")
+if numeric_type or metric_pattern:
+    confidence = 0.95 if numeric_type and metric_pattern else (0.7 if numeric_type else 0.6)
+    category = self._determine_metric_category(lower_name)
+    aggregations = self._suggest_metric_aggregations(category)
+    return (
+        "metric",
+        confidence,
+        None,  # identifier_info
+        MetricInfo(metric_category=category, suggested_aggregations=aggregations),
+        None,  # datetime_info
+        None,  # enum_info
+        None,  # audit_info
+        None,  # description_info
+        inference_basis,
+    )
+            </div>
+
+            <h4>配置参数</h4>
+            <table class="config-table">
+                <thead>
+                    <tr>
+                        <th>配置项</th>
+                        <th>YAML 路径</th>
+                        <th>默认值示例</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>metric_patterns</code></td>
+                        <td><code>column_profiling.metric_patterns</code></td>
+                        <td><code>_amount$, _count$, _total$, _sum$, ^amount, ^count, ^total, ^qty, ^quantity, _price$, _cost$, _revenue$, _sales$, _profit$, _rate$, _ratio$, _percent$</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h4>度量类别判定</h4>
+            <div class="code-block">
+# profiler.py: 第1190-1204行
+def _determine_metric_category(self, column_name):
+    if re.search(r"(amount|price|cost|revenue|sales|profit)", column_name):
+        return "amount"
+    if re.search(r"(count|qty|quantity|num|number)", column_name):
+        return "count"
+    if re.search(r"(rate|ratio|percent|percentage)", column_name):
+        return "ratio"
+    return "metric"
+
+# 聚合函数建议
+def _suggest_metric_aggregations(self, category):
+    if category == "count":
+        return ["SUM"]
+    if category == "ratio":
+        return ["AVG"]
+    return ["SUM", "AVG", "MIN", "MAX"]
+            </div>
+
+            <h4>示例</h4>
+            <div class="code-block">
+✅ amount (numeric)               → metric (置信度 0.95, 类型+模式)
+✅ total_cost (integer)           → metric (置信度 0.95, 类型+模式)
+✅ sales (bigint)                 → metric (置信度 0.95, 类型+模式)
+✅ price (float)                  → metric (置信度 0.95, 类型+模式)
+✅ customer_count (integer)       → metric (置信度 0.95, 类型+模式)
+✅ random_value (numeric)         → metric (置信度 0.7, 仅类型)
+⚠️  amount_paid_date (varchar)    → metric (置信度 0.6, 仅模式)
+❌ amount_id (integer)            → identifier (被 identifier 优先捕获)
+            </div>
+        </div>
+
+        <!-- ============ ATTRIBUTE ============ -->
+        <div class="role-card" id="role-attribute">
+            <h3>3.8 attribute (属性 - 默认兜底) <span class="priority">优先级 8</span></h3>
+
+            <h4>判定流程图</h4>
+            <div class="flow-diagram">
+                <pre class="mermaid">
+graph TD
+    Start([开始判定 attribute]) --> Info[所有前7种角色<br/>均未命中]
+    Info --> Return[返回 attribute<br/>置信度: 0.7<br/>依据: 默认兜底]
+
+    style Start fill:#e1f5e1
+    style Return fill:#a8d8ea
+    style Info fill:#fff3cd
+                </pre>
+            </div>
+
+            <div class="note">
+                <strong>兜底设计：</strong> attribute 是最宽泛的分类，任何不符合前 7 种特定语义角色的列都会被归类为 attribute，表示该列是普通的业务属性字段。
+            </div>
+
+            <h4>判定条件</h4>
+            <ul class="logic-list">
+                <li><strong>兜底规则：</strong> 所有不符合以上 7 种角色的列，都判定为 <code>attribute</code></li>
+                <li><strong>置信度：</strong> 固定为 <strong>0.7</strong></li>
+            </ul>
+
+            <h4>代码位置</h4>
+            <div class="code-block">
+# profiler.py: 第788-790行
+# default attribute
+inference_basis.append("fallback_attribute")
+return ("attribute", 0.7, None, None, None, None, None, None, inference_basis)
+            </div>
+
+            <h4>典型场景</h4>
+            <div class="code-block">
+✅ product_name (varchar)          → attribute
+✅ category (varchar)              → attribute
+✅ color (varchar)                 → attribute
+✅ size (varchar)                  → attribute
+✅ weight (numeric) [不匹配度量模式] → attribute (置信度 0.7)
+            </div>
+
+            <div class="note">
+                <strong>设计意图：</strong> attribute 是一个宽泛的兜底分类，表示该列是普通的业务属性字段，没有特殊的语义角色。
+            </div>
+        </div>
+
+        <h2 id="section-4">4. YAML 配置参数完整列表</h2>
+
+        <div class="note">
+            <strong>配置文件位置：</strong> <code>configs/metadata_config.yaml</code>
+        </div>
+
+        <h3>4.1 列画像配置 (column_profiling)</h3>
+        <table class="config-table">
+            <thead>
+                <tr>
+                    <th>配置项</th>
+                    <th>YAML 路径</th>
+                    <th>类型</th>
+                    <th>默认值</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>enum_threshold</code></td>
+                    <td><code>column_profiling.enum_threshold</code></td>
+                    <td>int</td>
+                    <td>10</td>
+                    <td>枚举检测阈值（当前仅用于多值枚举，未完全实现）</td>
+                </tr>
+                <tr>
+                    <td><code>metric_patterns</code></td>
+                    <td><code>column_profiling.metric_patterns</code></td>
+                    <td>list[str]</td>
+                    <td>见下方</td>
+                    <td>度量字段正则模式</td>
+                </tr>
+                <tr>
+                    <td><code>identifier_patterns</code></td>
+                    <td><code>column_profiling.identifier_patterns</code></td>
+                    <td>list[str]</td>
+                    <td>见下方</td>
+                    <td>标识符正则模式</td>
+                </tr>
+                <tr>
+                    <td><code>audit_patterns</code></td>
+                    <td><code>column_profiling.audit_patterns</code></td>
+                    <td>list[str]</td>
+                    <td>见下方</td>
+                    <td>审计字段正则模式</td>
+                </tr>
+                <tr>
+                    <td><code>datetime_types</code></td>
+                    <td><code>column_profiling.datetime_types</code></td>
+                    <td>list[str]</td>
+                    <td>date, datetime, timestamp, timestamptz, time</td>
+                    <td>日期时间数据类型</td>
+                </tr>
+                <tr>
+                    <td><code>complex_types</code></td>
+                    <td><code>column_profiling.complex_types</code></td>
+                    <td>list[str]</td>
+                    <td>json, jsonb, array, hstore, xml, bytea, tsvector, tsquery, point, line, lseg, box, path, polygon, circle</td>
+                    <td>复杂类型集合</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h4>metric_patterns 默认值</h4>
+        <div class="code-block">
+metric_patterns:
+  - _amount$
+  - _count$
+  - _total$
+  - _sum$
+  - _qty$
+  - _quantity$
+  - ^amount
+  - ^count
+  - ^total
+  - ^sum
+  - ^qty
+  - ^quantity
+  - _price$
+  - _cost$
+  - _revenue$
+  - _sales$
+  - _profit$
+  - _rate$
+  - _ratio$
+  - _percent$
+  - _percentage$
+        </div>
+
+        <h4>identifier_patterns 默认值</h4>
+        <div class="code-block">
+identifier_patterns:
+  - _id$
+  - _key$
+  - _code$
+  - _no$
+  - _number$
+  - ^id$
+  - ^key$
+        </div>
+
+        <h4>audit_patterns 默认值</h4>
+        <div class="code-block">
+audit_patterns:
+  # 时间戳类
+  - _ts$
+  - _time$
+  - created_
+  - updated_
+  - modified_
+  - deleted_
+  # 操作人类
+  - _by$
+  - _user$
+  - creator
+  - modifier
+  # 软删除类
+  - is_deleted
+  - is_active
+  - del_flag
+  - deleted_flag
+  - active_flag
+  # 版本类
+  - version
+  - _ver$
+  - revision
+  # ETL 类
+  - ^etl_
+  - ^load_
+  - effective_
+  - valid_from
+  - valid_to
+        </div>
+
+        <h3>4.2 标识符检测配置 (sampling.identifier_detection)</h3>
+        <table class="config-table">
+            <thead>
+                <tr>
+                    <th>配置项</th>
+                    <th>YAML 路径</th>
+                    <th>类型</th>
+                    <th>默认值</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>allowed_data_types</code></td>
+                    <td><code>sampling.identifier_detection.allowed_data_types</code></td>
+                    <td>list[str]</td>
+                    <td>见下方</td>
+                    <td>标识符类型白名单</td>
+                </tr>
+                <tr>
+                    <td><code>high_uniqueness_threshold</code></td>
+                    <td><code>sampling.identifier_detection.high_uniqueness_threshold</code></td>
+                    <td>float</td>
+                    <td>0.95</td>
+                    <td>高唯一性阈值（规则2）</td>
+                </tr>
+                <tr>
+                    <td><code>min_non_null_rate</code></td>
+                    <td><code>sampling.identifier_detection.min_non_null_rate</code></td>
+                    <td>float</td>
+                    <td>0.80</td>
+                    <td>最小非空率（规则2）</td>
+                </tr>
+                <tr>
+                    <td><code>low_uniqueness_threshold</code></td>
+                    <td><code>sampling.identifier_detection.low_uniqueness_threshold</code></td>
+                    <td>float</td>
+                    <td>0.05</td>
+                    <td>低唯一性阈值（规则3）</td>
+                </tr>
+                <tr>
+                    <td><code>exclude_keywords</code></td>
+                    <td><code>sampling.identifier_detection.exclude_keywords</code></td>
+                    <td>list[str]</td>
+                    <td>name, nm, desc, description, remark, comment, details, memo, summary</td>
+                    <td>命名排除关键词（规则0a）</td>
+                </tr>
+                <tr style="opacity: 1.0;">
+                    <td><code>high_uniqueness_block_keywords</code> <strong>（已实现 ✅）</strong></td>
+                    <td><code>（硬编码在代码中）</code></td>
+                    <td>list[str]</td>
+                    <td>amount, price, cost, revenue, sales, profit, count, qty, quantity, number, rate, ratio, percent, percentage</td>
+                    <td>指标词拦截列表（阻止规则2误判为identifier）- 采用子串包含匹配</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h4>allowed_data_types 默认值</h4>
+        <div class="code-block">
+allowed_data_types:
+  # 整数类型
+  - integer
+  - int
+  - bigint
+  - smallint
+  - serial
+  - bigserial
+  - smallserial
+  # 字符串类型
+  - varchar
+  - character varying
+  - text
+  - char
+  - character
+  # UUID
+  - uuid
+  # 数值类型（仅 scale=0）
+  - numeric
+  - decimal
+        </div>
+
+        <h3>4.3 描述字段检测配置 (sampling.description_detection)</h3>
+        <table class="config-table">
+            <thead>
+                <tr>
+                    <th>配置项</th>
+                    <th>YAML 路径</th>
+                    <th>类型</th>
+                    <th>默认值</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>enabled</code></td>
+                    <td><code>sampling.description_detection.enabled</code></td>
+                    <td>bool</td>
+                    <td>true</td>
+                    <td>是否启用 description 检测</td>
+                </tr>
+                <tr>
+                    <td><code>min_varchar_length</code></td>
+                    <td><code>sampling.description_detection.min_varchar_length</code></td>
+                    <td>int</td>
+                    <td>256</td>
+                    <td>varchar 最小长度</td>
+                </tr>
+                <tr>
+                    <td><code>min_avg_length</code></td>
+                    <td><code>sampling.description_detection.min_avg_length</code></td>
+                    <td>float</td>
+                    <td>50.0</td>
+                    <td>平均长度阈值</td>
+                </tr>
+                <tr>
+                    <td><code>max_stable_std</code></td>
+                    <td><code>sampling.description_detection.max_stable_std</code></td>
+                    <td>float</td>
+                    <td>5.0</td>
+                    <td>稳定编码最大标准差（低于此值判定为固定格式）</td>
+                </tr>
+                <tr>
+                    <td><code>min_variance_std</code></td>
+                    <td><code>sampling.description_detection.min_variance_std</code></td>
+                    <td>float</td>
+                    <td>20.0</td>
+                    <td>离散文本最小标准差（高于此值判定为描述字段）</td>
+                </tr>
+                <tr>
+                    <td><code>min_uniqueness</code></td>
+                    <td><code>sampling.description_detection.min_uniqueness</code></td>
+                    <td>float</td>
+                    <td>0.7</td>
+                    <td>最小唯一性</td>
+                </tr>
+                <tr>
+                    <td><code>include_keywords</code></td>
+                    <td><code>sampling.description_detection.include_keywords</code></td>
+                    <td>list[str]</td>
+                    <td>见下方</td>
+                    <td>强匹配关键词</td>
+                </tr>
+                <tr>
+                    <td><code>exclude_keywords</code></td>
+                    <td><code>sampling.description_detection.exclude_keywords</code></td>
+                    <td>list[str]</td>
+                    <td>code, _id, _key, _no, number, uuid, token</td>
+                    <td>排除关键词</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h4>include_keywords 默认值</h4>
+        <div class="code-block">
+include_keywords:
+  - description
+  - desc
+  - note
+  - remark
+  - comment
+  - memo
+  - explain
+  - explanation
+  - detail
+  - details
+  - content
+  - text
+  - message
+  - msg
+  - action
+        </div>
+
+        <h3>4.4 采样配置 (sampling)</h3>
+        <table class="config-table">
+            <thead>
+                <tr>
+                    <th>配置项</th>
+                    <th>YAML 路径</th>
+                    <th>类型</th>
+                    <th>默认值</th>
+                    <th>说明</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>enabled</code></td>
+                    <td><code>sampling.enabled</code></td>
+                    <td>bool</td>
+                    <td>true</td>
+                    <td>是否启用数据采样</td>
+                </tr>
+                <tr>
+                    <td><code>sample_size</code></td>
+                    <td><code>sampling.sample_size</code></td>
+                    <td>int</td>
+                    <td>1000</td>
+                    <td>采样行数</td>
+                </tr>
+                <tr>
+                    <td><code>column_statistics.enabled</code></td>
+                    <td><code>sampling.column_statistics.enabled</code></td>
+                    <td>bool</td>
+                    <td>true</td>
+                    <td>是否计算列统计信息</td>
+                </tr>
+                <tr>
+                    <td><code>column_statistics.value_distribution_threshold</code></td>
+                    <td><code>sampling.column_statistics.value_distribution_threshold</code></td>
+                    <td>int</td>
+                    <td>10</td>
+                    <td>值分布统计阈值（唯一值数量 ≤ 此值时记录分布）</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="highlight">
+            <strong>性能提示：</strong> <code>sample_size</code> 越大，统计信息越准确，但查询耗时越长。生产环境建议 1000-5000 行。
+        </div>
+
+        <h3>配置文件完整示例</h3>
+        <div class="code-block">
+# configs/metadata_config.yaml
+
+sampling:
+  enabled: true
+  sample_size: 1000
+
+  column_statistics:
+    enabled: true
+    value_distribution_threshold: 10
+
+  identifier_detection:
+    allowed_data_types:
+      - integer
+      - bigint
+      - varchar
+      - uuid
+      - numeric
+      - decimal
+    high_uniqueness_threshold: 0.95
+    min_non_null_rate: 0.80
+    low_uniqueness_threshold: 0.05
+    exclude_keywords:
+      - name
+      - desc
+      - description
+      - remark
+    # ⚠️ 注意：以下配置项已实现（采用子串包含匹配，硬编码在代码中）
+    # high_uniqueness_block_keywords:
+    #   - amount
+    #   - price
+    #   - cost
+    #   - revenue
+    #   - sales
+    #   - profit
+    #   - count
+    #   - qty
+    #   - quantity
+    #   - number
+    #   - rate
+    #   - ratio
+    #   - percent
+    #   - percentage
+
+  description_detection:
+    enabled: true
+    min_varchar_length: 256
+    min_avg_length: 50.0
+    max_stable_std: 5.0
+    min_variance_std: 20.0
+    min_uniqueness: 0.7
+    include_keywords:
+      - description
+      - remark
+      - comment
+    exclude_keywords:
+      - code
+      - _id
+
+column_profiling:
+  enum_threshold: 10
+
+  metric_patterns:
+    - _amount$
+    - _count$
+    - _total$
+    - ^amount
+    - ^count
+
+  identifier_patterns:
+    - _id$
+    - _code$
+    - _no$
+
+  audit_patterns:
+    - _ts$
+    - created_
+    - updated_
+    - is_deleted
+
+  datetime_types:
+    - date
+    - datetime
+    - timestamp
+
+  complex_types:
+    - json
+    - jsonb
+    - array
+    - hstore
+    - xml
+    - bytea
+        </div>
+
+        <div class="warning">
+            <strong>⚠️ 重要提醒：</strong> 修改配置后需要重新运行 <code>--step json</code> 才能生效。配置变更不会影响已生成的 JSON 文件。
+        </div>
+
+        <hr style="margin: 40px 0;">
+
+        <div style="text-align: center; color: #999; padding: 20px;">
+            <p><strong>文档生成时间：</strong> 2025-12-30</p>
+            <p><strong>MetaWeave 版本：</strong> 基于当前代码库分析</p>
+            <p>如有疑问，请参考源代码：<code>metaweave/core/metadata/profiler.py</code></p>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+</body>
+</html>

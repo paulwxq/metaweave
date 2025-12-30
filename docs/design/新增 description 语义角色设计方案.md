@@ -16,7 +16,7 @@
 
 ### 1.1 需求背景
 
-在现有的语义角色体系中，包含 6 种角色：`audit`、`datetime`、`identifier`、`enum`、`metric`、`attribute`。但缺少对**长文本说明字段**的专门识别，例如：
+在现有的语义角色体系中，包含 7 种角色：`complex`、`audit`、`datetime`、`identifier`、`enum`、`metric`、`attribute`。但缺少对**长文本说明字段**的专门识别，例如：
 - 备注字段（`notes`、`remark`）
 - 描述字段（`description`、`detail`）
 - 说明字段（`comment`、`explanation`）
@@ -78,15 +78,26 @@
 
 ### 3.1 优先级位置
 
-在语义角色判断链中的位置：
+在语义角色判断链中的位置（8 种角色）：
 
 ```
-audit > datetime > identifier > description > enum > metric > attribute
-                                    ↑
-                              插入在此位置
+complex > audit > datetime > identifier > description > enum > metric > attribute
+   ↑                                          ↑
+最高优先级                                插入在此位置
+（类型硬约束）
 ```
 
-**理由**：
+**完整优先级顺序（从高到低）**：
+1. **complex** - 复杂类型（最高优先级，基于类型硬约束）
+2. **audit** - 审计字段（基于命名模式）
+3. **datetime** - 日期时间（基于类型+命名）
+4. **identifier** - 标识符（基于约束+统计+命名）
+5. **description** - 描述字段（基于类型+命名+统计）← 新增位置
+6. **enum** - 枚举（基于统计特征）
+7. **metric** - 度量指标（基于类型+命名）
+8. **attribute** - 属性（默认兜底）
+
+**description 理由**：
 - 在 `identifier` **之后**：确保有物理约束的字段优先被识别为 identifier
 - 在 `enum` **之前**：description 字段通常唯一性高，避免被误判为 enum
 
@@ -785,17 +796,18 @@ sampling:
 
 ## 七、与现有角色的关系
 
-### 7.1 更新后的角色体系
+### 7.1 更新后的角色体系（8 种角色）
 
 | 序号 | 角色 | 优先级 | 典型示例 | 判断依据 |
 |------|------|--------|----------|----------|
-| 1 | `audit` | 最高 | `created_at`, `updated_by` | 命名模式（审计关键词）|
-| 2 | `datetime` | 高 | `order_date`, `created_time` | 时间类型或命名 |
-| 3 | `identifier` | 高 | `store_id`, `order_code` | 物理约束 + 类型 + 命名 |
-| 4 | **`description`** | **中** | **`notes`, `remark`** | **长文本 + 长度离散** |
-| 5 | `enum` | 中低 | `status`, `level` | 低基数 + 值分布 |
-| 6 | `metric` | 中低 | `sales_amount`, `count` | 数值型 + 命名 |
-| 7 | `attribute` | 最低 | `store_name`, `address` | 兜底分类 |
+| 1 | `complex` | 最高 | `audit_log (jsonb)`, `tags (array)` | 类型硬约束（jsonb/array/xml 等）|
+| 2 | `audit` | 高 | `created_at`, `updated_by` | 命名模式（审计关键词）|
+| 3 | `datetime` | 高 | `order_date`, `created_time` | 时间类型或命名 |
+| 4 | `identifier` | 高 | `store_id`, `order_code` | 物理约束 + 类型 + 命名 |
+| 5 | **`description`** | **中** | **`notes`, `remark`** | **长文本 + 长度离散** |
+| 6 | `enum` | 中低 | `status`, `level` | 低基数 + 值分布 |
+| 7 | `metric` | 中低 | `sales_amount`, `count` | 数值型 + 命名 |
+| 8 | `attribute` | 最低 | `store_name`, `address` | 兜底分类 |
 
 ### 7.2 角色互斥性
 

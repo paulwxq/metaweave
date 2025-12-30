@@ -80,13 +80,14 @@ class DDLLoaderError(RuntimeError):
 class DDLLoader:
     """Load TableMetadata definitions from generated DDL files."""
 
-    def __init__(self, ddl_dir: str | Path):
+    def __init__(self, ddl_dir: str | Path, database_name: str = "postgres"):
         self.ddl_dir = Path(ddl_dir)
+        self.database_name = database_name
         if not self.ddl_dir.exists():
             raise DDLLoaderError(f"DDL 目录不存在: {self.ddl_dir}")
 
     def load_table(self, schema: str, table: str) -> ParsedDDL:
-        ddl_path = self.ddl_dir / f"{schema}.{table}.sql"
+        ddl_path = self.ddl_dir / f"{self.database_name}.{schema}.{table}.sql"
         if not ddl_path.exists():
             raise DDLLoaderError(f"DDL 文件不存在: {ddl_path}")
         content = ddl_path.read_text(encoding="utf-8")

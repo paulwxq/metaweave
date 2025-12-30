@@ -156,6 +156,16 @@ def _default_description_exclude_keywords() -> List[str]:
     return ["code", "_id", "_key", "_no", "number", "uuid", "token"]
 
 
+def _default_complex_types() -> Set[str]:
+    """complex 类型集合的默认值"""
+    return {
+        "json", "jsonb", "array", "hstore", "xml", "bytea",
+        "tsvector", "tsquery", "point", "line", "lseg", "box",
+        "path", "polygon", "circle", "inet", "cidr", "macaddr",
+        "bit varying", "uuid"
+    }
+
+
 @dataclass
 class FactTableRules:
     min_metric_columns: int = 1
@@ -204,7 +214,7 @@ class ProfilingConfig:
     description_keywords: List[str] = field(default_factory=_default_description_keywords)
     description_exclude_keywords: List[str] = field(default_factory=_default_description_exclude_keywords)
     # complex 类型集合（小写）
-    complex_types: Set[str] = field(default_factory=set)
+    complex_types: Set[str] = field(default_factory=_default_complex_types)
     # 表类型规则
     fact_rules: FactTableRules = field(default_factory=FactTableRules)
     dim_rules: DimTableRules = field(default_factory=DimTableRules)
@@ -634,7 +644,31 @@ class MetadataProfiler:
         lower_name = column_name.lower()
         inference_basis: List[str] = []
 
-        # audit detection - 最高优先级
+        # ========== complex detection ==========
+        # 最高优先级：类型硬约束，避免 jsonb/array 等复杂类型被命名模式误判
+        # 必须在 audit/datetime 之前，防止 audit_log (jsonb) 被误判为 audit
+        data_type_lower = column.data_type.lower()
+        # 检查1: 直接匹配 complex_types 配置（如 json, jsonb, hstore, xml, bytea, tsvector, tsquery, point, line, etc.）
+        # 检查2: 特殊处理数组类型 - 如果配置中包含 "array"，则匹配 ARRAY 类型或 xxx[] 后缀
+        is_complex = (
+            data_type_lower in self.config.complex_types or
+            ("array" in self.config.complex_types and data_type_lower.endswith("[]"))
+        )
+        if is_complex:
+            inference_basis.append(f"complex_type:{data_type_lower}")
+            return (
+                "complex",                 # semantic_role
+                0.95,                      # confidence
+                None,                      # identifier_info
+                None,                      # metric_info
+                None,                      # datetime_info
+                None,                      # enum_info
+                None,                      # audit_info
+                None,                      # description_info
+                inference_basis,           # List[str]
+            )
+
+        # audit detection
         audit_pattern = self._match_pattern(self._compiled_audit_patterns, lower_name)
         if audit_pattern:
             inference_basis.append(f"audit_pattern:{audit_pattern.pattern}")
@@ -666,29 +700,6 @@ class MetadataProfiler:
                 None,
                 None,
                 inference_basis,
-            )
-
-        # ========== complex detection ==========
-        # 在 datetime 之后、identifier 之前插入
-        data_type_lower = column.data_type.lower()
-        # 检查1: 直接匹配 complex_types 配置（如 json, jsonb, hstore, xml, bytea, tsvector, tsquery, point, line, etc.）
-        # 检查2: 特殊处理数组类型 - 如果配置中包含 "array"，则匹配 ARRAY 类型或 xxx[] 后缀
-        is_complex = (
-            data_type_lower in self.config.complex_types or
-            ("array" in self.config.complex_types and data_type_lower.endswith("[]"))
-        )
-        if is_complex:
-            inference_basis.append(f"complex_type:{data_type_lower}")
-            return (
-                "complex",                 # semantic_role
-                0.95,                      # confidence
-                None,                      # identifier_info
-                None,                      # metric_info
-                None,                      # datetime_info
-                None,                      # enum_info
-                None,                      # audit_info
-                None,                      # description_info
-                inference_basis,           # List[str]
             )
 
         # identifier detection (新规则体系)
@@ -1045,8 +1056,27 @@ class MetadataProfiler:
         # 规则2：统计特征检查（逻辑主键候选）
         has_high_uniq, uniq_conf, uniq_reason = self._has_high_uniqueness(stats)
         if has_high_uniq:
-            inference_basis.append(uniq_reason)
-            return (True, uniq_conf, "logical_primary_key", inference_basis)
+            # 指标词拦截（简版）：若字段名像指标，则不允许仅凭 high_uniqueness 判为 identifier，
+            # 继续走规则3（命名特征）。这是为了避免 amount/price 等指标列因样本高唯一性被误判为 identifier。
+            metric_naming_keywords = [
+                "amount",
+                "price",
+                "cost",
+                "revenue",
+                "sales",
+                "profit",
+                "count",
+                "qty",
+                "quantity",
+                "number",
+                "rate",
+                "ratio",
+                "percent",
+                "percentage",
+            ]
+            if not any(kw in lower_name for kw in metric_naming_keywords):
+                inference_basis.append(uniq_reason)
+                return (True, uniq_conf, "logical_primary_key", inference_basis)
         
         # 规则3：命名特征检查（逻辑外键候选或命名规范的标识字段）
         has_naming, naming_conf, matched_kw, naming_reason = self._has_identifier_naming(column.column_name, stats)
@@ -1352,5 +1382,4 @@ class MetadataProfiler:
         for idx in range(0, len(foreign_keys) - 1, 2):
             pairs.append((foreign_keys[idx], foreign_keys[idx + 1]))
         return pairs
-
 

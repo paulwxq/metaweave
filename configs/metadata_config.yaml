@@ -304,6 +304,11 @@ logical_key_detection:
 output:
   output_dir: output
 
+  # 文件名前缀配置（新增）
+  # 用于生成 {database_name}.{schema}.{table}.{ext} 格式的文件名
+  # 建议与实际数据库名保持一致，支持环境变量引用
+  database_name: ${DB_NAME:postgres}
+
   # Step 2: 表/列画像输出配置
   json_directory: output/json      # --step json 和 --step json_llm 统一输出目录 / --step rel & cql 输入
   # json_llm_directory: output/json_llm  # ⚠️ 已废弃，cql_llm 不再读取此配置

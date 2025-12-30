@@ -57,7 +57,22 @@ class OutputFormatter:
         ensure_dir(self.markdown_dir)
         ensure_dir(self.output_dir / "json")
         
+        # 获取数据库名（来自 output.database_name；未设置则默认 "postgres"）
+        self.database_name = config.get("database_name", "postgres")
+        
         logger.info(f"输出格式化器已初始化: {self.output_dir}")
+    
+    def _get_filename(self, metadata: TableMetadata, extension: str) -> str:
+        """生成标准文件名：database.schema.table.{extension}
+        
+        Args:
+            metadata: 表元数据
+            extension: 文件扩展名（如 'sql', 'json', 'md'）
+            
+        Returns:
+            格式化的文件名
+        """
+        return f"{self.database_name}.{metadata.schema_name}.{metadata.table_name}.{extension}"
     
     def format_and_save(
         self,
@@ -366,7 +381,8 @@ class OutputFormatter:
         """保存 DDL 脚本"""
         try:
             ddl_content = self.generate_ddl(metadata, sample_data)
-            file_path = self.output_dir / "ddl" / f"{metadata.schema_name}.{metadata.table_name}.sql"
+            filename = self._get_filename(metadata, "sql")
+            file_path = self.output_dir / "ddl" / filename
             save_text(ddl_content, file_path)
             logger.info(f"保存 DDL: {file_path}")
             return file_path
@@ -382,7 +398,8 @@ class OutputFormatter:
         """保存 Markdown 文档"""
         try:
             md_content = self.generate_markdown(metadata, sample_data)
-            file_path = self.markdown_dir / f"{metadata.schema_name}.{metadata.table_name}.md"
+            filename = self._get_filename(metadata, "md")
+            file_path = self.markdown_dir / filename
             save_text(md_content, file_path)
             logger.info(f"保存 Markdown: {file_path}")
             return file_path
@@ -400,7 +417,8 @@ class OutputFormatter:
             样例记录字典，如果没有找到则返回 None
         """
         try:
-            ddl_file = self.output_dir / "ddl" / f"{metadata.schema_name}.{metadata.table_name}.sql"
+            filename = self._get_filename(metadata, "sql")
+            ddl_file = self.output_dir / "ddl" / filename
             if not ddl_file.exists():
                 return None
             
@@ -491,7 +509,8 @@ class OutputFormatter:
             # 添加样例数据到 JSON
             json_data["sample_records"] = sample_records
             
-            file_path = self.output_dir / "json" / f"{metadata.schema_name}.{metadata.table_name}.json"
+            filename = self._get_filename(metadata, "json")
+            file_path = self.output_dir / "json" / filename
             save_json(json_data, file_path)
             logger.info(f"保存 JSON: {file_path}")
             return file_path

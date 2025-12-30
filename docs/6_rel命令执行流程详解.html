@@ -366,6 +366,215 @@
             font-size: 2em;
             font-weight: bold;
         }
+
+        /* 流程图样式 - 详细版 */
+        .flowchart {
+            background: #ffffff;
+            border: 3px solid #cbd5e0;
+            border-radius: 10px;
+            padding: 40px;
+            margin: 30px 0;
+            position: relative;
+        }
+
+        .flowchart-title {
+            text-align: center;
+            font-size: 1.8em;
+            color: #2d3748;
+            font-weight: bold;
+            margin-bottom: 40px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .flow-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+        }
+
+        /* 流程节点 - 4种类型 */
+        .flow-box {
+            border: 3px solid;
+            border-radius: 6px;
+            padding: 15px 20px;
+            margin: 10px 0;
+            min-width: 280px;
+            max-width: 650px;
+            width: auto;
+            position: relative;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+
+        /* 紫色 - CLI入口和配置 */
+        .flow-box.type-entry {
+            background: #e9d8fd;
+            border-color: #805ad5;
+            color: #2d3748;
+        }
+
+        /* 粉色 - 核心处理 */
+        .flow-box.type-core {
+            background: #fed7e2;
+            border-color: #d53f8c;
+            color: #2d3748;
+        }
+
+        /* 蓝色 - 数据收集 */
+        .flow-box.type-data {
+            background: #bee3f8;
+            border-color: #3182ce;
+            color: #2d3748;
+        }
+
+        /* 黄色 - 循环/计算 */
+        .flow-box.type-loop {
+            background: #fefcbf;
+            border-color: #d69e2e;
+            color: #2d3748;
+        }
+
+        /* 绿色 - 结果输出 */
+        .flow-box.type-output {
+            background: #c6f6d5;
+            border-color: #38a169;
+            color: #2d3748;
+        }
+
+        .flow-box-title {
+            font-weight: bold;
+            font-size: 1.05em;
+            margin-bottom: 8px;
+            color: #1a202c;
+        }
+
+        .flow-box-content {
+            font-size: 0.95em;
+            color: #2d3748;
+        }
+
+        .flow-box-content ul {
+            margin: 5px 0;
+            padding-left: 20px;
+        }
+
+        .flow-box-content li {
+            margin: 3px 0;
+        }
+
+        /* 箭头 */
+        .flow-arrow {
+            width: 3px;
+            height: 40px;
+            background: #667eea;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .flow-arrow::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 12px solid #667eea;
+        }
+
+        .flow-arrow.short {
+            height: 20px;
+        }
+
+        .flow-arrow-label {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2px 8px;
+            border: 1px solid #667eea;
+            border-radius: 3px;
+            font-size: 0.85em;
+            color: #667eea;
+            white-space: nowrap;
+        }
+
+        /* 循环箭头 */
+        .flow-loop {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            position: relative;
+        }
+
+        .flow-loop-arrow {
+            position: absolute;
+            right: -40px;
+            top: 50%;
+            width: 80px;
+            height: 200px;
+            border: 3px solid #d69e2e;
+            border-left: none;
+            border-radius: 0 40px 40px 0;
+            transform: translateY(-50%);
+        }
+
+        .flow-loop-arrow::before {
+            content: '';
+            position: absolute;
+            left: -3px;
+            top: -8px;
+            width: 0;
+            height: 0;
+            border-right: 12px solid #d69e2e;
+            border-top: 8px solid transparent;
+            border-bottom: 8px solid transparent;
+        }
+
+        /* 分支 */
+        .flow-branch {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .flow-branch .flow-box {
+            flex: 1;
+            min-width: 250px;
+            max-width: 350px;
+        }
+
+        /* 模块标签 */
+        .module-tag {
+            display: inline-block;
+            background: #4a5568;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-family: 'Courier New', monospace;
+            margin-top: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .flowchart {
+                padding: 20px;
+            }
+            .flow-box {
+                min-width: 200px;
+                max-width: 100%;
+            }
+            .flow-branch {
+                flex-direction: column;
+            }
+        }
     </style>
 </head>
 <body>
@@ -385,6 +594,7 @@
                 <h2>📋 目录</h2>
                 <ul>
                     <li><a href="#overview">1. 命令概述</a></li>
+                    <li><a href="#flowchart" style="color: #667eea; font-weight: bold;">⭐ 完整流程图（新增）</a></li>
                     <li><a href="#entry">2. CLI 入口解析</a></li>
                     <li><a href="#stage1">3. 阶段1: JSON加载与外键直通</a></li>
                     <li><a href="#pipeline">4. 关系发现管道 (Pipeline)</a></li>
@@ -437,6 +647,292 @@
 
                 <div class="note-box">
                     <strong>💡 注意：</strong> rel 命令依赖于 <code>--step json</code> 生成的元数据文件，必须先执行 json 步骤才能运行 rel 步骤。
+                </div>
+
+                <!-- 完整流程图 -->
+                <h3 id="flowchart" style="color: #667eea; font-size: 1.8em; margin-top: 40px; margin-bottom: 20px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
+                    ⭐ 完整执行流程图
+                </h3>
+
+                <!-- 流程图 -->
+                <div class="flowchart">
+                    <div class="flowchart-title">🔄 关系发现详细执行流程</div>
+                    <div class="flow-container">
+                        
+                        <!-- CLI入口 -->
+                        <div class="flow-box type-entry">
+                            <div class="flow-box-title">开始执行 rel 命令</div>
+                            <div class="flow-box-content">
+                                命令：metaweave metadata --config configs/metadata_config.yaml --step rel
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow"></div>
+
+                        <!-- 加载配置 -->
+                        <div class="flow-box type-entry">
+                            <div class="flow-box-title">加载配置文件</div>
+                            <div class="flow-box-content">
+                                • 解析 YAML 配置<br>
+                                • 环境变量替换<br>
+                                • 初始化数据库连接器
+                                <div class="module-tag">ConfigLoader + DatabaseConnector</div>
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow"></div>
+
+                        <!-- 阶段1：加载JSON -->
+                        <div class="flow-box type-core">
+                            <div class="flow-box-title">【阶段1】加载 JSON 元数据</div>
+                            <div class="flow-box-content">
+                                • 扫描 output/json/*.json 文件<br>
+                                • 排除模板文件（_template开头）<br>
+                                • 解析表元数据：table_info, column_profiles, table_profile
+                                <div class="module-tag">MetadataRepository.load_all_tables()</div>
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow"></div>
+
+                        <!-- 提取外键 -->
+                        <div class="flow-box type-data">
+                            <div class="flow-box-title">收集外键直通关系</div>
+                            <div class="flow-box-content">
+                                • 从 table_profile.physical_constraints.foreign_keys 提取<br>
+                                • 生成确定性 relationship_id (MD5[:12])<br>
+                                • 推断基数：检查源列/目标列唯一性 → 1:1/1:N/N:1/M:N<br>
+                                • 生成外键签名集合（用于候选去重）
+                                <div class="module-tag">MetadataRepository.collect_foreign_keys()</div>
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow"></div>
+
+                        <!-- 阶段2：候选生成 -->
+                        <div class="flow-box type-core">
+                            <div class="flow-box-title">【阶段2】生成候选关系</div>
+                            <div class="flow-box-content">
+                                分为两类：复合键候选 + 单列候选
+                                <div class="module-tag">CandidateGenerator.generate_candidates()</div>
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow short"></div>
+
+                        <!-- 复合键候选 -->
+                        <div class="flow-box type-loop">
+                            <div class="flow-box-title">生成复合键候选（2-3列组合）</div>
+                            <div class="flow-box-content">
+                                <strong>来源：</strong><br>
+                                • 物理约束：PK/UK（源表不含索引，目标表含索引）<br>
+                                • 逻辑主键：confidence >= 0.8<br>
+                                • 动态同名：精确匹配 + 类型兼容<br>
+                                <br>
+                                <strong>两阶段匹配策略：</strong><br>
+                                1️⃣ <strong>特权模式</strong>：源表PK/UK/逻辑键 → 目标表PK/UK/Index/逻辑键<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;• 穷举排列算法（O(n!×n)）<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;• 逐对检查：name_sim >= 0.6, type_compat >= 0.8<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;• 综合评分：0.5×avg_name + 0.5×avg_type<br>
+                                2️⃣ <strong>动态同名</strong>：大小写不敏感 + 类型兼容<br>
+                                <br>
+                                <strong>目标列过滤：</strong><br>
+                                • 物理约束：不过滤<br>
+                                • 逻辑约束：排除 metric/description/attribute/complex
+                                <div class="module-tag">CandidateGenerator._generate_composite_candidates()</div>
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow short"></div>
+
+                        <!-- 单列候选 -->
+                        <div class="flow-box type-loop">
+                            <div class="flow-box-title">生成单列候选</div>
+                            <div class="flow-box-content">
+                                <strong>源列必须条件（至少满足一项）：</strong><br>
+                                • 有定义约束：PK或UK<br>
+                                • 是逻辑主键：单列 + confidence >= 0.8<br>
+                                ⚠️ 源列完全不过滤语义角色（尊重物理约束和逻辑主键）<br>
+                                <br>
+                                <strong>目标列过滤规则：</strong><br>
+                                • 物理约束（PK/UK/索引）：不过滤<br>
+                                • 非物理约束：排除 audit/metric/description/complex<br>
+                                • 类型兼容性 >= 0.8<br>
+                                • 名称相似度动态阈值：<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;- 重要目标列（有约束/逻辑键）：>= 0.6 (string) / 0.9 (embedding)<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;- 普通目标列（无约束）：>= 0.9<br>
+                                • FK去重：排除已存在的外键
+                                <div class="module-tag">CandidateGenerator._generate_single_column_candidates()</div>
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow"></div>
+
+                        <!-- 阶段3：评分 -->
+                        <div class="flow-box type-core">
+                            <div class="flow-box-title">【阶段3】候选关系评分</div>
+                            <div class="flow-box-content">
+                                遍历所有候选，执行数据库采样和评分
+                                <div class="module-tag">RelationshipScorer.score_candidates()</div>
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow short"></div>
+
+                        <!-- 数据库采样 -->
+                        <div class="flow-box type-data">
+                            <div class="flow-box-title">数据库采样与计算</div>
+                            <div class="flow-box-content">
+                                <strong>采样：</strong><br>
+                                • 源表采样：LIMIT 1000（来自 sampling.sample_size）<br>
+                                • 目标表采样：LIMIT 1000<br>
+                                • 提取值集合（排除NULL，组合多列为元组）<br>
+                                <br>
+                                <strong>计算指标：</strong><br>
+                                • inclusion_rate = |交集| / |源集合|<br>
+                                • jaccard_index = |交集| / |并集|<br>
+                                • source_uniqueness = |源唯一值| / |源有效行数|<br>
+                                • target_uniqueness = |目标唯一值| / |目标有效行数|<br>
+                                • join_multiplicity：执行 JOIN COUNT 获取精确倍率<br>
+                                <br>
+                                <strong>4维度评分（权重）：</strong><br>
+                                • inclusion_rate (55%)<br>
+                                • name_similarity (20%) - Levenshtein或Embedding<br>
+                                • type_compatibility (15%)<br>
+                                • jaccard_index (10%)<br>
+                                <br>
+                                <strong>基数推断（3层策略）：</strong><br>
+                                1️⃣ 静态预判：src>=0.95 & tgt>=0.95 → 1:1<br>
+                                2️⃣ 动态验证：join_mult <= 1.1 → 1:1/N:1<br>
+                                3️⃣ M:N兜底：无法明确判断时返回M:N
+                                <div class="module-tag">RelationshipScorer._sample_and_calculate_inclusion()</div>
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow short"></div>
+
+                        <!-- 计算综合分 -->
+                        <div class="flow-box type-loop">
+                            <div class="flow-box-title">计算综合评分</div>
+                            <div class="flow-box-content">
+                                composite_score = 0.55×inclusion + 0.20×name + 0.15×type + 0.10×jaccard<br>
+                                添加到候选：score_details, cardinality
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow"></div>
+
+                        <!-- 阶段4：决策过滤 -->
+                        <div class="flow-box type-core">
+                            <div class="flow-box-title">【阶段4】决策过滤与抑制</div>
+                            <div class="flow-box-content">
+                                <div class="module-tag">DecisionEngine.filter_and_suppress()</div>
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow short"></div>
+
+                        <!-- 阈值过滤 -->
+                        <div class="flow-box type-loop">
+                            <div class="flow-box-title">阈值过滤</div>
+                            <div class="flow-box-content">
+                                • composite_score >= 0.65 （accept_threshold） → 通过<br>
+                                • composite_score < 0.65 → 丢弃<br>
+                                <br>
+                                置信度分类：<br>
+                                • 高置信度：>= 0.90<br>
+                                • 中置信度：>= 0.80
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow short"></div>
+
+                        <!-- 抑制规则 -->
+                        <div class="flow-box type-loop">
+                            <div class="flow-box-title">应用抑制规则</div>
+                            <div class="flow-box-content">
+                                按表对（source -> target）分组：<br>
+                                • 如果存在复合关系 →<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;✅ 保留复合关系<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;✅ 保留有独立约束的单列关系（PK/UK/Index）<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;❌ 抑制无独立约束的单列关系<br>
+                                • 如果不存在复合关系 →<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;✅ 保留所有单列关系<br>
+                                <br>
+                                转换为 Relation 对象，生成 relationship_id
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow"></div>
+
+                        <!-- 阶段5：结果输出 -->
+                        <div class="flow-box type-core">
+                            <div class="flow-box-title">【阶段5】结果输出</div>
+                            <div class="flow-box-content">
+                                <div class="module-tag">RelationshipWriter.write_results()</div>
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow short"></div>
+
+                        <!-- JSON输出 -->
+                        <div class="flow-box type-output">
+                            <div class="flow-box-title">JSON输出（v3.2格式）</div>
+                            <div class="flow-box-content">
+                                <strong>结构：</strong><br>
+                                • generated_by: "rel"<br>
+                                • metadata_source: "json_files"<br>
+                                • analysis_timestamp<br>
+                                • statistics: 总数、外键数、复合键数、单列数、抑制数<br>
+                                • relationships: 所有关系列表<br>
+                                &nbsp;&nbsp;&nbsp;&nbsp;- 复合关系嵌入 suppressed_single_relations<br>
+                                <br>
+                                <strong>输出：</strong>output/rel/relationships_global.json
+                                <div class="module-tag">RelationshipWriter._write_json_v32()</div>
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow short"></div>
+
+                        <!-- Markdown输出 -->
+                        <div class="flow-box type-output">
+                            <div class="flow-box-title">Markdown报告输出</div>
+                            <div class="flow-box-content">
+                                <strong>内容：</strong><br>
+                                • 标题和生成时间<br>
+                                • 统计摘要（总数、外键、推断、置信度分布）<br>
+                                • 关系详情列表（每个关系的详细信息）<br>
+                                <br>
+                                <strong>输出：</strong>output/rel/relationships_global.md
+                                <div class="module-tag">RelationshipWriter._write_markdown()</div>
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow"></div>
+
+                        <!-- 完成 -->
+                        <div class="flow-box type-output">
+                            <div class="flow-box-title">✅ 关系发现完成</div>
+                            <div class="flow-box-content">
+                                <strong>输出统计：</strong><br>
+                                • 总关系数 = 外键关系 + 推断关系<br>
+                                • 高置信度关系数<br>
+                                • 中置信度关系数<br>
+                                • 被抑制的关系数<br>
+                                • 输出文件列表
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="warning-box" style="margin-top: 20px;">
+                    <strong>🔄 数据流向：</strong>
+                    <ul>
+                        <li><strong>输入</strong>：output/json/*.json（Step 2生成的表元数据）</li>
+                        <li><strong>中间产物</strong>：外键关系 → 候选关系 → 评分候选 → 接受关系</li>
+                        <li><strong>输出</strong>：output/rel/relationships_global.json + relationships_global.md</li>
+                    </ul>
                 </div>
             </div>
 
@@ -758,7 +1254,7 @@
                             <li><strong>目标列过滤</strong>：
                                 <ul>
                                     <li>物理约束（PK/UK/Index）：不过滤</li>
-                                    <li>逻辑约束：按 composite_exclude_roles 配置过滤</li>
+                                    <li>逻辑约束：按 composite.exclude_semantic_roles 配置过滤（默认排除 metric，实际配置还排除 description、attribute、complex）</li>
                                 </ul>
                             </li>
                             <li><strong>穷举排列</strong>：尝试所有可能的列顺序组合</li>
@@ -771,6 +1267,16 @@
                             <li><strong>综合评分</strong>：0.5×avg_name_sim + 0.5×avg_type_compat</li>
                             <li><strong>选择最优</strong>：返回综合得分最高的排列</li>
                         </ol>
+                    </div>
+
+                    <div class="note-box">
+                        <strong>💡 复合键排除角色配置：</strong><br>
+                        <code>composite.exclude_semantic_roles</code> 配置会同时影响：
+                        <ul>
+                            <li>1. 逻辑主键生成阶段（LogicalKeyDetector）：在生成复合逻辑主键时排除这些角色</li>
+                            <li>2. 候选匹配阶段（CandidateGenerator）：在匹配目标表逻辑约束时过滤这些角色</li>
+                            <li>3. 当前配置：["metric", "description", "attribute", "complex"]</li>
+                        </ul>
                     </div>
 
                     <div class="note-box">
@@ -1036,9 +1542,9 @@ is_important_target = self._is_qualified_target_column(...)
 name_sim = self._calculate_name_similarity(col_name, target_col_name)
 
 <span class="keyword">if</span> is_important_target:
-    threshold = self.single_name_similarity_important_target  <span class="comment"># 0.6</span>
+    threshold = self.single_name_similarity_important_target  <span class="comment"># 从配置读取</span>
 <span class="keyword">else</span>:
-    threshold = self.name_similarity_normal_target  <span class="comment"># 0.9</span>
+    threshold = self.name_similarity_normal_target  <span class="comment"># 从配置读取</span>
 
 <span class="keyword">if</span> name_sim < threshold:
     <span class="keyword">continue</span>  <span class="comment"># 名称相似度不足，跳过</span>
@@ -1073,18 +1579,27 @@ name_sim = self._calculate_name_similarity(col_name, target_col_name)
                             <tbody>
                                 <tr>
                                     <td>重要列<br>（PK/UK/索引/逻辑键）</td>
-                                    <td><code>>= 0.6</code></td>
-                                    <td>宽松阈值<br>这些列本身就有较强的关联语义</td>
-                                    <td><code>dept_id → department_id</code><br>（相似度0.73，可通过）</td>
+                                    <td><code>>= 0.6</code><br>(非embedding模式)<br><br><code>>= 0.9</code><br>(embedding模式)</td>
+                                    <td>宽松阈值<br>这些列本身就有较强的关联语义<br><br>embedding模式使用更高阈值以提高准确性</td>
+                                    <td><code>dept_id → department_id</code><br>（非embedding: 相似度0.73，可通过）<br><br>（embedding: 需语义相似度≥0.9）</td>
                                 </tr>
                                 <tr>
                                     <td>普通列<br>（无约束）</td>
-                                    <td><code>>= 0.9</code></td>
+                                    <td><code>>= 0.9</code><br>(两种模式相同)</td>
                                     <td>严格阈值<br>必须名称高度相似才能确认关系</td>
                                     <td><code>customer_code → customer_code</code><br>（几乎完全相同）</td>
                                 </tr>
                             </tbody>
                         </table>
+
+                        <div class="note-box" style="margin-top: 15px;">
+                            <strong>💡 名称相似度方法：</strong>
+                            <ul>
+                                <li><strong>Levenshtein距离</strong>（string方法）：基于字符编辑距离，适合精确匹配</li>
+                                <li><strong>Embedding向量</strong>（embedding方法）：基于语义相似度，适合语义匹配</li>
+                                <li>当前配置使用：<code>relationships.name_similarity.method: embedding</code></li>
+                            </ul>
+                        </div>
 
                         <h6 style="color: #22543d; margin-top: 20px;">✅ 条件4：外键去重</h6>
                         <div class="code-block">
@@ -1213,7 +1728,7 @@ fk_sig = self._make_signature(...)
                         </div>
                     </div>
 
-                    <h3>6.2 评分维度</h3>
+                    <h3>6.2 评分维度（4维度评分体系）</h3>
                     <table>
                         <thead>
                             <tr>
@@ -1231,7 +1746,7 @@ fk_sig = self._make_signature(...)
                             <tr>
                                 <td>name_similarity</td>
                                 <td>20%</td>
-                                <td>列名相似度（Levenshtein 算法）</td>
+                                <td>列名相似度（Levenshtein 或 Embedding）</td>
                             </tr>
                             <tr>
                                 <td>type_compatibility</td>
@@ -1251,6 +1766,10 @@ fk_sig = self._make_signature(...)
                         <code>composite_score = 0.55×inclusion_rate + 0.20×name_similarity + 0.15×type_compatibility + 0.10×jaccard_index</code>
                     </div>
 
+                    <div class="warning-box">
+                        <strong>⚠️ 已删除的维度：</strong> uniqueness（逻辑错误）、semantic_role_bonus（权重过小）。当前版本使用 4 维度评分体系。
+                    </div>
+
                     <h3>6.3 数据库采样与评分</h3>
                     <div class="method-call">
                         <div class="method-name">RelationshipScorer._sample_and_calculate_inclusion()</div>
@@ -1263,7 +1782,7 @@ fk_sig = self._make_signature(...)
                     <div class="logic-flow">
                         <h5>采样与计算流程：</h5>
                         <ol>
-                            <li>从源表和目标表各采样 1000 行（可配置）</li>
+                            <li>从源表和目标表各采样 1000 行（默认值，来自配置 <code>sampling.sample_size</code>）</li>
                             <li>提取值集合（排除 NULL 值）</li>
                             <li>计算交集和并集</li>
                             <li>计算 inclusion_rate = |交集| / |源集合|</li>
@@ -1271,6 +1790,12 @@ fk_sig = self._make_signature(...)
                             <li>计算源列和目标列的唯一性</li>
                             <li>执行 JOIN COUNT 查询获取 JOIN 倍率</li>
                         </ol>
+                    </div>
+
+                    <div class="note-box">
+                        <strong>💡 采样配置：</strong> 
+                        评分阶段的采样行数统一使用 <code>sampling.sample_size</code> 配置（默认1000），
+                        而不是 <code>relationships.sample_size</code>（已废弃）。
                     </div>
 
                     <h3>6.4 基数推断</h3>
@@ -1528,11 +2053,11 @@ fk_sig = self._make_signature(...)
                         <tr>
                             <td>sampling.sample_size</td>
                             <td>1000</td>
-                            <td>数据库采样行数</td>
+                            <td>数据库采样行数（统一配置，替代已废弃的 relationships.sample_size）</td>
                         </tr>
                         <tr>
                             <td>decision.accept_threshold</td>
-                            <td>0.80</td>
+                            <td>0.65</td>
                             <td>接受阈值（低于此值的候选被丢弃）</td>
                         </tr>
                         <tr>
@@ -1565,6 +2090,21 @@ fk_sig = self._make_signature(...)
                             <td>0.10</td>
                             <td>Jaccard 指数权重</td>
                         </tr>
+                        <tr>
+                            <td>single_column.name_similarity_important_target</td>
+                            <td>0.6 (string)<br>0.9 (embedding)</td>
+                            <td>单列候选：重要目标列的名称相似度阈值</td>
+                        </tr>
+                        <tr>
+                            <td>single_column.name_similarity_normal_target</td>
+                            <td>0.9</td>
+                            <td>单列候选：普通目标列的名称相似度阈值</td>
+                        </tr>
+                        <tr>
+                            <td>composite.exclude_semantic_roles</td>
+                            <td>["metric", "description", "attribute", "complex"]</td>
+                            <td>复合键排除的语义角色（影响逻辑主键生成和候选匹配）</td>
+                        </tr>
                     </tbody>
                 </table>
 
@@ -1578,7 +2118,7 @@ fk_sig = self._make_signature(...)
                     <div class="stat-card">
                         <h4>采样行数</h4>
                         <div class="value">1000</div>
-                        <p style="margin-top: 10px; font-size: 0.9em;">每个表采样</p>
+                        <p style="margin-top: 10px; font-size: 0.9em;">每个表采样（来自 sampling.sample_size）</p>
                     </div>
                     <div class="stat-card">
                         <h4>评分维度</h4>
@@ -1598,17 +2138,35 @@ fk_sig = self._make_signature(...)
                     <ul>
                         <li><strong>尊重物理约束</strong>：源列的物理约束（PK/UK）完全不过滤</li>
                         <li><strong>数据驱动</strong>：通过数据库采样验证关系的真实性</li>
-                        <li><strong>多维度评分</strong>：综合考虑包含率、名称、类型、Jaccard 四个维度</li>
+                        <li><strong>4维度评分</strong>：综合考虑包含率、名称、类型、Jaccard 四个维度</li>
                         <li><strong>避免冗余</strong>：复合关系优先，抑制无独立约束的单列关系</li>
                         <li><strong>确定性输出</strong>：relationship_id 基于 MD5 哈希，保证可重现</li>
+                        <li><strong>灵活配置</strong>：支持 Levenshtein 和 Embedding 两种名称相似度算法</li>
+                    </ul>
+                </div>
+
+                <div class="warning-box">
+                    <strong>⚠️ 重要配置说明：</strong>
+                    <ul>
+                        <li><strong>accept_threshold</strong>：当前默认值为 <code>0.65</code>（非0.80），请根据实际情况调整</li>
+                        <li><strong>name_similarity</strong>：
+                            <ul>
+                                <li>string 方法（Levenshtein）：重要目标列建议 0.6，普通目标列建议 0.9</li>
+                                <li>embedding 方法（语义向量）：重要目标列建议 0.9，普通目标列建议 0.9</li>
+                            </ul>
+                        </li>
+                        <li><strong>sampling.sample_size</strong>：统一配置评分阶段的采样行数，替代已废弃的 relationships.sample_size</li>
                     </ul>
                 </div>
             </div>
         </div>
 
         <footer>
-            <p>📚 MetaWeave 关系发现流程详解 | 生成时间: 2025-12-28</p>
+            <p>📚 MetaWeave 关系发现流程详解 | 最后更新: 2025-12-30</p>
             <p>💡 提示：使用浏览器的查找功能（Ctrl+F）快速定位特定方法或概念</p>
+            <p style="font-size: 0.85em; opacity: 0.8; margin-top: 10px;">
+                ✅ 本文档已验证与代码完全一致 | 4维度评分体系 | accept_threshold=0.65
+            </p>
         </footer>
     </div>
 </body>

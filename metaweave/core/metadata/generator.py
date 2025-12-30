@@ -505,7 +505,7 @@ class MetadataGenerator:
     def _get_ddl_loader(self) -> DDLLoader:
         if self.ddl_loader is None:
             ddl_dir = self.formatter.output_dir / "ddl"
-            self.ddl_loader = DDLLoader(ddl_dir)
+            self.ddl_loader = DDLLoader(ddl_dir, database_name=self.formatter.database_name)
         return self.ddl_loader
 
     def _apply_column_statistics(self, metadata: TableMetadata, sample_data):
