@@ -1,7 +1,8 @@
 -- ====================================
+-- Database: store_db
 -- Table: public.order_header
 -- Comment: 订单信息表，存储客户订单编号、下单日期及客户名称
--- Generated: 2025-12-30 14:13:53
+-- Generated: 2026-01-02 11:23:11
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.order_header (
@@ -23,7 +24,7 @@ COMMENT ON TABLE public.order_header IS '订单信息表，存储客户订单编
 {
   "version": 1,
   "table": "public.order_header",
-  "generated_at": "2025-12-30T06:13:53.638590Z",
+  "generated_at": "2026-01-02T03:23:11.541170Z",
   "records": [
     {
       "label": "Record 1",

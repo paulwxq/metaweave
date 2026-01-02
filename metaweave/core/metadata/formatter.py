@@ -133,6 +133,7 @@ class OutputFormatter:
         
         # 文件头注释
         ddl_lines.append(f"-- ====================================")
+        ddl_lines.append(f"-- Database: {self.database_name}")
         ddl_lines.append(f"-- Table: {metadata.full_name}")
         if metadata.comment:
             ddl_lines.append(f"-- Comment: {metadata.comment}")
@@ -565,4 +566,3 @@ class OutputFormatter:
         }
         json_block = json.dumps(payload, ensure_ascii=False, indent=2)
         return "\n".join(["/* SAMPLE_RECORDS", json_block, "*/"])
-

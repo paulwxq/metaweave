@@ -373,7 +373,6 @@ single_column:
   important_constraints:
     - single_field_primary_key
     - single_field_unique_constraint
-    - single_field_index
   exclude_semantic_roles:
     - audit
     - metric

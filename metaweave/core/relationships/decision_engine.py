@@ -202,8 +202,8 @@ class DecisionEngine:
         if structure_flags.get("is_primary_key"):
             return True
 
-        # 检查单列唯一约束
-        if structure_flags.get("is_unique") or structure_flags.get("is_unique_constraint"):
+        # 检查单列唯一约束（只认物理唯一约束，不认统计唯一）
+        if structure_flags.get("is_unique_constraint"):
             return True
 
         return False

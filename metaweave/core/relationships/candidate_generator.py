@@ -5,7 +5,7 @@
 
 from typing import Dict, List, Set, Any, Optional, Tuple
 from difflib import SequenceMatcher
-from itertools import permutations
+from itertools import permutations, combinations
 
 from metaweave.core.relationships.name_similarity import NameSimilarityService
 from metaweave.utils.logger import get_metaweave_logger
@@ -216,6 +216,33 @@ class CandidateGenerator:
 
         return combinations
 
+    def _collect_target_combinations_for_privilege_mode(self, table: dict) -> List[Dict[str, Any]]:
+        """收集目标表 Stage 1（特权模式）候选组合：PK/UK/UCCs + 多列索引
+
+        说明：
+            - 该函数只用于 Stage 1 的目标侧候选池（外键表侧强信号）
+            - 源表组合收集仍保持“仅 PK/UK/UCCs，不含索引”
+            - 索引不要求 is_unique
+        """
+        combos = list(self._collect_source_combinations(table))
+        table_profile = table.get("table_profile", {})
+
+        def _key(cols: List[str]) -> tuple[int, frozenset]:
+            return len(cols), frozenset(cols)
+
+        seen = {_key(c.get("columns", [])) for c in combos if c.get("columns")}
+
+        for idx in table_profile.get("indexes", []) or []:
+            cols = idx.get("columns", []) or []
+            if 2 <= len(cols) <= self.max_columns:
+                k = _key(cols)
+                if k in seen:
+                    continue
+                combos.append({"columns": cols, "type": "index"})
+                seen.add(k)
+
+        return combos
+
     def _find_target_columns(
             self,
             source_columns: List[str],
@@ -254,8 +281,9 @@ class CandidateGenerator:
         target_table_name = target_table.get("table_info", {}).get("table_name", "unknown")
         
         if combo_type in ["physical", "logical"]:
-            # 收集目标表的约束组合（仅 PK/UK/逻辑键，不含索引）
-            target_combinations = self._collect_source_combinations(target_table)
+            # 收集目标表的候选组合（PK/UK/逻辑键 + 索引）
+            # 注意：索引只在目标侧 Stage 1 使用（作为外键表的强信号），不影响源表组合收集逻辑
+            target_combinations = self._collect_target_combinations_for_privilege_mode(target_table)
 
             logger.debug(
                 "[find_target_columns] %s%s → %s: Stage 1 开始（combo_type=%s, 目标约束数=%d）",
@@ -272,10 +300,10 @@ class CandidateGenerator:
                     target_table_name, target_cols, target_combo_type
                 )
 
-                # 长度必须相等
-                if len(target_cols) != len(source_columns):
+                # 目标列数必须 >= 源列数（支持乱序子集匹配，例如源(A,B) 匹配 目标(A,B,C) 的任意2列子集）
+                if len(target_cols) < len(source_columns):
                     logger.debug(
-                        "[find_target_columns] Stage 1: 跳过（长度不等: %d != %d）",
+                        "[find_target_columns] Stage 1: 跳过（目标列数不足: %d < %d）",
                         len(target_cols), len(source_columns)
                     )
                     continue
@@ -289,7 +317,8 @@ class CandidateGenerator:
                     min_name_similarity=self.composite_name_similarity_important_target,
                     min_type_compatibility=self.composite_min_type_compatibility,
                     source_is_physical=(combo_type == "physical"),  # 源表物理约束（PK/UK）
-                    target_is_physical=(target_combo["type"] == "physical")  # 目标表物理约束（PK/UK/索引）
+                    # 目标侧 Stage 1：统一视为“特权候选”，不做语义角色过滤（PK/UK/UCCs/索引）
+                    target_is_physical=True
                 )
 
                 if matched:
@@ -419,70 +448,66 @@ class CandidateGenerator:
         if m < n:
             return None
 
-        # 特殊情况：如果目标列数量正好等于源列数量，穷举所有排列
         if m == n:
-            candidate_pool = filtered_target_columns
+            candidate_pools = [filtered_target_columns]
         else:
-            # 如果目标列数量 > 源列数量，需要先从目标列中选出n个列的所有组合
-            # 这里为了简化，只考虑m==n的情况
-            # 如果m>n，需要额外的组合逻辑（从m中选n个的C(m,n)种组合）
-            # 但根据设计文档，这种情况较少见，暂不实现
+            candidate_pools = [list(c) for c in combinations(filtered_target_columns, n)]
             logger.debug(
-                "[match_columns_as_set] 目标列数量(%d) > 源列数量(%d)，跳过匹配",
-                m, n
+                "[match_columns_as_set] 目标列数量(%d) > 源列数量(%d)，尝试子集数量=%d",
+                m, n, len(candidate_pools)
             )
-            return None
 
         best_match = None
         best_score = -1.0
 
-        # 穷举所有排列
-        for perm in permutations(candidate_pool):
-            # perm 是一个元组，表示目标列的一种排列顺序
-            perm_list = list(perm)
+        # 穷举所有排列（必要时先穷举子集）
+        for pool in candidate_pools:
+            for perm in permutations(pool):
+                # perm 是一个元组，表示目标列的一种排列顺序
+                perm_list = list(perm)
 
-            # 逐对检查，任一配对低于阈值立即淘汰该排列
-            total_name_sim = 0.0
-            total_type_compat = 0.0
-            is_valid = True  # 标记该排列是否有效
+                # 逐对检查，任一配对低于阈值立即淘汰该排列
+                total_name_sim = 0.0
+                total_type_compat = 0.0
+                is_valid = True  # 标记该排列是否有效
 
-            for src_col, tgt_col in zip(filtered_source_columns, perm_list):
-                # 1. 名称相似度
-                name_sim = self._calculate_name_similarity(src_col, tgt_col)
+                for src_col, tgt_col in zip(filtered_source_columns, perm_list):
+                    # 1. 名称相似度
+                    name_sim = self._calculate_name_similarity(src_col, tgt_col)
 
-                # 2. 类型兼容性
-                src_profile = source_profiles.get(src_col, {})
-                tgt_profile = target_profiles.get(tgt_col, {})
+                    # 2. 类型兼容性
+                    src_profile = source_profiles.get(src_col, {})
+                    tgt_profile = target_profiles.get(tgt_col, {})
 
-                src_type = src_profile.get("data_type", "")
-                tgt_type = tgt_profile.get("data_type", "")
+                    src_type = src_profile.get("data_type", "")
+                    tgt_type = tgt_profile.get("data_type", "")
 
-                type_compat = self._get_type_compatibility_score(src_type, tgt_type)
+                    type_compat = self._get_type_compatibility_score(src_type, tgt_type)
 
-                # 🔴 关键修改：任一配对低于阈值，立即淘汰该排列
-                if name_sim < min_name_similarity or type_compat < min_type_compatibility:
-                    is_valid = False
-                    logger.debug(
-                        "[match_columns_as_set] 排列淘汰: %s->%s (name_sim=%.2f < %.2f 或 type_compat=%.2f < %.2f)",
-                        src_col, tgt_col, name_sim, min_name_similarity,
-                        type_compat, min_type_compatibility
-                    )
-                    break  # 立即跳出，不再检查该排列的其他配对
+                    # 🔴 关键修改：任一配对低于阈值，立即淘汰该排列
+                    if name_sim < min_name_similarity or type_compat < min_type_compatibility:
+                        is_valid = False
+                        logger.debug(
+                            "[match_columns_as_set] 排列淘汰: %s->%s (name_sim=%.2f < %.2f 或 type_compat=%.2f < %.2f)",
+                            src_col, tgt_col, name_sim, min_name_similarity,
+                            type_compat, min_type_compatibility
+                        )
+                        break  # 立即跳出，不再检查该排列的其他配对
 
-                total_name_sim += name_sim
-                total_type_compat += type_compat
+                    total_name_sim += name_sim
+                    total_type_compat += type_compat
 
-            # 只有所有配对都满足阈值，才计算综合得分
-            if is_valid:
-                avg_name_sim = total_name_sim / n
-                avg_type_compat = total_type_compat / n
-                # 计算综合得分（简单加权：名称50% + 类型50%）
-                composite_score = 0.5 * avg_name_sim + 0.5 * avg_type_compat
+                # 只有所有配对都满足阈值，才计算综合得分
+                if is_valid:
+                    avg_name_sim = total_name_sim / n
+                    avg_type_compat = total_type_compat / n
+                    # 计算综合得分（简单加权：名称50% + 类型50%）
+                    composite_score = 0.5 * avg_name_sim + 0.5 * avg_type_compat
 
-                # 更新最佳匹配
-                if composite_score > best_score:
-                    best_score = composite_score
-                    best_match = perm_list
+                    # 更新最佳匹配
+                    if composite_score > best_score:
+                        best_score = composite_score
+                        best_match = perm_list
 
         if best_match:
             logger.debug(
@@ -856,51 +881,43 @@ class CandidateGenerator:
                         target_role = target_col_profile.get("semantic_analysis", {}).get("semantic_role")
                         target_structure_flags = target_col_profile.get("structure_flags", {})
 
-                        # 检查目标列是否有物理约束（广义：PK/UK/索引）
-                        # ⚠️ 注意：目标列物理约束包括索引（与源列不同）
+                        # 检查外键表候选列是否有物理约束或索引（强信号）
                         target_has_physical = (
                             target_structure_flags.get("is_primary_key") or          # ✅ PK
-                            target_structure_flags.get("is_unique") or               # ✅ UK
-                            target_structure_flags.get("is_unique_constraint")       # ✅ UK（另一种标记）
+                            target_structure_flags.get("is_unique_constraint") or    # ✅ UK（物理约束）
+                            target_structure_flags.get("is_indexed") or              # ✅ 单列索引
+                            target_structure_flags.get("is_composite_indexed_member")# ✅ 复合索引成员
                         )
 
-                        # 过滤优先级规则（从高到低）：
-                        # 1. 物理约束目标列：不过滤语义角色
-                        # 2. 非物理约束目标列中，Complex 类型列：永远过滤（即使同名）
-                        # 3. 非物理约束目标列中，同名列：不过滤其他语义角色
-                        # 4. 其他目标列：按 exclude_semantic_roles 配置过滤
+                        # 外键表候选字段过滤优先级（从高到低）：
+                        # 1. 物理约束或索引：不过滤语义角色（强约束/强信号）
+                        # 2. 同名列：不过滤语义角色（强关联信号）
+                        # 3. 其他列：按 exclude_semantic_roles 配置过滤（包括 complex）
                         if target_has_physical:
                             logger.debug(
-                                "[single_column_candidate] 目标列为物理约束（PK/UK），不过滤: %s.%s (role=%s, flags=%s)",
+                                "[single_column_candidate] 优先级1: 外键表列为物理约束/索引，不过滤: %s.%s (role=%s, flags=%s)",
                                 f"{target_schema}.{target_table_name}", target_col_name, target_role,
-                                {k: v for k, v in target_structure_flags.items() if v}  # 只显示 True 的标志
+                                {k: v for k, v in target_structure_flags.items() if v}
                             )
-                            # ✅ 优先级1: 物理约束不过滤，直接通过
+                            # ✅ 优先级1: 物理约束/索引不过滤，直接通过
                             pass
-                        elif target_role == "complex":
-                            logger.debug(
-                                "[single_column_candidate] 跳过 complex 类型目标列: %s.%s (即使同名也过滤)",
-                                f"{target_schema}.{target_table_name}", target_col_name
-                            )
-                            # ✅ 优先级2: complex 类型永远过滤（优先级高于同名）
-                            continue
                         elif col_name.lower() == target_col_name.lower():
                             logger.debug(
-                                "[single_column_candidate] 同名列不过滤: %s.%s (role=%s)",
+                                "[single_column_candidate] 优先级2: 同名列不过滤: %s.%s (role=%s)",
                                 f"{target_schema}.{target_table_name}", target_col_name, target_role
                             )
-                            # ✅ 优先级3: 同名列不过滤
+                            # ✅ 优先级2: 同名列不过滤（包括 complex 类型）
                             pass
                         else:
-                            # ✅ 优先级4: 其他语义角色按配置过滤
+                            # ✅ 优先级3: 其他语义角色按配置过滤
                             if target_role in self.exclude_semantic_roles:
                                 logger.debug(
-                                    "[single_column_candidate] 跳过目标列 %s.%s，语义角色=%s 被排除",
+                                    "[single_column_candidate] 优先级3: 跳过外键表列 %s.%s，语义角色=%s 被配置排除",
                                     f"{target_schema}.{target_table_name}", target_col_name, target_role
                                 )
                                 continue
                             logger.debug(
-                                "[single_column_candidate] 目标列通过过滤: %s.%s (role=%s)",
+                                "[single_column_candidate] 优先级3: 外键表列通过过滤: %s.%s (role=%s)",
                                 f"{target_schema}.{target_table_name}", target_col_name, target_role
                             )
 
@@ -1001,7 +1018,7 @@ class CandidateGenerator:
         return candidates
 
     def _has_defined_constraint(self, col_profile: dict) -> bool:
-        """检查列是否有重要约束"""
+        """检查列是否有重要约束（用于驱动表侧的准入）"""
         structure_flags = col_profile.get("structure_flags", {})
 
         # 检查单列主键
@@ -1009,15 +1026,10 @@ class CandidateGenerator:
             if "single_field_primary_key" in self.important_constraints:
                 return True
 
-        # 检查单列唯一约束
-        if structure_flags.get("is_unique") or structure_flags.get("is_unique_constraint"):
+        # 检查单列唯一约束（只认物理唯一约束，不认统计唯一）
+        if structure_flags.get("is_unique_constraint"):
             if "single_field_unique_constraint" in self.important_constraints:
                 return True
-
-        # 检查单列索引
-        # if structure_flags.get("is_indexed"):
-        #     if "single_field_index" in self.important_constraints:
-        #         return True
 
         return False
 
@@ -1041,7 +1053,7 @@ class CandidateGenerator:
 
         按照文档要求，目标列必须满足以下条件之一：
         1. structure_flags.is_primary_key = true （物理主键）
-        2. structure_flags.is_unique = true （唯一约束）
+        2. structure_flags.is_unique_constraint = true （物理唯一约束）
         3. 在 unique_column_sets 的任一候选组合中（单列且 confidence_score >= 0.8）
 
         Args:
@@ -1058,8 +1070,8 @@ class CandidateGenerator:
         if structure_flags.get("is_primary_key"):
             return True
 
-        # 2. 检查唯一约束
-        if structure_flags.get("is_unique") or structure_flags.get("is_unique_constraint"):
+        # 2. 检查唯一约束（只认物理唯一约束，不认统计唯一）
+        if structure_flags.get("is_unique_constraint"):
             return True
 
         # 3. 检查是否为单列逻辑主键（confidence >= 0.8）

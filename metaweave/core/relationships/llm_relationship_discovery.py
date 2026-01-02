@@ -614,38 +614,29 @@ class LLMRelationshipDiscovery:
                     skipped_count += 1
                     break
 
-                # 优先级 1: 检查是否为物理约束列
+                # 优先级 1: 物理约束或索引列不过滤（强信号）
                 structure_flags = col_profile.get("structure_flags", {})
                 is_physical = (
                     structure_flags.get("is_primary_key") or
-                    structure_flags.get("is_unique") or
-                    structure_flags.get("is_unique_constraint")
+                    structure_flags.get("is_unique_constraint") or
+                    structure_flags.get("is_indexed") or
+                    structure_flags.get("is_composite_indexed_member")
                 )
 
                 if is_physical:
-                    continue  # 物理约束列不过滤
+                    continue  # 优先级1: 物理约束/索引列不过滤
 
                 # 获取语义角色
                 semantic_role = col_profile.get("semantic_analysis", {}).get("semantic_role")
 
-                # 优先级 2: Complex 永远过滤（即使同名）
-                if semantic_role == "complex":
-                    logger.debug(
-                        f"[filter_semantic_roles] 跳过候选（目标列 {to_col} 为 complex，即使同名也过滤）: "
-                        f"{candidate['from_table']['schema']}.{candidate['from_table']['table']} → {to_table_key}"
-                    )
-                    should_skip = True
-                    skipped_count += 1
-                    break
-
-                # 优先级 3: 同名列不过滤其他语义角色
+                # 优先级 2: 同名列不过滤（包括 complex）
                 if is_same_name:
                     continue  # 同名列跳过语义角色检查
 
-                # 优先级 4: 其他列按配置过滤
+                # 优先级 3: 按配置过滤（包括 complex）
                 if semantic_role in exclude_roles:
                     logger.debug(
-                        f"[filter_semantic_roles] 跳过候选（目标列 {to_col} 为 {semantic_role}）: "
+                        f"[filter_semantic_roles] 优先级3: 跳过候选（外键表列 {to_col} 语义角色 {semantic_role} 被配置排除）: "
                         f"{candidate['from_table']['schema']}.{candidate['from_table']['table']} → {to_table_key}"
                     )
                     should_skip = True
