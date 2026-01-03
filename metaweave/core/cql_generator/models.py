@@ -27,6 +27,7 @@ class TableNode:
     full_name: str  # schema.table（唯一键）
     schema: str
     name: str
+    database: Optional[str] = None
 
     # 可选属性
     comment: Optional[str] = None
@@ -44,12 +45,16 @@ class TableNode:
 
     @property
     def id(self) -> str:
-        """兼容属性：与 full_name 相同"""
+        """业务唯一标识：默认 schema.table；若提供 database 则为 {db}.{schema}.{table}"""
+        if self.database:
+            return f"{self.database}.{self.full_name}"
         return self.full_name
 
     def to_cypher_dict(self) -> Dict[str, Any]:
         """转换为 Cypher 参数字典"""
         return {
+            "id": self.id,
+            "database": self.database or "",
             "full_name": self.full_name,
             "schema": self.schema,
             "name": self.name,
@@ -78,6 +83,7 @@ class ColumnNode:
     table: str
     name: str
     data_type: str
+    database: Optional[str] = None
 
     # 可选属性
     comment: Optional[str] = None
@@ -95,9 +101,18 @@ class ColumnNode:
     uniqueness: float = 0.0
     null_rate: float = 0.0
 
+    @property
+    def id(self) -> str:
+        """业务唯一标识：默认 schema.table.column；若提供 database 则为 {db}.{schema}.{table}.{col}"""
+        if self.database:
+            return f"{self.database}.{self.full_name}"
+        return self.full_name
+
     def to_cypher_dict(self) -> Dict[str, Any]:
         """转换为 Cypher 参数字典"""
         return {
+            "id": self.id,
+            "database": self.database or "",
             "full_name": self.full_name,
             "schema": self.schema,
             "table": self.table,

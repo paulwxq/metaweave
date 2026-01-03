@@ -19,6 +19,9 @@ class TestRelationshipWriter:
     def config(self, temp_output_dir):
         """创建测试配置"""
         return {
+            "database": {
+                "database": "store_db"
+            },
             "output": {
                 "rel_directory": str(temp_output_dir),
                 "rel_granularity": "global"
@@ -85,7 +88,7 @@ class TestRelationshipWriter:
         output_files = writer.write_results(sample_relations, [], config)
 
         # 检查文件是否生成
-        json_file = temp_output_dir / "relationships_global.json"
+        json_file = temp_output_dir / f"{config['database']['database']}.relationships_global.json"
         assert json_file.exists()
 
         # 验证JSON内容（v3.2格式）
@@ -95,7 +98,11 @@ class TestRelationshipWriter:
         # 顶层字段验证
         assert data["json_metadata_version"] == "2.0"
         assert data["metadata_source"] == "json_files"
-        assert "analysis_timestamp" in data
+        assert data["database"] == config["database"]["database"]
+        assert "generated_timestamp" in data
+        assert data["generated_timestamp"].endswith("Z") is False
+        assert "create_timestamp" not in data
+        assert "analysis_timestamp" not in data
         assert "statistics" in data
         assert "relationships" in data  # 不是 relations
 
@@ -131,7 +138,7 @@ class TestRelationshipWriter:
         output_files = writer.write_results(sample_relations, [], config)
 
         # 检查文件是否生成
-        md_file = temp_output_dir / "relationships_global.md"
+        md_file = temp_output_dir / f"{config['database']['database']}.relationships_global.md"
         assert md_file.exists()
 
         # 验证Markdown内容
@@ -139,9 +146,17 @@ class TestRelationshipWriter:
             content = f.read()
 
         assert "# 表间关系发现报告" in content or "表间关系" in content or "关系" in content
+        assert f"database: {config['database']['database']}" in content
+        assert "生成方式: rel" in content
         assert "统计" in content
         assert "fact_sales" in content
         assert "dim_store" in content
+
+        # 标题下方不应有空行（仅检查 #/##/###）
+        lines = content.splitlines()
+        for idx, line in enumerate(lines[:-1]):
+            if line.startswith("# ") or line.startswith("## ") or line.startswith("### "):
+                assert lines[idx + 1].strip() != ""
 
     def test_suppressed_embedded_in_composite(self, writer, temp_output_dir, config):
         """测试被抑制关系嵌入复合键（v3.2格式）"""
@@ -181,7 +196,7 @@ class TestRelationshipWriter:
         output_files = writer.write_results([composite_relation], suppressed, config)
 
         # 验证被抑制关系嵌入到复合键对象中
-        json_file = temp_output_dir / "relationships_global.json"
+        json_file = temp_output_dir / f"{config['database']['database']}.relationships_global.json"
         with open(json_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -252,7 +267,7 @@ class TestRelationshipWriter:
         new_writer.write_results(sample_relations, [], new_config)
 
         # 文件应该被创建
-        assert (new_output_dir / "relationships_global.json").exists()
+        assert (new_output_dir / f"{config['database']['database']}.relationships_global.json").exists()
 
     def test_discovery_method_mapping(self, writer, temp_output_dir, config):
         """测试 discovery_method, source_type, source_constraint 字段映射"""
@@ -339,7 +354,7 @@ class TestRelationshipWriter:
         output_files = writer.write_results(relations, [], config, tables=tables)
 
         # 验证JSON输出
-        json_file = temp_output_dir / "relationships_global.json"
+        json_file = temp_output_dir / f"{config['database']['database']}.relationships_global.json"
         with open(json_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -391,8 +406,8 @@ class TestRelationshipWriter:
 
         # 验证输出文件名仍然是 global
         writer.write_results(sample_relations, [], schema_config)
-        assert (tmp_path / "rel" / "relationships_global.json").exists()
-        assert (tmp_path / "rel" / "relationships_global.md").exists()
+        assert (tmp_path / "rel" / f"{config['database']['database']}.relationships_global.json").exists()
+        assert (tmp_path / "rel" / f"{config['database']['database']}.relationships_global.md").exists()
 
     def test_global_granularity_no_warning(self, sample_relations, tmp_path, config, caplog):
         """测试配置 global 粒度时不给出警告"""
@@ -453,7 +468,7 @@ class TestRelationshipWriter:
         writer.write_results([single_rel, composite_rel], [], config)
 
         # 读取 Markdown 文件
-        md_file = temp_output_dir / "relationships_global.md"
+        md_file = temp_output_dir / f"{config['database']['database']}.relationships_global.md"
         with open(md_file, "r", encoding="utf-8") as f:
             content = f.read()
 
@@ -528,7 +543,7 @@ class TestRelationshipWriter:
         output_files = writer.write_results(relations, [], config)
 
         # 验证 JSON 输出
-        json_file = temp_output_dir / "relationships_global.json"
+        json_file = temp_output_dir / f"{config['database']['database']}.relationships_global.json"
         with open(json_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 

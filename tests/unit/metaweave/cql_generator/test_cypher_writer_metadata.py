@@ -17,9 +17,10 @@ from metaweave.core.cql_generator.models import (
 @pytest.fixture
 def sample_data():
     """准备测试数据"""
+    db = "test_db"
     tables = [
-        TableNode(full_name="public.users", schema="public", name="users"),
-        TableNode(full_name="public.orders", schema="public", name="orders"),
+        TableNode(full_name="public.users", schema="public", name="users", database=db),
+        TableNode(full_name="public.orders", schema="public", name="orders", database=db),
     ]
     columns = [
         ColumnNode(
@@ -27,21 +28,24 @@ def sample_data():
             schema="public",
             table="users",
             name="id",
-            data_type="integer"
+            data_type="integer",
+            database=db,
         ),
         ColumnNode(
             full_name="public.users.name",
             schema="public",
             table="users",
             name="name",
-            data_type="varchar"
+            data_type="varchar",
+            database=db,
         ),
         ColumnNode(
             full_name="public.orders.order_id",
             schema="public",
             table="orders",
             name="order_id",
-            data_type="integer"
+            data_type="integer",
+            database=db,
         ),
     ]
     has_column_rels = [
@@ -81,7 +85,7 @@ class TestCypherWriterMetadata:
 
         # 验证文件已创建
         assert metadata_file.exists()
-        assert metadata_file.name == "import_all.md"
+        assert metadata_file.name == "import_all.test_db.md"
 
     def test_write_metadata_content_structure(self, tmp_path, sample_data):
         """测试：import_all.md 内容结构正确"""
@@ -209,12 +213,16 @@ class TestCypherWriterMetadata:
         assert "| JOIN_ON | 0 |" in content
         assert "| **边总数** | **0** |" in content
 
+        # 空数据时使用 unknown 作为 db 前缀
+        assert metadata_file.name == "import_all.unknown.md"
+        assert "| import_all.unknown.cypher |" in content
+
     def test_write_metadata_with_existing_cypher_file(self, tmp_path, sample_data):
         """测试：当 import_all.cypher 存在时，正确读取其行数"""
         tables, columns, has_column_rels, join_on_rels = sample_data
 
-        # 创建 import_all.cypher 文件
-        cypher_file = tmp_path / "import_all.cypher"
+        # 创建 import_all.{db}.cypher 文件
+        cypher_file = tmp_path / "import_all.test_db.cypher"
         cypher_content = "\n".join([f"// Line {i}" for i in range(1, 101)])  # 100 行
         cypher_file.write_text(cypher_content, encoding="utf-8")
 
@@ -231,8 +239,8 @@ class TestCypherWriterMetadata:
 
         content = metadata_file.read_text(encoding="utf-8")
 
-        # 验证 import_all.cypher 行数正确
-        assert "| import_all.cypher | 100 |" in content
+        # 验证 import_all.{db}.cypher 行数正确
+        assert "| import_all.test_db.cypher | 100 |" in content
 
     def test_write_metadata_without_cypher_file(self, tmp_path, sample_data):
         """测试：当 import_all.cypher 不存在时，显示占位符"""
@@ -253,4 +261,4 @@ class TestCypherWriterMetadata:
 
         # 验证显示占位符（如果文件不存在）
         # 注意：实际实现可能显示 "0" 或 "-"，需要根据实际代码确认
-        assert "| import_all.cypher |" in content
+        assert "| import_all.test_db.cypher |" in content

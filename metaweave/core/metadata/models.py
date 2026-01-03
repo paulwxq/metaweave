@@ -4,7 +4,7 @@
 """
 
 from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Dict, List, Optional, Any
 import json
 
@@ -154,7 +154,7 @@ class TableMetadata:
         # 构建 v2.0 格式的 JSON
         data = {
             "metadata_version": "2.0",
-            "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "generated_timestamp": datetime.now().isoformat(),
             
             "table_info": {
                 "database": self.database,
@@ -518,4 +518,3 @@ class TableProfile:
         # 这些字段在项目中未被使用，已于 2025-12-26 移除以减少维护成本
 
         return result
-

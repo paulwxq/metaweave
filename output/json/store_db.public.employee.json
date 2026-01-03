@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-30T11:36:27.045864Z",
+  "generated_timestamp": "2026-01-03T13:18:39.167660",
   "table_info": {
     "database": "store_db",
     "schema_name": "public",
@@ -384,11 +384,10 @@
     }
   },
   "table_profile": {
-    "table_category": "fact",
-    "confidence": 0.85,
+    "table_category": "dim",
+    "confidence": 0.95,
     "inference_basis": [
-      "fact_has_metric",
-      "fact_dimension_columns"
+      "llm_inferred"
     ],
     "physical_constraints": {
       "primary_key": {
@@ -433,13 +432,18 @@
       "attribute_count": 1,
       "primary_key_count": 1,
       "foreign_key_count": 1
-    }
+    },
+    "table_category_rule_based": "fact",
+    "confidence_rule_based": 0.85,
+    "inference_basis_rule_based": [
+      "fact_has_metric",
+      "fact_dimension_columns"
+    ]
   },
   "sample_records": {
     "sample_method": "random",
     "sample_size": 5,
     "total_rows": 20,
-    "sampled_at": "2025-12-30T06:13:53.522420Z",
     "records": [
       {
         "emp_id": 1,
@@ -487,5 +491,6 @@
         "dept_id": 8
       }
     ]
-  }
+  },
+  "llm_enhanced_at": "2026-01-03T13:18:59.105430"
 }

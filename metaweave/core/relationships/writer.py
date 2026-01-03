@@ -20,8 +20,8 @@ class RelationshipWriter:
     """关系输出器
 
     输出文件（当前版本仅支持 global 粒度）：
-    - relationships_{granularity}.json（所有关系，v3.2格式）
-    - relationships_{granularity}.md（可读报告）
+    - {db_name}.relationships_{granularity}.json（所有关系，v3.2格式）
+    - {db_name}.relationships_{granularity}.md（可读报告）
 
     注意：Phase 1 仅支持 rel_granularity='global'，schema 粒度将在后续版本实现。
     """
@@ -33,9 +33,13 @@ class RelationshipWriter:
             config: top-level 配置
         """
         output_config = config.get("output", {})
+        database_config = config.get("database", {})
 
         self.rel_dir = Path(output_config.get("rel_directory", "output/rel"))
         self.rel_granularity = output_config.get("rel_granularity", "global")
+        self.database_name = database_config.get("database")
+        if not self.database_name:
+            raise ValueError("database.database 未配置，无法生成关系输出文件名")
 
         # 验证粒度配置（Phase 1 仅支持 global）
         if self.rel_granularity != "global":
@@ -88,7 +92,7 @@ class RelationshipWriter:
             output_files.append(str(json_file))
 
         # 2. 输出Markdown
-        md_file = self._write_markdown(relations)
+        md_file = self._write_markdown(relations, generated_by=generated_by)
         if md_file:
             output_files.append(str(md_file))
 
@@ -145,11 +149,12 @@ class RelationshipWriter:
         # 构建JSON数据（v3.2格式）
         data = {
             "generated_by": generated_by,
+            "database": self.database_name,
             "metadata_source": "json_files",
             "json_metadata_version": "2.0",
             "json_files_loaded": stats.get("json_files_loaded", 0),
             "database_queries_executed": stats.get("database_queries_executed", 0),
-            "analysis_timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "generated_timestamp": datetime.now().isoformat(),
 
             "statistics": {
                 "total_relationships_found": stats["total_relationships_found"],
@@ -169,7 +174,7 @@ class RelationshipWriter:
             data["statistics"].update(extra_statistics)
 
         # 写入文件（使用配置的粒度，当前仅支持 global）
-        json_file = self.rel_dir / f"relationships_{self.rel_granularity}.json"
+        json_file = self.rel_dir / f"{self.database_name}.relationships_{self.rel_granularity}.json"
         with open(json_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -411,6 +416,7 @@ class RelationshipWriter:
             约束类型字符串，可能的值：
             - "single_field_primary_key": 单列主键
             - "single_field_unique_constraint": 单列唯一约束
+            - "single_field_index": 单列索引
             - None: 没有物理约束（只是数据唯一或逻辑主键）
         """
         if not hasattr(self, 'tables') or not self.tables or not rel.is_single_column:
@@ -441,6 +447,8 @@ class RelationshipWriter:
             return "single_field_primary_key"
         elif structure_flags.get("is_unique_constraint"):
             return "single_field_unique_constraint"
+        elif structure_flags.get("is_indexed"):
+            return "single_field_index"
         else:
             # 没有物理约束（可能只是数据唯一或逻辑主键）
             return None
@@ -574,11 +582,12 @@ class RelationshipWriter:
             "database_queries_executed": database_queries_executed,
         }
 
-    def _write_markdown(self, relations: List[Relation]) -> Path:
+    def _write_markdown(self, relations: List[Relation], generated_by: str) -> Path:
         """输出Markdown报告
 
         Args:
             relations: 关系列表
+            generated_by: 生成命令标识（"rel" 或 "rel_llm"）
 
         Returns:
             输出文件路径
@@ -586,12 +595,14 @@ class RelationshipWriter:
         lines = []
 
         # 标题
-        lines.append("# 表间关系发现报告\n")
+        lines.append("# 表间关系发现报告")
+        lines.append(f"database: {self.database_name}")
+        lines.append(f"生成方式: {generated_by}")
         lines.append(f"生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         lines.append(f"关系总数: {len(relations)}\n")
 
         # 统计摘要
-        lines.append("## 统计摘要\n")
+        lines.append("## 统计摘要")
         composite_count = len([r for r in relations if r.is_composite])
         single_count = len([r for r in relations if r.is_single_column])
         foreign_key_count = len([r for r in relations if r.relationship_type == "foreign_key"])
@@ -611,10 +622,10 @@ class RelationshipWriter:
         lines.append(f"- 中置信度 ({self.medium_confidence_threshold}-{self.high_confidence_threshold}): {medium_conf}\n")
 
         # 关系详情
-        lines.append("## 关系详情\n")
+        lines.append("## 关系详情")
 
         for i, rel in enumerate(relations, 1):
-            lines.append(f"### {i}. {rel.source_full_name_with_columns} → {rel.target_full_name_with_columns}\n")
+            lines.append(f"### {i}. {rel.source_full_name_with_columns} → {rel.target_full_name_with_columns}")
 
             # 类型
             rel_type = "复合键" if rel.is_composite else "单列"
@@ -655,7 +666,7 @@ class RelationshipWriter:
             lines.append("")  # 空行
 
         # 写入文件（使用配置的粒度，当前仅支持 global）
-        md_file = self.rel_dir / f"relationships_{self.rel_granularity}.md"
+        md_file = self.rel_dir / f"{self.database_name}.relationships_{self.rel_granularity}.md"
         with open(md_file, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
 

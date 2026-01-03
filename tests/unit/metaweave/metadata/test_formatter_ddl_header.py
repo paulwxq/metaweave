@@ -6,9 +6,9 @@ def test_generate_ddl_includes_database_in_header(tmp_path):
     formatter = OutputFormatter(
         {
             "output_dir": tmp_path,
-            "database_name": "store_db",
             "formats": ["ddl"],
-        }
+        },
+        database_name="store_db",
     )
     ddl = formatter.generate_ddl(
         TableMetadata(

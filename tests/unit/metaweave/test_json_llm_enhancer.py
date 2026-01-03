@@ -54,7 +54,7 @@ def sample_table_json():
     """示例表 JSON（规则引擎输出）"""
     return {
         "metadata_version": "2.0",
-        "generated_at": "2025-12-26T00:00:00.000000Z",
+        "generated_timestamp": "2025-12-26T00:00:00.000000",
         "table_info": {
             "schema_name": "public",
             "table_name": "test_table",

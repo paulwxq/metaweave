@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-30T11:36:27.324880Z",
+  "generated_timestamp": "2026-01-03T13:18:39.313595",
   "table_info": {
     "database": "store_db",
     "schema_name": "public",
@@ -221,9 +221,7 @@
     "table_category": "dim",
     "confidence": 0.95,
     "inference_basis": [
-      "fact_dimension_columns",
-      "dim_identifier_columns",
-      "dim_has_primary_key"
+      "llm_inferred"
     ],
     "physical_constraints": {
       "primary_key": {
@@ -247,13 +245,19 @@
       "attribute_count": 0,
       "primary_key_count": 2,
       "foreign_key_count": 0
-    }
+    },
+    "table_category_rule_based": "dim",
+    "confidence_rule_based": 0.95,
+    "inference_basis_rule_based": [
+      "fact_dimension_columns",
+      "dim_identifier_columns",
+      "dim_has_primary_key"
+    ]
   },
   "sample_records": {
     "sample_method": "random",
     "sample_size": 5,
     "total_rows": 10,
-    "sampled_at": "2025-12-30T06:13:53.638590Z",
     "records": [
       {
         "order_id": 5001,
@@ -281,5 +285,6 @@
         "customer": "陈七"
       }
     ]
-  }
+  },
+  "llm_enhanced_at": "2026-01-03T13:19:15.098343"
 }

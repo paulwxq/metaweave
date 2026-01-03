@@ -33,6 +33,7 @@ class JSONReader:
         """
         self.json_dir = Path(json_dir)
         self.rel_dir = Path(rel_dir)
+        self.database_name: str | None = None
 
         if not self.json_dir.exists():
             raise ValueError(f"JSON 目录不存在: {self.json_dir}")
@@ -145,6 +146,15 @@ class JSONReader:
         table_profile = data.get("table_profile", {})
         physical_constraints = table_profile.get("physical_constraints", {})
 
+        database = table_info.get("database")
+        if database:
+            if self.database_name is None:
+                self.database_name = database
+            elif self.database_name != database:
+                raise ValueError(
+                    f"JSON 目录包含多个 database: {self.database_name} vs {database}"
+                )
+
         schema = table_info.get("schema_name", "")
         name = table_info.get("table_name", "")
         full_name = f"{schema}.{name}"
@@ -201,6 +211,7 @@ class JSONReader:
             full_name=full_name,
             schema=schema,
             name=name,
+            database=self.database_name,
             comment=table_info.get("comment"),
             pk=pk,
             uk=uk,
@@ -220,6 +231,14 @@ class JSONReader:
     ) -> List[ColumnNode]:
         """从 JSON 中提取列信息"""
         table_info = data.get("table_info", {})
+        database = table_info.get("database")
+        if database:
+            if self.database_name is None:
+                self.database_name = database
+            elif self.database_name != database:
+                raise ValueError(
+                    f"JSON 目录包含多个 database: {self.database_name} vs {database}"
+                )
         schema = table_info.get("schema_name", "")
         table_name = table_info.get("table_name", "")
 
@@ -294,6 +313,7 @@ class JSONReader:
                     table=table_name,
                     name=col_name,
                     data_type=data_type,
+                    database=self.database_name,
                     comment=comment,
                     semantic_role=semantic_role,
                     is_pk=is_pk,
@@ -313,10 +333,10 @@ class JSONReader:
         """读取 Step 3 表间关系"""
         join_on_rels = []
 
-        # 查找关系 JSON 文件（通常是 relationships_global.json）
-        rel_files = list(self.rel_dir.glob("relationships_*.json"))
+        # 查找关系 JSON 文件（如 {db}.relationships_global.json）
+        rel_files = list(self.rel_dir.glob("*.relationships_*.json"))
         if not rel_files:
-            logger.warning(f"未找到关系文件: {self.rel_dir}/relationships_*.json")
+            logger.warning(f"未找到关系文件: {self.rel_dir}/*.relationships_*.json")
             return []
 
         logger.info(f"找到 {len(rel_files)} 个关系文件")
@@ -412,5 +432,3 @@ class JSONReader:
             target_columns=target_columns,
             constraint_name=rel.get("constraint_name")
         )
-
-

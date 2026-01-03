@@ -19,7 +19,7 @@
 
 cql_loader:
   # 输入文件路径（相对于项目根目录）
-  input_file: "output/cql/import_all.cypher"
+  input_file: "output/cql/import_all.*.cypher"
 
   # Neo4j 数据库配置
   neo4j:

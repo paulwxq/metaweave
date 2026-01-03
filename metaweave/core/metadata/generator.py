@@ -70,6 +70,7 @@ class MetadataGenerator:
         """初始化所有组件"""
         # 数据库连接器
         db_config = self.config.get("database", {})
+        self.database_name = db_config.get("database")
         self.connector = DatabaseConnector(db_config)
         
         # 元数据提取器
@@ -120,7 +121,7 @@ class MetadataGenerator:
         
         # 输出格式化器
         output_config = self.config.get("output", {})
-        self.formatter = OutputFormatter(output_config)
+        self.formatter = OutputFormatter(output_config, database_name=self.database_name)
         self.active_step = "all"
         self.active_formats = self.formatter.formats
         self.ddl_loader: Optional[DDLLoader] = None
@@ -511,7 +512,7 @@ class MetadataGenerator:
     def _get_ddl_loader(self) -> DDLLoader:
         if self.ddl_loader is None:
             ddl_dir = self.formatter.output_dir / "ddl"
-            self.ddl_loader = DDLLoader(ddl_dir, database_name=self.formatter.database_name)
+            self.ddl_loader = DDLLoader(ddl_dir, database_name=self.database_name)
         return self.ddl_loader
 
     def _apply_column_statistics(self, metadata: TableMetadata, sample_data):

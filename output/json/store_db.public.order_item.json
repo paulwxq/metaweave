@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_at": "2025-12-30T11:36:27.374364Z",
+  "generated_timestamp": "2026-01-03T13:18:39.348331",
   "table_info": {
     "database": "store_db",
     "schema_name": "public",
@@ -324,10 +324,10 @@
     }
   },
   "table_profile": {
-    "table_category": "bridge",
-    "confidence": 0.85,
+    "table_category": "fact",
+    "confidence": 0.95,
     "inference_basis": [
-      "bridge_fk_threshold"
+      "llm_inferred"
     ],
     "physical_constraints": {
       "primary_key": {
@@ -366,13 +366,17 @@
       "attribute_count": 0,
       "primary_key_count": 1,
       "foreign_key_count": 2
-    }
+    },
+    "table_category_rule_based": "bridge",
+    "confidence_rule_based": 0.85,
+    "inference_basis_rule_based": [
+      "bridge_fk_threshold"
+    ]
   },
   "sample_records": {
     "sample_method": "random",
     "sample_size": 5,
     "total_rows": 20,
-    "sampled_at": "2025-12-30T06:13:53.705553Z",
     "records": [
       {
         "item_id": 1,
@@ -410,5 +414,6 @@
         "quantity": 12
       }
     ]
-  }
+  },
+  "llm_enhanced_at": "2026-01-03T13:19:18.217528"
 }

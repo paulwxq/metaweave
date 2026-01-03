@@ -1,22 +1,25 @@
-// import_all.cypher
+// import_all.store_db.cypher
 // Neo4j 元数据导入脚本（global 模式，包含所有表和关系）
-// 生成时间: 2025-12-30T19:38:52.047473
-// 统计: 13 张表, 60 个列, 29 个关系
+// 生成时间: 2026-01-03T01:05:25.805954
+// 统计: 13 张表, 60 个列, 10 个关系
 
 // =====================================================================
 // 1. 创建唯一约束
 // =====================================================================
 
-CREATE CONSTRAINT table_id IF NOT EXISTS FOR (t:Table) REQUIRE t.id IS UNIQUE;
-CREATE CONSTRAINT table_full_name IF NOT EXISTS FOR (t:Table) REQUIRE t.full_name IS UNIQUE;
-CREATE CONSTRAINT column_full_name IF NOT EXISTS FOR (c:Column) REQUIRE c.full_name IS UNIQUE;
+	CREATE CONSTRAINT table_id IF NOT EXISTS FOR (t:Table) REQUIRE t.id IS UNIQUE;
+	CREATE CONSTRAINT table_full_name IF NOT EXISTS FOR (t:Table) REQUIRE t.full_name IS UNIQUE;
+	CREATE CONSTRAINT column_id IF NOT EXISTS FOR (c:Column) REQUIRE c.id IS UNIQUE;
+	CREATE CONSTRAINT column_full_name IF NOT EXISTS FOR (c:Column) REQUIRE c.full_name IS UNIQUE;
 
 // =====================================================================
 // 2. 创建 Table 节点
 // =====================================================================
 
-UNWIND [
+	UNWIND [
   {
+    "id": "store_db.public.department",
+    "database": "store_db",
     "full_name": "public.department",
     "schema": "public",
     "name": "department",
@@ -38,6 +41,8 @@ UNWIND [
     "table_category": "dim"
   },
   {
+    "id": "store_db.public.dim_company",
+    "database": "store_db",
     "full_name": "public.dim_company",
     "schema": "public",
     "name": "dim_company",
@@ -57,6 +62,8 @@ UNWIND [
     "table_category": "dim"
   },
   {
+    "id": "store_db.public.dim_product_type",
+    "database": "store_db",
     "full_name": "public.dim_product_type",
     "schema": "public",
     "name": "dim_product_type",
@@ -76,6 +83,8 @@ UNWIND [
     "table_category": "dim"
   },
   {
+    "id": "store_db.public.dim_region",
+    "database": "store_db",
     "full_name": "public.dim_region",
     "schema": "public",
     "name": "dim_region",
@@ -95,6 +104,8 @@ UNWIND [
     "table_category": "dim"
   },
   {
+    "id": "store_db.public.dim_store",
+    "database": "store_db",
     "full_name": "public.dim_store",
     "schema": "public",
     "name": "dim_store",
@@ -114,6 +125,8 @@ UNWIND [
     "table_category": "dim"
   },
   {
+    "id": "store_db.public.employee",
+    "database": "store_db",
     "full_name": "public.employee",
     "schema": "public",
     "name": "employee",
@@ -139,6 +152,8 @@ UNWIND [
     "table_category": "fact"
   },
   {
+    "id": "store_db.public.equipment_config",
+    "database": "store_db",
     "full_name": "public.equipment_config",
     "schema": "public",
     "name": "equipment_config",
@@ -163,6 +178,8 @@ UNWIND [
     "table_category": "dim"
   },
   {
+    "id": "store_db.public.fact_store_sales_day",
+    "database": "store_db",
     "full_name": "public.fact_store_sales_day",
     "schema": "public",
     "name": "fact_store_sales_day",
@@ -184,6 +201,8 @@ UNWIND [
     "table_category": "fact"
   },
   {
+    "id": "store_db.public.fact_store_sales_month",
+    "database": "store_db",
     "full_name": "public.fact_store_sales_month",
     "schema": "public",
     "name": "fact_store_sales_month",
@@ -205,6 +224,8 @@ UNWIND [
     "table_category": "fact"
   },
   {
+    "id": "store_db.public.fault_catalog",
+    "database": "store_db",
     "full_name": "public.fault_catalog",
     "schema": "public",
     "name": "fault_catalog",
@@ -226,6 +247,8 @@ UNWIND [
     "table_category": "dim"
   },
   {
+    "id": "store_db.public.maintenance_work_order",
+    "database": "store_db",
     "full_name": "public.maintenance_work_order",
     "schema": "public",
     "name": "maintenance_work_order",
@@ -314,6 +337,8 @@ UNWIND [
     "table_category": "fact"
   },
   {
+    "id": "store_db.public.order_header",
+    "database": "store_db",
     "full_name": "public.order_header",
     "schema": "public",
     "name": "order_header",
@@ -332,6 +357,8 @@ UNWIND [
     "table_category": "dim"
   },
   {
+    "id": "store_db.public.order_item",
+    "database": "store_db",
     "full_name": "public.order_item",
     "schema": "public",
     "name": "order_item",
@@ -354,13 +381,14 @@ UNWIND [
     "table_category": "bridge"
   }
 ] AS t
-MERGE (n:Table {full_name: t.full_name})
-SET n.id       = t.full_name,
-    n.schema   = t.schema,
-    n.name     = t.name,
-    n.comment  = t.comment,
-    n.pk       = t.pk,
-    n.uk       = t.uk,
+	MERGE (n:Table {full_name: t.full_name})
+	SET n.id       = t.id,
+	    n.database = t.database,
+	    n.schema   = t.schema,
+	    n.name     = t.name,
+	    n.comment  = t.comment,
+	    n.pk       = t.pk,
+	    n.uk       = t.uk,
     n.fk       = t.fk,
     n.logic_pk = t.logic_pk,
     n.logic_fk = t.logic_fk,
@@ -381,8 +409,10 @@ SET n.id       = t.full_name,
 // 3. 创建 Column 节点
 // =====================================================================
 
-UNWIND [
+	UNWIND [
   {
+    "id": "store_db.public.department.dept_id",
+    "database": "store_db",
     "full_name": "public.department.dept_id",
     "schema": "public",
     "table": "department",
@@ -400,6 +430,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.department.dept_code",
+    "database": "store_db",
     "full_name": "public.department.dept_code",
     "schema": "public",
     "table": "department",
@@ -417,6 +449,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.department.dept_name",
+    "database": "store_db",
     "full_name": "public.department.dept_name",
     "schema": "public",
     "table": "department",
@@ -434,6 +468,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.department.location",
+    "database": "store_db",
     "full_name": "public.department.location",
     "schema": "public",
     "table": "department",
@@ -451,6 +487,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.dim_company.company_id",
+    "database": "store_db",
     "full_name": "public.dim_company.company_id",
     "schema": "public",
     "table": "dim_company",
@@ -468,6 +506,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.dim_company.company_name",
+    "database": "store_db",
     "full_name": "public.dim_company.company_name",
     "schema": "public",
     "table": "dim_company",
@@ -485,6 +525,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.dim_product_type.product_type_id",
+    "database": "store_db",
     "full_name": "public.dim_product_type.product_type_id",
     "schema": "public",
     "table": "dim_product_type",
@@ -502,6 +544,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.dim_product_type.product_type_name",
+    "database": "store_db",
     "full_name": "public.dim_product_type.product_type_name",
     "schema": "public",
     "table": "dim_product_type",
@@ -519,6 +563,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.dim_region.region_id",
+    "database": "store_db",
     "full_name": "public.dim_region.region_id",
     "schema": "public",
     "table": "dim_region",
@@ -536,6 +582,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.dim_region.region_name",
+    "database": "store_db",
     "full_name": "public.dim_region.region_name",
     "schema": "public",
     "table": "dim_region",
@@ -553,6 +601,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.dim_region.city_id",
+    "database": "store_db",
     "full_name": "public.dim_region.city_id",
     "schema": "public",
     "table": "dim_region",
@@ -570,6 +620,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.dim_region.city_name",
+    "database": "store_db",
     "full_name": "public.dim_region.city_name",
     "schema": "public",
     "table": "dim_region",
@@ -587,6 +639,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.dim_region.province_id",
+    "database": "store_db",
     "full_name": "public.dim_region.province_id",
     "schema": "public",
     "table": "dim_region",
@@ -604,6 +658,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.dim_region.province_name",
+    "database": "store_db",
     "full_name": "public.dim_region.province_name",
     "schema": "public",
     "table": "dim_region",
@@ -621,6 +677,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.dim_store.store_id",
+    "database": "store_db",
     "full_name": "public.dim_store.store_id",
     "schema": "public",
     "table": "dim_store",
@@ -638,6 +696,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.dim_store.store_name",
+    "database": "store_db",
     "full_name": "public.dim_store.store_name",
     "schema": "public",
     "table": "dim_store",
@@ -655,6 +715,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.dim_store.company_id",
+    "database": "store_db",
     "full_name": "public.dim_store.company_id",
     "schema": "public",
     "table": "dim_store",
@@ -672,6 +734,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.dim_store.region_id",
+    "database": "store_db",
     "full_name": "public.dim_store.region_id",
     "schema": "public",
     "table": "dim_store",
@@ -689,6 +753,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.employee.emp_id",
+    "database": "store_db",
     "full_name": "public.employee.emp_id",
     "schema": "public",
     "table": "employee",
@@ -706,6 +772,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.employee.emp_no",
+    "database": "store_db",
     "full_name": "public.employee.emp_no",
     "schema": "public",
     "table": "employee",
@@ -723,6 +791,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.employee.emp_name",
+    "database": "store_db",
     "full_name": "public.employee.emp_name",
     "schema": "public",
     "table": "employee",
@@ -740,6 +810,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.employee.gender",
+    "database": "store_db",
     "full_name": "public.employee.gender",
     "schema": "public",
     "table": "employee",
@@ -757,6 +829,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.employee.hire_date",
+    "database": "store_db",
     "full_name": "public.employee.hire_date",
     "schema": "public",
     "table": "employee",
@@ -774,6 +848,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.employee.salary",
+    "database": "store_db",
     "full_name": "public.employee.salary",
     "schema": "public",
     "table": "employee",
@@ -791,6 +867,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.employee.dept_id",
+    "database": "store_db",
     "full_name": "public.employee.dept_id",
     "schema": "public",
     "table": "employee",
@@ -808,6 +886,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.equipment_config.equipment_id",
+    "database": "store_db",
     "full_name": "public.equipment_config.equipment_id",
     "schema": "public",
     "table": "equipment_config",
@@ -825,6 +905,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.equipment_config.config_version",
+    "database": "store_db",
     "full_name": "public.equipment_config.config_version",
     "schema": "public",
     "table": "equipment_config",
@@ -842,6 +924,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.equipment_config.controller_model",
+    "database": "store_db",
     "full_name": "public.equipment_config.controller_model",
     "schema": "public",
     "table": "equipment_config",
@@ -859,6 +943,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.equipment_config.firmware_version",
+    "database": "store_db",
     "full_name": "public.equipment_config.firmware_version",
     "schema": "public",
     "table": "equipment_config",
@@ -876,6 +962,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.fact_store_sales_day.store_id",
+    "database": "store_db",
     "full_name": "public.fact_store_sales_day.store_id",
     "schema": "public",
     "table": "fact_store_sales_day",
@@ -893,6 +981,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.fact_store_sales_day.date_day",
+    "database": "store_db",
     "full_name": "public.fact_store_sales_day.date_day",
     "schema": "public",
     "table": "fact_store_sales_day",
@@ -910,6 +1000,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.fact_store_sales_day.product_type_id",
+    "database": "store_db",
     "full_name": "public.fact_store_sales_day.product_type_id",
     "schema": "public",
     "table": "fact_store_sales_day",
@@ -927,6 +1019,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.fact_store_sales_day.amount",
+    "database": "store_db",
     "full_name": "public.fact_store_sales_day.amount",
     "schema": "public",
     "table": "fact_store_sales_day",
@@ -944,6 +1038,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.fact_store_sales_month.store_id",
+    "database": "store_db",
     "full_name": "public.fact_store_sales_month.store_id",
     "schema": "public",
     "table": "fact_store_sales_month",
@@ -961,6 +1057,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.fact_store_sales_month.date_month",
+    "database": "store_db",
     "full_name": "public.fact_store_sales_month.date_month",
     "schema": "public",
     "table": "fact_store_sales_month",
@@ -978,6 +1076,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.fact_store_sales_month.product_type_id",
+    "database": "store_db",
     "full_name": "public.fact_store_sales_month.product_type_id",
     "schema": "public",
     "table": "fact_store_sales_month",
@@ -995,6 +1095,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.fact_store_sales_month.amount",
+    "database": "store_db",
     "full_name": "public.fact_store_sales_month.amount",
     "schema": "public",
     "table": "fact_store_sales_month",
@@ -1012,6 +1114,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.fault_catalog.product_line_code",
+    "database": "store_db",
     "full_name": "public.fault_catalog.product_line_code",
     "schema": "public",
     "table": "fault_catalog",
@@ -1029,6 +1133,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.fault_catalog.subsystem_code",
+    "database": "store_db",
     "full_name": "public.fault_catalog.subsystem_code",
     "schema": "public",
     "table": "fault_catalog",
@@ -1046,6 +1152,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.fault_catalog.fault_code",
+    "database": "store_db",
     "full_name": "public.fault_catalog.fault_code",
     "schema": "public",
     "table": "fault_catalog",
@@ -1063,6 +1171,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.fault_catalog.fault_name",
+    "database": "store_db",
     "full_name": "public.fault_catalog.fault_name",
     "schema": "public",
     "table": "fault_catalog",
@@ -1080,6 +1190,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.fault_catalog.recommended_action",
+    "database": "store_db",
     "full_name": "public.fault_catalog.recommended_action",
     "schema": "public",
     "table": "fault_catalog",
@@ -1097,6 +1209,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.maintenance_work_order.wo_id",
+    "database": "store_db",
     "full_name": "public.maintenance_work_order.wo_id",
     "schema": "public",
     "table": "maintenance_work_order",
@@ -1114,6 +1228,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.maintenance_work_order.wo_line_no",
+    "database": "store_db",
     "full_name": "public.maintenance_work_order.wo_line_no",
     "schema": "public",
     "table": "maintenance_work_order",
@@ -1131,6 +1247,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.maintenance_work_order.fault_ts",
+    "database": "store_db",
     "full_name": "public.maintenance_work_order.fault_ts",
     "schema": "public",
     "table": "maintenance_work_order",
@@ -1148,6 +1266,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.maintenance_work_order.equipment_id",
+    "database": "store_db",
     "full_name": "public.maintenance_work_order.equipment_id",
     "schema": "public",
     "table": "maintenance_work_order",
@@ -1165,6 +1285,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.maintenance_work_order.config_version",
+    "database": "store_db",
     "full_name": "public.maintenance_work_order.config_version",
     "schema": "public",
     "table": "maintenance_work_order",
@@ -1182,6 +1304,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.maintenance_work_order.product_line_code",
+    "database": "store_db",
     "full_name": "public.maintenance_work_order.product_line_code",
     "schema": "public",
     "table": "maintenance_work_order",
@@ -1199,6 +1323,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.maintenance_work_order.subsystem_code",
+    "database": "store_db",
     "full_name": "public.maintenance_work_order.subsystem_code",
     "schema": "public",
     "table": "maintenance_work_order",
@@ -1216,6 +1342,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.maintenance_work_order.fault_code",
+    "database": "store_db",
     "full_name": "public.maintenance_work_order.fault_code",
     "schema": "public",
     "table": "maintenance_work_order",
@@ -1233,6 +1361,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.maintenance_work_order.downtime_minutes",
+    "database": "store_db",
     "full_name": "public.maintenance_work_order.downtime_minutes",
     "schema": "public",
     "table": "maintenance_work_order",
@@ -1250,6 +1380,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.maintenance_work_order.spare_part_cost",
+    "database": "store_db",
     "full_name": "public.maintenance_work_order.spare_part_cost",
     "schema": "public",
     "table": "maintenance_work_order",
@@ -1267,6 +1399,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.order_header.order_id",
+    "database": "store_db",
     "full_name": "public.order_header.order_id",
     "schema": "public",
     "table": "order_header",
@@ -1284,6 +1418,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.order_header.order_date",
+    "database": "store_db",
     "full_name": "public.order_header.order_date",
     "schema": "public",
     "table": "order_header",
@@ -1301,6 +1437,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.order_header.customer",
+    "database": "store_db",
     "full_name": "public.order_header.customer",
     "schema": "public",
     "table": "order_header",
@@ -1318,6 +1456,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.order_item.item_id",
+    "database": "store_db",
     "full_name": "public.order_item.item_id",
     "schema": "public",
     "table": "order_item",
@@ -1335,6 +1475,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.order_item.order_id",
+    "database": "store_db",
     "full_name": "public.order_item.order_id",
     "schema": "public",
     "table": "order_item",
@@ -1352,6 +1494,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.order_item.order_date",
+    "database": "store_db",
     "full_name": "public.order_item.order_date",
     "schema": "public",
     "table": "order_item",
@@ -1369,6 +1513,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.order_item.product",
+    "database": "store_db",
     "full_name": "public.order_item.product",
     "schema": "public",
     "table": "order_item",
@@ -1386,6 +1532,8 @@ UNWIND [
     "null_rate": 0.0
   },
   {
+    "id": "store_db.public.order_item.quantity",
+    "database": "store_db",
     "full_name": "public.order_item.quantity",
     "schema": "public",
     "table": "order_item",
@@ -1403,13 +1551,15 @@ UNWIND [
     "null_rate": 0.0
   }
 ] AS c
-MERGE (n:Column {full_name: c.full_name})
-SET n.schema       = c.schema,
-    n.table        = c.table,
-    n.name         = c.name,
-    n.comment      = c.comment,
-    n.data_type    = c.data_type,
-    n.semantic_role= c.semantic_role,
+	MERGE (n:Column {full_name: c.full_name})
+	SET n.id           = c.id,
+	    n.database     = c.database,
+	    n.schema       = c.schema,
+	    n.table        = c.table,
+	    n.name         = c.name,
+	    n.comment      = c.comment,
+	    n.data_type    = c.data_type,
+	    n.semantic_role= c.semantic_role,
     n.is_pk        = c.is_pk,
     n.is_uk        = c.is_uk,
     n.is_fk        = c.is_fk,
@@ -1705,174 +1855,6 @@ UNWIND [
     ]
   },
   {
-    "src_full_name": "public.fact_store_sales_day",
-    "dst_full_name": "public.fact_store_sales_month",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.store_id = DST.store_id AND SRC.date_day = DST.date_month AND SRC.product_type_id = DST.product_type_id",
-    "source_columns": [
-      "store_id",
-      "date_day",
-      "product_type_id"
-    ],
-    "target_columns": [
-      "store_id",
-      "date_month",
-      "product_type_id"
-    ]
-  },
-  {
-    "src_full_name": "public.fact_store_sales_month",
-    "dst_full_name": "public.fact_store_sales_day",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.store_id = DST.store_id AND SRC.date_month = DST.date_day AND SRC.product_type_id = DST.product_type_id",
-    "source_columns": [
-      "store_id",
-      "date_month",
-      "product_type_id"
-    ],
-    "target_columns": [
-      "store_id",
-      "date_day",
-      "product_type_id"
-    ]
-  },
-  {
-    "src_full_name": "public.maintenance_work_order",
-    "dst_full_name": "public.fault_catalog",
-    "cardinality": "N:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.product_line_code = DST.product_line_code AND SRC.subsystem_code = DST.subsystem_code AND SRC.fault_code = DST.fault_code",
-    "source_columns": [
-      "product_line_code",
-      "subsystem_code",
-      "fault_code"
-    ],
-    "target_columns": [
-      "product_line_code",
-      "subsystem_code",
-      "fault_code"
-    ]
-  },
-  {
-    "src_full_name": "public.order_item",
-    "dst_full_name": "public.order_header",
-    "cardinality": "N:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.order_id = DST.order_id AND SRC.order_date = DST.order_date",
-    "source_columns": [
-      "order_id",
-      "order_date"
-    ],
-    "target_columns": [
-      "order_id",
-      "order_date"
-    ]
-  },
-  {
-    "src_full_name": "public.order_item",
-    "dst_full_name": "public.order_header",
-    "cardinality": "N:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.order_id = DST.order_id",
-    "source_columns": [
-      "order_id"
-    ],
-    "target_columns": [
-      "order_id"
-    ]
-  },
-  {
-    "src_full_name": "public.order_item",
-    "dst_full_name": "public.order_header",
-    "cardinality": "N:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.order_date = DST.order_date",
-    "source_columns": [
-      "order_date"
-    ],
-    "target_columns": [
-      "order_date"
-    ]
-  },
-  {
-    "src_full_name": "public.department",
-    "dst_full_name": "public.employee",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.dept_id = DST.emp_id",
-    "source_columns": [
-      "dept_id"
-    ],
-    "target_columns": [
-      "emp_id"
-    ]
-  },
-  {
-    "src_full_name": "public.department",
-    "dst_full_name": "public.employee",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.dept_id = DST.dept_id",
-    "source_columns": [
-      "dept_id"
-    ],
-    "target_columns": [
-      "dept_id"
-    ]
-  },
-  {
-    "src_full_name": "public.department",
-    "dst_full_name": "public.order_item",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.dept_id = DST.item_id",
-    "source_columns": [
-      "dept_id"
-    ],
-    "target_columns": [
-      "item_id"
-    ]
-  },
-  {
-    "src_full_name": "public.dim_company",
-    "dst_full_name": "public.department",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.company_id = DST.dept_id",
-    "source_columns": [
-      "company_id"
-    ],
-    "target_columns": [
-      "dept_id"
-    ]
-  },
-  {
-    "src_full_name": "public.dim_company",
-    "dst_full_name": "public.dim_product_type",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.company_id = DST.product_type_id",
-    "source_columns": [
-      "company_id"
-    ],
-    "target_columns": [
-      "product_type_id"
-    ]
-  },
-  {
     "src_full_name": "public.dim_store",
     "dst_full_name": "public.dim_company",
     "cardinality": "N:1",
@@ -1887,76 +1869,6 @@ UNWIND [
     ]
   },
   {
-    "src_full_name": "public.dim_company",
-    "dst_full_name": "public.employee",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.company_id = DST.emp_id",
-    "source_columns": [
-      "company_id"
-    ],
-    "target_columns": [
-      "emp_id"
-    ]
-  },
-  {
-    "src_full_name": "public.dim_company",
-    "dst_full_name": "public.order_item",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.company_id = DST.item_id",
-    "source_columns": [
-      "company_id"
-    ],
-    "target_columns": [
-      "item_id"
-    ]
-  },
-  {
-    "src_full_name": "public.dim_product_type",
-    "dst_full_name": "public.department",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.product_type_id = DST.dept_id",
-    "source_columns": [
-      "product_type_id"
-    ],
-    "target_columns": [
-      "dept_id"
-    ]
-  },
-  {
-    "src_full_name": "public.dim_product_type",
-    "dst_full_name": "public.dim_company",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.product_type_id = DST.company_id",
-    "source_columns": [
-      "product_type_id"
-    ],
-    "target_columns": [
-      "company_id"
-    ]
-  },
-  {
-    "src_full_name": "public.dim_product_type",
-    "dst_full_name": "public.employee",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.product_type_id = DST.emp_id",
-    "source_columns": [
-      "product_type_id"
-    ],
-    "target_columns": [
-      "emp_id"
-    ]
-  },
-  {
     "src_full_name": "public.fact_store_sales_day",
     "dst_full_name": "public.dim_product_type",
     "cardinality": "N:1",
@@ -1985,23 +1897,9 @@ UNWIND [
     ]
   },
   {
-    "src_full_name": "public.dim_product_type",
-    "dst_full_name": "public.order_item",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.product_type_id = DST.item_id",
-    "source_columns": [
-      "product_type_id"
-    ],
-    "target_columns": [
-      "item_id"
-    ]
-  },
-  {
-    "src_full_name": "public.dim_region",
-    "dst_full_name": "public.dim_store",
-    "cardinality": "M:N",
+    "src_full_name": "public.dim_store",
+    "dst_full_name": "public.dim_region",
+    "cardinality": "N:1",
     "constraint_name": null,
     "join_type": "INNER JOIN",
     "on": "SRC.region_id = DST.region_id",
@@ -2041,59 +1939,37 @@ UNWIND [
     ]
   },
   {
-    "src_full_name": "public.employee",
-    "dst_full_name": "public.department",
-    "cardinality": "1:1",
+    "src_full_name": "public.maintenance_work_order",
+    "dst_full_name": "public.equipment_config",
+    "cardinality": "N:1",
     "constraint_name": null,
     "join_type": "INNER JOIN",
-    "on": "SRC.emp_id = DST.dept_id",
+    "on": "SRC.equipment_id = DST.equipment_id AND SRC.config_version = DST.config_version",
     "source_columns": [
-      "emp_id"
+      "equipment_id",
+      "config_version"
     ],
     "target_columns": [
-      "dept_id"
+      "equipment_id",
+      "config_version"
     ]
   },
   {
-    "src_full_name": "public.employee",
-    "dst_full_name": "public.order_item",
-    "cardinality": "1:1",
+    "src_full_name": "public.maintenance_work_order",
+    "dst_full_name": "public.fault_catalog",
+    "cardinality": "N:1",
     "constraint_name": null,
     "join_type": "INNER JOIN",
-    "on": "SRC.emp_id = DST.item_id",
+    "on": "SRC.product_line_code = DST.product_line_code AND SRC.subsystem_code = DST.subsystem_code AND SRC.fault_code = DST.fault_code",
     "source_columns": [
-      "emp_id"
+      "product_line_code",
+      "subsystem_code",
+      "fault_code"
     ],
     "target_columns": [
-      "item_id"
-    ]
-  },
-  {
-    "src_full_name": "public.order_item",
-    "dst_full_name": "public.department",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.item_id = DST.dept_id",
-    "source_columns": [
-      "item_id"
-    ],
-    "target_columns": [
-      "dept_id"
-    ]
-  },
-  {
-    "src_full_name": "public.order_item",
-    "dst_full_name": "public.employee",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.item_id = DST.emp_id",
-    "source_columns": [
-      "item_id"
-    ],
-    "target_columns": [
-      "emp_id"
+      "product_line_code",
+      "subsystem_code",
+      "fault_code"
     ]
   }
 ] AS j

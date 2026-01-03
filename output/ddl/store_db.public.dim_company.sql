@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.dim_company
 -- Comment: 公司维表
--- Generated: 2026-01-02 11:23:11
+-- Generated: 2026-01-03 13:14:41
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.dim_company (
@@ -21,7 +21,6 @@ COMMENT ON TABLE public.dim_company IS '公司维表';
 {
   "version": 1,
   "table": "public.dim_company",
-  "generated_at": "2026-01-02T03:23:11.316817Z",
   "records": [
     {
       "label": "Record 1",
@@ -43,16 +42,6 @@ COMMENT ON TABLE public.dim_company IS '公司维表';
         "company_id": "3",
         "company_name": "全家"
       }
-    },
-    {
-      "label": "Record 4",
-      "data": null,
-      "note": "placeholder"
-    },
-    {
-      "label": "Record 5",
-      "data": null,
-      "note": "placeholder"
     }
   ]
 }

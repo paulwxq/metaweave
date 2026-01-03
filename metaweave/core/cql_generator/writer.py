@@ -35,6 +35,19 @@ class CypherWriter:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"初始化 Cypher 写入器，输出目录: {self.output_dir}")
 
+    @staticmethod
+    def _resolve_database_name(tables: List[TableNode], columns: List[ColumnNode]) -> str:
+        candidates = {
+            value
+            for value in [*(t.database for t in tables), *(c.database for c in columns)]
+            if value
+        }
+        if not candidates:
+            return "unknown"
+        if len(candidates) > 1:
+            raise ValueError(f"检测到多个 database: {sorted(candidates)}")
+        return next(iter(candidates))
+
     def write_all(
         self,
         tables: List[TableNode],
@@ -57,9 +70,11 @@ class CypherWriter:
 
         logger.info("开始生成 Cypher 文件 (global 模式)...")
 
-        # 生成单个完整的 import_all.cypher 文件
+        database_name = self._resolve_database_name(tables, columns)
+
+        # 生成单个完整的 import_all.{db}.cypher 文件
         import_all_file = self._write_import_all(
-            tables, columns, has_column_rels, join_on_rels
+            tables, columns, has_column_rels, join_on_rels, database_name=database_name
         )
         output_files.append(str(import_all_file))
 
@@ -73,9 +88,10 @@ class CypherWriter:
         content = """// 01_constraints.cypher
 // 创建唯一约束（幂等）
 
-CREATE CONSTRAINT table_id IF NOT EXISTS FOR (t:Table) REQUIRE t.id IS UNIQUE;
-CREATE CONSTRAINT table_full_name IF NOT EXISTS FOR (t:Table) REQUIRE t.full_name IS UNIQUE;
-CREATE CONSTRAINT column_full_name IF NOT EXISTS FOR (c:Column) REQUIRE c.full_name IS UNIQUE;
+	CREATE CONSTRAINT table_id IF NOT EXISTS FOR (t:Table) REQUIRE t.id IS UNIQUE;
+	CREATE CONSTRAINT table_full_name IF NOT EXISTS FOR (t:Table) REQUIRE t.full_name IS UNIQUE;
+	CREATE CONSTRAINT column_id IF NOT EXISTS FOR (c:Column) REQUIRE c.id IS UNIQUE;
+	CREATE CONSTRAINT column_full_name IF NOT EXISTS FOR (c:Column) REQUIRE c.full_name IS UNIQUE;
 """
 
         with open(output_file, "w", encoding="utf-8") as f:
@@ -95,14 +111,15 @@ CREATE CONSTRAINT column_full_name IF NOT EXISTS FOR (c:Column) REQUIRE c.full_n
         content = f"""// 02_nodes_tables.cypher
 // 生成 Table 节点（MERGE + SET，确保幂等性）
 
-UNWIND {tables_json} AS t
-MERGE (n:Table {{full_name: t.full_name}})
-SET n.id       = t.full_name,
-    n.schema   = t.schema,
-    n.name     = t.name,
-    n.comment  = t.comment,
-    n.pk       = t.pk,
-    n.uk       = t.uk,
+	UNWIND {tables_json} AS t
+	MERGE (n:Table {{full_name: t.full_name}})
+	SET n.id       = t.id,
+	    n.database = t.database,
+	    n.schema   = t.schema,
+	    n.name     = t.name,
+	    n.comment  = t.comment,
+	    n.pk       = t.pk,
+	    n.uk       = t.uk,
     n.fk       = t.fk,
     n.logic_pk = t.logic_pk,
     n.logic_fk = t.logic_fk,
@@ -137,14 +154,16 @@ SET n.id       = t.full_name,
         content = f"""// 03_nodes_columns.cypher
 // 生成 Column 节点（MERGE + SET，确保幂等性）
 
-UNWIND {columns_json} AS c
-MERGE (n:Column {{full_name: c.full_name}})
-SET n.schema       = c.schema,
-    n.table        = c.table,
-    n.name         = c.name,
-    n.comment      = c.comment,
-    n.data_type    = c.data_type,
-    n.semantic_role= c.semantic_role,
+	UNWIND {columns_json} AS c
+	MERGE (n:Column {{full_name: c.full_name}})
+	SET n.id           = c.id,
+	    n.database     = c.database,
+	    n.schema       = c.schema,
+	    n.table        = c.table,
+	    n.name         = c.name,
+	    n.comment      = c.comment,
+	    n.data_type    = c.data_type,
+	    n.semantic_role= c.semantic_role,
     n.is_pk        = c.is_pk,
     n.is_uk        = c.is_uk,
     n.is_fk        = c.is_fk,
@@ -218,10 +237,11 @@ SET r.cardinality     = j.cardinality,
         tables: List[TableNode],
         columns: List[ColumnNode],
         has_column_rels: List[HASColumnRelation],
-        join_on_rels: List[JOINOnRelation]
+        join_on_rels: List[JOINOnRelation],
+        database_name: str,
     ) -> Path:
-        """生成 import_all.cypher（完整的 global 模式 CQL 脚本）"""
-        output_file = self.output_dir / "import_all.cypher"
+        """生成 import_all.{db}.cypher（完整的 global 模式 CQL 脚本）"""
+        output_file = self.output_dir / f"import_all.{database_name}.cypher"
 
         timestamp = datetime.now().isoformat()
 
@@ -236,7 +256,7 @@ SET r.cardinality     = j.cardinality,
         has_column_json = json.dumps(has_column_data, ensure_ascii=False, indent=2)
         join_on_json = json.dumps(join_on_data, ensure_ascii=False, indent=2)
 
-        content = f"""// import_all.cypher
+        content = f"""// import_all.{database_name}.cypher
 // Neo4j 元数据导入脚本（global 模式，包含所有表和关系）
 // 生成时间: {timestamp}
 // 统计: {len(tables)} 张表, {len(columns)} 个列, {len(join_on_rels)} 个关系
@@ -245,22 +265,24 @@ SET r.cardinality     = j.cardinality,
 // 1. 创建唯一约束
 // =====================================================================
 
-CREATE CONSTRAINT table_id IF NOT EXISTS FOR (t:Table) REQUIRE t.id IS UNIQUE;
-CREATE CONSTRAINT table_full_name IF NOT EXISTS FOR (t:Table) REQUIRE t.full_name IS UNIQUE;
-CREATE CONSTRAINT column_full_name IF NOT EXISTS FOR (c:Column) REQUIRE c.full_name IS UNIQUE;
+	CREATE CONSTRAINT table_id IF NOT EXISTS FOR (t:Table) REQUIRE t.id IS UNIQUE;
+	CREATE CONSTRAINT table_full_name IF NOT EXISTS FOR (t:Table) REQUIRE t.full_name IS UNIQUE;
+	CREATE CONSTRAINT column_id IF NOT EXISTS FOR (c:Column) REQUIRE c.id IS UNIQUE;
+	CREATE CONSTRAINT column_full_name IF NOT EXISTS FOR (c:Column) REQUIRE c.full_name IS UNIQUE;
 
 // =====================================================================
 // 2. 创建 Table 节点
 // =====================================================================
 
-UNWIND {tables_json} AS t
-MERGE (n:Table {{full_name: t.full_name}})
-SET n.id       = t.full_name,
-    n.schema   = t.schema,
-    n.name     = t.name,
-    n.comment  = t.comment,
-    n.pk       = t.pk,
-    n.uk       = t.uk,
+	UNWIND {tables_json} AS t
+	MERGE (n:Table {{full_name: t.full_name}})
+	SET n.id       = t.id,
+	    n.database = t.database,
+	    n.schema   = t.schema,
+	    n.name     = t.name,
+	    n.comment  = t.comment,
+	    n.pk       = t.pk,
+	    n.uk       = t.uk,
     n.fk       = t.fk,
     n.logic_pk = t.logic_pk,
     n.logic_fk = t.logic_fk,
@@ -281,14 +303,16 @@ SET n.id       = t.full_name,
 // 3. 创建 Column 节点
 // =====================================================================
 
-UNWIND {columns_json} AS c
-MERGE (n:Column {{full_name: c.full_name}})
-SET n.schema       = c.schema,
-    n.table        = c.table,
-    n.name         = c.name,
-    n.comment      = c.comment,
-    n.data_type    = c.data_type,
-    n.semantic_role= c.semantic_role,
+	UNWIND {columns_json} AS c
+	MERGE (n:Column {{full_name: c.full_name}})
+	SET n.id           = c.id,
+	    n.database     = c.database,
+	    n.schema       = c.schema,
+	    n.table        = c.table,
+	    n.name         = c.name,
+	    n.comment      = c.comment,
+	    n.data_type    = c.data_type,
+	    n.semantic_role= c.semantic_role,
     n.is_pk        = c.is_pk,
     n.is_uk        = c.is_uk,
     n.is_fk        = c.is_fk,
@@ -356,7 +380,8 @@ SET r.cardinality     = j.cardinality,
         Note:
             CQL 输出目录使用 self.output_dir，无需额外传递
         """
-        output_file = self.output_dir / "import_all.md"
+        database_name = self._resolve_database_name(tables, columns)
+        output_file = self.output_dir / f"import_all.{database_name}.md"
 
         # 生成时间
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -366,9 +391,9 @@ SET r.cardinality     = j.cardinality,
         join_on_count = len(join_on_rels)
         edges_total = has_column_count + join_on_count
 
-        # ✅ 获取 import_all.cypher 的行数（完善的容错处理）
+        # ✅ 获取 import_all.{db}.cypher 的行数（完善的容错处理）
         # 注意：此方法必须在 write_all() 之后调用，确保 Cypher 文件已生成
-        cypher_file = self.output_dir / "import_all.cypher"
+        cypher_file = self.output_dir / f"import_all.{database_name}.cypher"
         cypher_lines = 0
         if cypher_file.exists():
             try:
@@ -380,7 +405,7 @@ SET r.cardinality     = j.cardinality,
                 cypher_lines = 0  # 降级处理：设为 0
         else:
             logger.warning(
-                f"import_all.cypher 不存在，无法统计行数。"
+                f"import_all.{database_name}.cypher 不存在，无法统计行数。"
                 f"路径: {cypher_file}"
             )
             cypher_lines = 0  # 降级处理：设为 0
@@ -434,8 +459,8 @@ SET r.cardinality     = j.cardinality,
 
 | 文件名 | 行数 |
 |-------|------|
-| import_all.cypher | {cypher_lines} |
-| import_all.md | - |
+| import_all.{database_name}.cypher | {cypher_lines} |
+| import_all.{database_name}.md | - |
 
 ---
 

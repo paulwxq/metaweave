@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.dim_store
 -- Comment: 店铺维表
--- Generated: 2026-01-02 11:23:11
+-- Generated: 2026-01-03 13:14:41
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.dim_store (
@@ -25,7 +25,6 @@ COMMENT ON TABLE public.dim_store IS '店铺维表';
 {
   "version": 1,
   "table": "public.dim_store",
-  "generated_at": "2026-01-02T03:23:11.448635Z",
   "records": [
     {
       "label": "Record 1",

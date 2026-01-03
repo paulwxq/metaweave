@@ -24,7 +24,7 @@ class OutputFormatter:
     将表元数据格式化为不同格式并保存到文件。
     """
     
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, database_name: str):
         """初始化输出格式化器
         
         Args:
@@ -33,6 +33,7 @@ class OutputFormatter:
                 - formats: 输出格式列表 ['ddl', 'markdown', 'json']
                 - ddl_options: DDL 选项
                 - markdown_options: Markdown 选项
+            database_name: 数据库名称（来自 database.database）
         """
         self.config = config
         self.output_dir = Path(config.get("output_dir", "output"))
@@ -43,7 +44,6 @@ class OutputFormatter:
             "enabled": sample_records_config.get("enabled", True),
             "count": sample_records_config.get("count", 3),
             "label_prefix": sample_records_config.get("label_prefix", "Record"),
-            "include_placeholders": sample_records_config.get("include_placeholders", True),
         }
         self.markdown_options = config.get("markdown_options", {})
         self.markdown_sample_value_count = max(
@@ -51,14 +51,14 @@ class OutputFormatter:
             int(self.markdown_options.get("sample_value_count", 2))
         )
 
-        # 确保输出目录存在
+	        # 确保输出目录存在
         ensure_dir(self.output_dir / "ddl")
         self.markdown_dir = self.output_dir / "md"
         ensure_dir(self.markdown_dir)
         ensure_dir(self.output_dir / "json")
         
-        # 获取数据库名（来自 output.database_name；未设置则默认 "postgres"）
-        self.database_name = config.get("database_name", "postgres")
+        # 数据库名：统一来自 database.database
+        self.database_name = database_name
         
         logger.info(f"输出格式化器已初始化: {self.output_dir}")
     
@@ -325,7 +325,7 @@ class OutputFormatter:
                 source_cols = ', '.join(fk.source_columns)
                 target_cols = ', '.join(fk.target_columns)
                 supplementary_items.append(
-                    f"- {source_cols} 关联 {fk.target_schema}.{fk.target_table}.{target_cols}"
+                    f"- 外键约束 {source_cols} 关联 {fk.target_schema}.{fk.target_table}.{target_cols}"
                 )
         
         # 3.3 逻辑主键 - 已禁用，不在 Markdown 中显示
@@ -464,7 +464,6 @@ class OutputFormatter:
                 "sample_method": "random",
                 "sample_size": len(records),
                 "total_rows": metadata.row_count,
-                "sampled_at": sample_data.get("generated_at"),
                 "records": records[:5]  # 最多取5条
             }
             
@@ -493,7 +492,6 @@ class OutputFormatter:
                         "sample_method": "random",
                         "sample_size": len(samples),
                         "total_rows": metadata.row_count,
-                        "sampled_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                         "records": samples
                     }
             
@@ -503,7 +501,6 @@ class OutputFormatter:
                     "sample_method": "random",
                     "sample_size": 0,
                     "total_rows": metadata.row_count,
-                    "sampled_at": None,
                     "records": []
                 }
             
@@ -533,27 +530,18 @@ class OutputFormatter:
             return ""
         
         label_prefix = self.sample_record_options.get("label_prefix", "Record")
-        include_placeholders = self.sample_record_options.get("include_placeholders", True)
         samples = []
         if sample_data is not None and not sample_data.empty:
             samples = dataframe_to_sample_dict(sample_data, max_rows=max_records)
         
         records = []
-        for idx in range(max_records):
-            if idx < len(samples):
-                record = {
+        for idx, sample in enumerate(samples[:max_records]):
+            records.append(
+                {
                     "label": f"{label_prefix} {idx + 1}",
-                    "data": samples[idx]
+                    "data": sample,
                 }
-            elif include_placeholders:
-                record = {
-                    "label": f"{label_prefix} {idx + 1}",
-                    "data": None,
-                    "note": "placeholder"
-                }
-            else:
-                break
-            records.append(record)
+            )
         
         if not records:
             return ""
@@ -561,7 +549,6 @@ class OutputFormatter:
         payload = {
             "version": 1,
             "table": metadata.full_name,
-            "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "records": records
         }
         json_block = json.dumps(payload, ensure_ascii=False, indent=2)

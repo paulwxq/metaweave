@@ -464,7 +464,6 @@ class JsonLlmEnhancer:
             "sample_method": sample_records.get("sample_method", "random"),
             "sample_size": sample_records.get("sample_size", len(records)),
             "total_rows": sample_records.get("total_rows", 0),
-            "sampled_at": sample_records.get("sampled_at"),
             "records": records,
         }
 
@@ -543,12 +542,12 @@ class JsonLlmEnhancer:
             self._merge_column_comments(enhanced, llm_result)
 
         # 3. 更新元数据
-        # - 保留 json 步骤写入的 generated_at（避免改写"生成时间"的语义）
+        # - 保留 json 步骤写入的 generated_timestamp（避免改写"生成时间"的语义）
         # - 新增 llm_enhanced_at 记录增强时间（便于追溯）
         # metadata_version 是"元数据 JSON 的输出 schema 版本号"，由 Step json 的 TableMetadata.to_dict() 统一写入。
         # JsonLlmEnhancer 不负责版本升级：这里只做透传；若历史文件缺失该字段，才回退到当前 schema 版本 2.0。
         enhanced["metadata_version"] = table_json.get("metadata_version", "2.0")
-        enhanced["llm_enhanced_at"] = datetime.now(timezone.utc).isoformat()
+        enhanced["llm_enhanced_at"] = datetime.now().isoformat()
 
         return enhanced
 

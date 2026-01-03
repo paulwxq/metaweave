@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.dim_product_type
 -- Comment: 商品类型维表
--- Generated: 2026-01-02 11:23:11
+-- Generated: 2026-01-03 13:14:41
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.dim_product_type (
@@ -21,7 +21,6 @@ COMMENT ON TABLE public.dim_product_type IS '商品类型维表';
 {
   "version": 1,
   "table": "public.dim_product_type",
-  "generated_at": "2026-01-02T03:23:11.315820Z",
   "records": [
     {
       "label": "Record 1",
@@ -50,11 +49,6 @@ COMMENT ON TABLE public.dim_product_type IS '商品类型维表';
         "product_type_id": "4",
         "product_type_name": "水果"
       }
-    },
-    {
-      "label": "Record 5",
-      "data": null,
-      "note": "placeholder"
     }
   ]
 }

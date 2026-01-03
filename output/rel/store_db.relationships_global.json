@@ -1,0 +1,286 @@
+{
+  "generated_by": "rel_llm",
+  "database": "store_db",
+  "metadata_source": "json_files",
+  "json_metadata_version": "2.0",
+  "json_files_loaded": 0,
+  "database_queries_executed": 0,
+  "generated_timestamp": "2026-01-03T13:38:14.047910",
+  "statistics": {
+    "total_relationships_found": 10,
+    "foreign_key_relationships": 2,
+    "composite_key_relationships": 3,
+    "single_column_relationships": 7,
+    "total_suppressed_single_relations": 0,
+    "active_search_discoveries": 0,
+    "dynamic_composite_discoveries": 0,
+    "llm_assisted_relationships": 8,
+    "rejected_low_confidence": 1
+  },
+  "relationships": [
+    {
+      "relationship_id": "rel_3fc3390a1211",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "employee"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "department"
+      },
+      "from_column": "dept_id",
+      "to_column": "dept_id",
+      "discovery_method": "foreign_key_constraint",
+      "target_source_type": "foreign_key",
+      "source_constraint": null,
+      "cardinality": "1:1"
+    },
+    {
+      "relationship_id": "rel_565fe28cfc05",
+      "type": "composite",
+      "from_table": {
+        "schema": "public",
+        "table": "order_item"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "order_header"
+      },
+      "from_columns": [
+        "order_date",
+        "order_id"
+      ],
+      "to_columns": [
+        "order_date",
+        "order_id"
+      ],
+      "discovery_method": "foreign_key_constraint",
+      "target_source_type": "foreign_key",
+      "source_constraint": null,
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_b61c5593eb1c",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "dim_store"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "dim_company"
+      },
+      "from_column": "company_id",
+      "to_column": "company_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 1.0,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 1.0,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_f06bafe0559c",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "fact_store_sales_day"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "dim_product_type"
+      },
+      "from_column": "product_type_id",
+      "to_column": "product_type_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 1.0,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 1.0,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_9905c2fee1a8",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "fact_store_sales_month"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "dim_product_type"
+      },
+      "from_column": "product_type_id",
+      "to_column": "product_type_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 1.0,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 1.0,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_2ab3a1004d3f",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "dim_store"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "dim_region"
+      },
+      "from_column": "region_id",
+      "to_column": "region_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 1.0,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 1.0,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_83022846e981",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "fact_store_sales_day"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "dim_store"
+      },
+      "from_column": "store_id",
+      "to_column": "store_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 1.0,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 1.0,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_b1b7fca8dc98",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "fact_store_sales_month"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "dim_store"
+      },
+      "from_column": "store_id",
+      "to_column": "store_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 1.0,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 1.0,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_911639fa245e",
+      "type": "composite",
+      "from_table": {
+        "schema": "public",
+        "table": "maintenance_work_order"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "equipment_config"
+      },
+      "from_columns": [
+        "equipment_id",
+        "config_version"
+      ],
+      "to_columns": [
+        "equipment_id",
+        "config_version"
+      ],
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.95,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 0.5,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_28f01094040e",
+      "type": "composite",
+      "from_table": {
+        "schema": "public",
+        "table": "maintenance_work_order"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "fault_catalog"
+      },
+      "from_columns": [
+        "product_line_code",
+        "subsystem_code",
+        "fault_code"
+      ],
+      "to_columns": [
+        "product_line_code",
+        "subsystem_code",
+        "fault_code"
+      ],
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.95,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 0.5,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    }
+  ]
+}

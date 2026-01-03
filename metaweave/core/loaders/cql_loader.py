@@ -5,6 +5,7 @@
 
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+import glob
 import re
 import time
 import logging
@@ -43,13 +44,40 @@ class CQLLoader(BaseLoader):
 
         # 获取输入文件路径
         cql_config = self.config.get("cql_loader", {})
-        input_file_str = cql_config.get("input_file", "output/cql/import_all.cypher")
+        input_file_str = cql_config.get("input_file", "output/cql/import_all.*.cypher")
         self.input_file = Path(input_file_str)
 
         # 如果不是绝对路径，则相对于项目根目录
         if not self.input_file.is_absolute():
             from metaweave.utils.file_utils import get_project_root
             self.input_file = get_project_root() / input_file_str
+
+    @staticmethod
+    def _is_glob_pattern(path: Path) -> bool:
+        return any(ch in str(path) for ch in ["*", "?", "["])
+
+    def _resolve_input_file(self) -> bool:
+        """将 input_file（可能包含通配符）解析为唯一的实际文件路径。"""
+        if not self._is_glob_pattern(self.input_file):
+            return True
+
+        pattern = str(self.input_file)
+        matches = [Path(p) for p in glob.glob(pattern)]
+        matches = [p for p in matches if p.is_file()]
+
+        if not matches:
+            logger.error(f"CQL 文件不存在（通配符未匹配到文件）: {pattern}")
+            return False
+
+        if len(matches) > 1:
+            logger.error(f"检测到多个匹配的 CQL 文件（请确保仅保留一个）: {pattern}")
+            for m in sorted(matches):
+                logger.error(f"  - {m}")
+            return False
+
+        self.input_file = matches[0]
+        logger.info(f"通配符已解析到唯一 CQL 文件: {self.input_file}")
+        return True
 
     def _get_neo4j_config(self) -> Dict[str, Any]:
         """获取 Neo4j 配置（全局配置或自定义配置）
@@ -88,7 +116,9 @@ class CQLLoader(BaseLoader):
             logger.error("配置缺少 cql_loader 字段")
             return False
 
-        # 2. 检查文件
+        # 2. 检查文件（支持通配符，且必须唯一匹配）
+        if not self._resolve_input_file():
+            return False
         if not self.input_file.exists():
             logger.error(f"CQL 文件不存在: {self.input_file}")
             return False
