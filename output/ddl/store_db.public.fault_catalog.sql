@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.fault_catalog
 -- Comment: 故障码字典维度表：按“产线/产品线 + 子系统 + 故障码”定义故障含义与处理建议，避免同码异义。
--- Generated: 2026-01-04 16:33:55
+-- Generated: 2026-01-04 20:05:35
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.fault_catalog (

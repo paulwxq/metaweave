@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-04T00:01:12.716537",
+  "generated_timestamp": "2026-01-04T20:05:42.095258",
   "table_info": {
     "database": "store_db",
     "schema_name": "public",
@@ -123,7 +123,10 @@
     "table_category": "dim",
     "confidence": 0.95,
     "inference_basis": [
-      "llm_inferred"
+      "dim_identifier_columns",
+      "dim_has_primary_key",
+      "dim_name_pattern",
+      "dim_comment_keyword"
     ],
     "physical_constraints": {
       "primary_key": null,
@@ -151,14 +154,6 @@
         "uniqueness": 1.0,
         "null_rate": 0.0
       }
-    ],
-    "table_category_rule_based": "dim",
-    "confidence_rule_based": 0.95,
-    "inference_basis_rule_based": [
-      "dim_identifier_columns",
-      "dim_has_primary_key",
-      "dim_name_pattern",
-      "dim_comment_keyword"
     ]
   },
   "sample_records": {
@@ -183,6 +178,5 @@
         "product_type_name": "水果"
       }
     ]
-  },
-  "llm_enhanced_at": "2026-01-04T00:01:19.037769"
+  }
 }

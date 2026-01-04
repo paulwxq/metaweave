@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.fact_store_sales_month
 -- Comment: 店铺销售月汇总事实表（按月、店铺、商品类型汇总）
--- Generated: 2026-01-04 16:33:55
+-- Generated: 2026-01-04 20:05:35
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.fact_store_sales_month (

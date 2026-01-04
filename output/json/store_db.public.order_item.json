@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-04T00:01:13.230357",
+  "generated_timestamp": "2026-01-04T20:05:42.459515",
   "table_info": {
     "database": "store_db",
     "schema_name": "public",
     "table_name": "order_item",
     "table_type": "table",
-    "comment": "订单明细表，存储每笔订单中商品的购买数量及对应信息",
+    "comment": "订单明细表，存储每笔订单中商品的购买数量和相关信息",
     "comment_source": "ddl",
     "total_rows": 20,
     "total_columns": 5
@@ -324,10 +324,10 @@
     }
   },
   "table_profile": {
-    "table_category": "fact",
-    "confidence": 0.95,
+    "table_category": "bridge",
+    "confidence": 0.85,
     "inference_basis": [
-      "llm_inferred"
+      "bridge_fk_threshold"
     ],
     "physical_constraints": {
       "primary_key": {
@@ -366,12 +366,7 @@
       "attribute_count": 0,
       "primary_key_count": 1,
       "foreign_key_count": 2
-    },
-    "table_category_rule_based": "bridge",
-    "confidence_rule_based": 0.85,
-    "inference_basis_rule_based": [
-      "bridge_fk_threshold"
-    ]
+    }
   },
   "sample_records": {
     "sample_method": "random",
@@ -414,6 +409,5 @@
         "quantity": 12
       }
     ]
-  },
-  "llm_enhanced_at": "2026-01-04T00:01:52.620463"
+  }
 }

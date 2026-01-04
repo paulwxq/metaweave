@@ -23,7 +23,7 @@ from metaweave.utils.data_utils import get_column_statistics
 from services.config_loader import ConfigLoader
 
 logger = logging.getLogger("metaweave.generator")
-SUPPORTED_STEPS = {"ddl", "json", "cql", "md", "all"}
+SUPPORTED_STEPS = {"ddl", "json", "cql", "md"}
 
 
 class MetadataGenerator:
@@ -112,7 +112,7 @@ class MetadataGenerator:
         # 输出格式化器
         output_config = self.config.get("output", {})
         self.formatter = OutputFormatter(output_config, database_name=self.database_name)
-        self.active_step = "all"
+        self.active_step = "ddl"
         self.active_formats = self.formatter.formats
         self.ddl_loader: Optional[DDLLoader] = None
         self.profiler = MetadataProfiler(self.config)
@@ -175,7 +175,7 @@ class MetadataGenerator:
         tables: Optional[List[str]] = None,
         incremental: bool = False,
         max_workers: int = 4,
-        step: str = "all"
+        step: str = "ddl"
     ) -> GenerationResult:
         """生成元数据
         
@@ -239,10 +239,6 @@ class MetadataGenerator:
                 result = self._process_tables_parallel(all_tables, max_workers, result)
             else:
                 result = self._process_tables_sequential(all_tables, result)
-            
-            # 生成汇总报告（仅在全流程模式下生成）
-            if self.active_step == "all":
-                self._generate_summary(result)
             
             logger.info(f"元数据生成完成: 成功 {result.processed_tables} 张，失败 {result.failed_tables} 张")
             
@@ -705,7 +701,6 @@ class MetadataGenerator:
             "ddl": ["ddl"],
             "json": ["json"],
             "md": ["markdown"],
-            "all": self.formatter.formats,
         }
         if step == "cql":
             logger.warning("CQL 生成尚未实现，暂不输出文件")

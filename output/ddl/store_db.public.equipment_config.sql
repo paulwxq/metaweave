@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.equipment_config
 -- Comment: 设备配置维度表：描述设备在某个配置版本下的关键配置属性，用于按“设备ID + 配置版本”关联到工单事实。
--- Generated: 2026-01-04 16:33:54
+-- Generated: 2026-01-04 20:05:35
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.equipment_config (

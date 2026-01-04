@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-04T00:01:12.920173",
+  "generated_timestamp": "2026-01-04T20:05:42.323611",
   "table_info": {
     "database": "store_db",
     "schema_name": "public",
@@ -240,9 +240,13 @@
   },
   "table_profile": {
     "table_category": "fact",
-    "confidence": 0.95,
+    "confidence": 0.98,
     "inference_basis": [
-      "llm_inferred"
+      "fact_has_metric",
+      "fact_dimension_columns",
+      "fact_datetime",
+      "fact_name_pattern",
+      "fact_comment_keyword"
     ],
     "physical_constraints": {
       "primary_key": null,
@@ -272,15 +276,6 @@
         "uniqueness": 1.0,
         "null_rate": 0.0
       }
-    ],
-    "table_category_rule_based": "fact",
-    "confidence_rule_based": 0.98,
-    "inference_basis_rule_based": [
-      "fact_has_metric",
-      "fact_dimension_columns",
-      "fact_datetime",
-      "fact_name_pattern",
-      "fact_comment_keyword"
     ]
   },
   "sample_records": {
@@ -319,6 +314,5 @@
         "amount": 226.0
       }
     ]
-  },
-  "llm_enhanced_at": "2026-01-04T00:01:38.615118"
+  }
 }

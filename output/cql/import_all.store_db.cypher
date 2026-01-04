@@ -1,7 +1,7 @@
 // import_all.store_db.cypher
 // Neo4j 元数据导入脚本（global 模式，包含所有表和关系）
-// 生成时间: 2026-01-04T00:05:34.146686
-// 统计: 13 张表, 60 个列, 10 个关系
+// 生成时间: 2026-01-04T20:06:17.088424
+// 统计: 13 张表, 60 个列, 27 个关系
 
 // =====================================================================
 // 1. 创建唯一约束
@@ -23,7 +23,7 @@
     "full_name": "public.department",
     "schema": "public",
     "name": "department",
-    "comment": "部门信息表，存储企业各部门的编码、名称及所在地信息",
+    "comment": "部门信息表，存储企业各部门的编码、名称及所在地",
     "pk": [
       "dept_id"
     ],
@@ -149,7 +149,7 @@
     "logic_uk": [],
     "indexes": [],
     "table_domains": [],
-    "table_category": "dim"
+    "table_category": "fact"
   },
   {
     "id": "store_db.public.equipment_config",
@@ -342,7 +342,7 @@
     "full_name": "public.order_header",
     "schema": "public",
     "name": "order_header",
-    "comment": "订单信息表，存储客户订单编号、下单日期及客户名称",
+    "comment": "订单信息表，存储客户的订单编号、下单日期及客户名称",
     "pk": [
       "order_id",
       "order_date"
@@ -362,7 +362,7 @@
     "full_name": "public.order_item",
     "schema": "public",
     "name": "order_item",
-    "comment": "订单明细表，存储每笔订单中商品的购买数量及对应信息",
+    "comment": "订单明细表，存储每笔订单中商品的购买数量和相关信息",
     "pk": [
       "item_id"
     ],
@@ -378,7 +378,7 @@
     "logic_uk": [],
     "indexes": [],
     "table_domains": [],
-    "table_category": "fact"
+    "table_category": "bridge"
   }
 ] AS t
 	MERGE (n:Table {full_name: t.full_name})
@@ -854,7 +854,7 @@
     "schema": "public",
     "table": "employee",
     "name": "salary",
-    "comment": "月薪，单位为元",
+    "comment": "月薪金额",
     "data_type": "numeric",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1855,6 +1855,146 @@ UNWIND [
     ]
   },
   {
+    "src_full_name": "public.fact_store_sales_day",
+    "dst_full_name": "public.fact_store_sales_month",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.store_id = DST.store_id AND SRC.date_day = DST.date_month AND SRC.product_type_id = DST.product_type_id",
+    "source_columns": [
+      "store_id",
+      "date_day",
+      "product_type_id"
+    ],
+    "target_columns": [
+      "store_id",
+      "date_month",
+      "product_type_id"
+    ]
+  },
+  {
+    "src_full_name": "public.fact_store_sales_month",
+    "dst_full_name": "public.fact_store_sales_day",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.store_id = DST.store_id AND SRC.date_month = DST.date_day AND SRC.product_type_id = DST.product_type_id",
+    "source_columns": [
+      "store_id",
+      "date_month",
+      "product_type_id"
+    ],
+    "target_columns": [
+      "store_id",
+      "date_day",
+      "product_type_id"
+    ]
+  },
+  {
+    "src_full_name": "public.maintenance_work_order",
+    "dst_full_name": "public.fault_catalog",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.product_line_code = DST.product_line_code AND SRC.subsystem_code = DST.subsystem_code AND SRC.fault_code = DST.fault_code",
+    "source_columns": [
+      "product_line_code",
+      "subsystem_code",
+      "fault_code"
+    ],
+    "target_columns": [
+      "product_line_code",
+      "subsystem_code",
+      "fault_code"
+    ]
+  },
+  {
+    "src_full_name": "public.order_item",
+    "dst_full_name": "public.order_header",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.order_id = DST.order_id AND SRC.order_date = DST.order_date",
+    "source_columns": [
+      "order_id",
+      "order_date"
+    ],
+    "target_columns": [
+      "order_id",
+      "order_date"
+    ]
+  },
+  {
+    "src_full_name": "public.department",
+    "dst_full_name": "public.employee",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.dept_id = DST.emp_id",
+    "source_columns": [
+      "dept_id"
+    ],
+    "target_columns": [
+      "emp_id"
+    ]
+  },
+  {
+    "src_full_name": "public.department",
+    "dst_full_name": "public.employee",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.dept_id = DST.dept_id",
+    "source_columns": [
+      "dept_id"
+    ],
+    "target_columns": [
+      "dept_id"
+    ]
+  },
+  {
+    "src_full_name": "public.department",
+    "dst_full_name": "public.order_item",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.dept_id = DST.item_id",
+    "source_columns": [
+      "dept_id"
+    ],
+    "target_columns": [
+      "item_id"
+    ]
+  },
+  {
+    "src_full_name": "public.dim_company",
+    "dst_full_name": "public.department",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.company_id = DST.dept_id",
+    "source_columns": [
+      "company_id"
+    ],
+    "target_columns": [
+      "dept_id"
+    ]
+  },
+  {
+    "src_full_name": "public.dim_company",
+    "dst_full_name": "public.dim_product_type",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.company_id = DST.product_type_id",
+    "source_columns": [
+      "company_id"
+    ],
+    "target_columns": [
+      "product_type_id"
+    ]
+  },
+  {
     "src_full_name": "public.dim_store",
     "dst_full_name": "public.dim_company",
     "cardinality": "N:1",
@@ -1866,6 +2006,76 @@ UNWIND [
     ],
     "target_columns": [
       "company_id"
+    ]
+  },
+  {
+    "src_full_name": "public.dim_company",
+    "dst_full_name": "public.employee",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.company_id = DST.emp_id",
+    "source_columns": [
+      "company_id"
+    ],
+    "target_columns": [
+      "emp_id"
+    ]
+  },
+  {
+    "src_full_name": "public.dim_company",
+    "dst_full_name": "public.order_item",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.company_id = DST.item_id",
+    "source_columns": [
+      "company_id"
+    ],
+    "target_columns": [
+      "item_id"
+    ]
+  },
+  {
+    "src_full_name": "public.dim_product_type",
+    "dst_full_name": "public.department",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.product_type_id = DST.dept_id",
+    "source_columns": [
+      "product_type_id"
+    ],
+    "target_columns": [
+      "dept_id"
+    ]
+  },
+  {
+    "src_full_name": "public.dim_product_type",
+    "dst_full_name": "public.dim_company",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.product_type_id = DST.company_id",
+    "source_columns": [
+      "product_type_id"
+    ],
+    "target_columns": [
+      "company_id"
+    ]
+  },
+  {
+    "src_full_name": "public.dim_product_type",
+    "dst_full_name": "public.employee",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.product_type_id = DST.emp_id",
+    "source_columns": [
+      "product_type_id"
+    ],
+    "target_columns": [
+      "emp_id"
     ]
   },
   {
@@ -1897,9 +2107,23 @@ UNWIND [
     ]
   },
   {
-    "src_full_name": "public.dim_store",
-    "dst_full_name": "public.dim_region",
-    "cardinality": "N:1",
+    "src_full_name": "public.dim_product_type",
+    "dst_full_name": "public.order_item",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.product_type_id = DST.item_id",
+    "source_columns": [
+      "product_type_id"
+    ],
+    "target_columns": [
+      "item_id"
+    ]
+  },
+  {
+    "src_full_name": "public.dim_region",
+    "dst_full_name": "public.dim_store",
+    "cardinality": "M:N",
     "constraint_name": null,
     "join_type": "INNER JOIN",
     "on": "SRC.region_id = DST.region_id",
@@ -1939,37 +2163,59 @@ UNWIND [
     ]
   },
   {
-    "src_full_name": "public.maintenance_work_order",
-    "dst_full_name": "public.equipment_config",
-    "cardinality": "N:1",
+    "src_full_name": "public.employee",
+    "dst_full_name": "public.department",
+    "cardinality": "1:1",
     "constraint_name": null,
     "join_type": "INNER JOIN",
-    "on": "SRC.equipment_id = DST.equipment_id AND SRC.config_version = DST.config_version",
+    "on": "SRC.emp_id = DST.dept_id",
     "source_columns": [
-      "equipment_id",
-      "config_version"
+      "emp_id"
     ],
     "target_columns": [
-      "equipment_id",
-      "config_version"
+      "dept_id"
     ]
   },
   {
-    "src_full_name": "public.maintenance_work_order",
-    "dst_full_name": "public.fault_catalog",
-    "cardinality": "N:1",
+    "src_full_name": "public.employee",
+    "dst_full_name": "public.order_item",
+    "cardinality": "1:1",
     "constraint_name": null,
     "join_type": "INNER JOIN",
-    "on": "SRC.product_line_code = DST.product_line_code AND SRC.subsystem_code = DST.subsystem_code AND SRC.fault_code = DST.fault_code",
+    "on": "SRC.emp_id = DST.item_id",
     "source_columns": [
-      "product_line_code",
-      "subsystem_code",
-      "fault_code"
+      "emp_id"
     ],
     "target_columns": [
-      "product_line_code",
-      "subsystem_code",
-      "fault_code"
+      "item_id"
+    ]
+  },
+  {
+    "src_full_name": "public.order_item",
+    "dst_full_name": "public.department",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.item_id = DST.dept_id",
+    "source_columns": [
+      "item_id"
+    ],
+    "target_columns": [
+      "dept_id"
+    ]
+  },
+  {
+    "src_full_name": "public.order_item",
+    "dst_full_name": "public.employee",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.item_id = DST.emp_id",
+    "source_columns": [
+      "item_id"
+    ],
+    "target_columns": [
+      "emp_id"
     ]
   }
 ] AS j
