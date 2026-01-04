@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.dim_region
 -- Comment: 地区维表：省/市/区（含各级名称与ID）
--- Generated: 2026-01-04 14:12:17
+-- Generated: 2026-01-04 16:33:54
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.dim_region (

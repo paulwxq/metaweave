@@ -18,7 +18,6 @@ from metaweave.core.metadata.formatter import OutputFormatter
 from metaweave.core.metadata.models import GenerationResult, TableMetadata
 from metaweave.core.metadata.profiler import MetadataProfiler
 from metaweave.services.llm_service import LLMService
-from metaweave.services.cache_service import CacheService
 from metaweave.utils.file_utils import get_project_root
 from metaweave.utils.data_utils import get_column_statistics
 from services.config_loader import ConfigLoader
@@ -84,18 +83,9 @@ class MetadataGenerator:
             llm_config = self.config.get("llm", {})
             try:
                 self.llm_service = LLMService(llm_config)
-                
-                # 缓存服务
-                cache_file = comment_config.get("cache_file", "cache/comment_cache.json")
-                cache_file = get_project_root() / cache_file
-                self.cache_service = CacheService(cache_file)
-                
-                # 注释生成器
-                self.comment_generator = CommentGenerator(
-                    self.llm_service,
-                    self.cache_service,
-                    cache_enabled=comment_config.get("cache_enabled", True)
-                )
+
+                # 注释生成器（不使用本地 cache）
+                self.comment_generator = CommentGenerator(self.llm_service)
             except Exception as e:
                 logger.warning(f"LLM 服务初始化失败，注释生成将被禁用: {e}")
                 self.comment_enabled = False

@@ -17,9 +17,7 @@ from pathlib import Path
 from typing import Dict, Optional, List
 
 from metaweave.core.metadata.connector import DatabaseConnector
-from metaweave.services.cache_service import CacheService
 from metaweave.services.llm_service import LLMService
-from metaweave.utils.file_utils import get_project_root
 
 logger = logging.getLogger("metaweave.json_llm_enhancer")
 
@@ -55,16 +53,6 @@ class JsonLlmEnhancer:
         self.overwrite_existing = comment_config.get("overwrite_existing", False)
         self.max_columns_per_call = comment_config.get("max_columns_per_call", 120)
         self.enable_batch_processing = comment_config.get("enable_batch_processing", True)
-
-        # 注释缓存配置（复用现有 CacheService 与 key 设计）
-        # - 表注释：table:<schema>.<table>
-        # - 字段注释：columns:<schema>.<table>  (value 为 {col_name: comment})
-        self.cache_enabled = comment_config.get("cache_enabled", True)
-        cache_file = comment_config.get("cache_file", "cache/comment_cache.json")
-        cache_path = Path(cache_file)
-        if not cache_path.is_absolute():
-            cache_path = get_project_root() / cache_path
-        self.cache_service = CacheService(cache_path) if self.cache_enabled else None
 
         # 异步配置
         langchain_config = config.get("llm", {}).get("langchain_config", {})
@@ -110,8 +98,6 @@ class JsonLlmEnhancer:
                 table_name = table_json["table_info"]["table_name"]
 
                 comment_needs = self._analyze_comment_needs(table_json)
-                # 先尝试用缓存补齐/覆盖注释，减少 LLM 调用与 token 成本
-                comment_needs = self._apply_cached_comments(table_json, comment_needs)
                 need_comments = (
                     comment_needs["need_table_comment"]
                     or len(comment_needs["columns_need_comment"]) > 0
@@ -162,7 +148,6 @@ class JsonLlmEnhancer:
 
                 enhanced = self._merge_llm_result(table_json, merged_llm_result, need_comments)
                 self._atomic_write_json(json_file, enhanced)
-                self._update_comment_cache(enhanced, merged_llm_result, need_comments)
                 enhanced_count += 1
             except Exception as e:
                 logger.error("增强失败 %s: %s", json_file.name, e, exc_info=True)
@@ -180,8 +165,6 @@ class JsonLlmEnhancer:
                 table_name = table_json["table_info"]["table_name"]
 
                 comment_needs = self._analyze_comment_needs(table_json)
-                # 缓存应用在异步模式下也执行（但不能并发写缓存文件）
-                comment_needs = self._apply_cached_comments(table_json, comment_needs)
                 need_comments = (
                     comment_needs["need_table_comment"]
                     or len(comment_needs["columns_need_comment"]) > 0
@@ -288,9 +271,6 @@ class JsonLlmEnhancer:
                     base_job["need_comments"],
                 )
                 self._atomic_write_json(base_job["file"], enhanced)
-                # 缓存写入时机：异步批次全部返回后，在"合并并落盘 JSON"成功后按表顺序写缓存
-                # 这样避免并发写同一个 cache_file 产生竞争/损坏，同时保证缓存与落盘 JSON 尽量一致。
-                self._update_comment_cache(enhanced, merged_llm_result, base_job["need_comments"])
                 enhanced_count += 1
             except Exception as e:
                 logger.error("合并写入失败 %s: %s", base_job["file"].name, e, exc_info=True)
@@ -311,68 +291,6 @@ class JsonLlmEnhancer:
         except RuntimeError:
             return asyncio.run(coro)
         return coro
-
-    def _apply_cached_comments(self, table_json: Dict, comment_needs: Dict) -> Dict:
-        """用缓存补齐/覆盖注释（命中则直接写回 table_json 并更新待生成列表）"""
-        if (not self.cache_enabled) or (self.cache_service is None) or (not self.comment_generation_enabled):
-            return comment_needs
-
-        table_info = table_json.get("table_info", {}) or {}
-        schema = table_info.get("schema_name", "")
-        table = table_info.get("table_name", "")
-
-        # 1) 表注释缓存
-        if comment_needs.get("need_table_comment"):
-            cache_key = f"table:{schema}.{table}"
-            cached = self.cache_service.get(cache_key)
-            if cached and str(cached).strip():
-                table_info["comment"] = cached
-                table_info["comment_source"] = "llm_generated"
-                comment_needs["need_table_comment"] = False
-
-        # 2) 字段注释缓存（整表 dict）
-        cols_need = list(comment_needs.get("columns_need_comment", []) or [])
-        if cols_need:
-            cache_key = f"columns:{schema}.{table}"
-            cached_map = self.cache_service.get(cache_key)
-            if isinstance(cached_map, dict) and cached_map:
-                column_profiles = table_json.get("column_profiles", {}) or {}
-                remaining = []
-                for col_name in cols_need:
-                    cached_comment = cached_map.get(col_name)
-                    if cached_comment and str(cached_comment).strip() and col_name in column_profiles:
-                        column_profiles[col_name]["comment"] = cached_comment
-                        column_profiles[col_name]["comment_source"] = "llm_generated"
-                    else:
-                        remaining.append(col_name)
-                comment_needs["columns_need_comment"] = remaining
-
-        return comment_needs
-
-    def _update_comment_cache(self, enhanced_json: Dict, llm_result: Dict, need_comments: bool) -> None:
-        """将本次 LLM 生成/覆盖的注释写回缓存（按表写入）"""
-        if (not need_comments) or (not self.cache_enabled) or (self.cache_service is None):
-            return
-
-        table_info = enhanced_json.get("table_info", {}) or {}
-        schema = table_info.get("schema_name", "")
-        table = table_info.get("table_name", "")
-        if not schema or not table:
-            return
-
-        # 1) 表注释缓存：以最终写入 JSON 的 comment 为准（为空则不写）
-        table_comment = (table_info.get("comment") or "").strip()
-        if table_comment:
-            self.cache_service.set(f"table:{schema}.{table}", table_comment)
-
-        # 2) 字段注释缓存：合并写回整表 dict（避免覆盖掉历史已有列）
-        col_comments = llm_result.get("column_comments", {}) or {}
-        if isinstance(col_comments, dict) and col_comments:
-            key = f"columns:{schema}.{table}"
-            existing = self.cache_service.get(key) if self.cache_service else None
-            merged = existing if isinstance(existing, dict) else {}
-            merged.update({k: v for k, v in col_comments.items() if v and str(v).strip()})
-            self.cache_service.set(key, merged)
 
     def _analyze_comment_needs(self, table_json: Dict) -> Dict:
         """分析哪些注释需要生成（返回明确的字段列表，Token 优化）"""

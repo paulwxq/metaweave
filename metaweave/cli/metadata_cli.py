@@ -4,12 +4,13 @@ import copy
 import click
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Dict, List, Optional
 import yaml
 
 from metaweave.core.metadata.generator import MetadataGenerator
-from metaweave.utils.file_utils import get_project_root
+from metaweave.utils.file_utils import get_project_root, clear_dir_contents
 from metaweave.utils.logger import set_current_step
 
 logger = logging.getLogger("metaweave.cli")
@@ -47,6 +48,12 @@ logger = logging.getLogger("metaweave.cli")
     type=int,
     default=4,
     help="最大并发数（默认: 4）"
+)
+@click.option(
+    "--clean",
+    is_flag=True,
+    default=False,
+    help="在写入前清空该 step 的输出目录（不支持 all）"
 )
 @click.option(
     "--step",
@@ -112,6 +119,7 @@ def metadata_command(
     tables: str,
     incremental: bool,
     max_workers: int,
+    clean: bool,
     step: str,
     domain: Optional[str],
     domains_config: str,
@@ -158,6 +166,47 @@ def metadata_command(
             config_path = get_project_root() / config_path
 
         click.echo(f"📋 加载配置: {config_path}")
+
+        step_lower = (step or "all").lower()
+
+        if clean and step_lower == "all":
+            raise click.UsageError("❌ --clean 暂不支持 --step all")
+
+        def _ensure_in_project_root(path: Path) -> Path:
+            project_root = get_project_root().resolve()
+            resolved = path.resolve()
+            if (resolved != project_root) and (project_root not in resolved.parents):
+                raise click.UsageError(f"❌ --clean 输出目录不在项目根目录内: {resolved}")
+            return resolved
+
+        def _clean_step_output_dir(step_name: str, loaded_config: Dict) -> None:
+            step_name = (step_name or "").lower()
+            output_config = loaded_config.get("output", {}) or {}
+
+            # 统一以 cwd 解析相对路径，保持与现有各模块行为一致
+            def _resolve_dir(path_str: str) -> Path:
+                p = Path(path_str)
+                if not p.is_absolute():
+                    p = Path(os.getcwd()) / p
+                return _ensure_in_project_root(p)
+
+            output_dir = _resolve_dir(str(output_config.get("output_dir", "output")))
+
+            if step_name == "ddl":
+                target_dir = output_dir / "ddl"
+            elif step_name in {"json", "json_llm"}:
+                target_dir = output_dir / "json"
+            elif step_name == "md":
+                target_dir = output_dir / "md"
+            elif step_name in {"rel", "rel_llm"}:
+                target_dir = _resolve_dir(str(output_config.get("rel_directory", "output/rel")))
+            elif step_name in {"cql", "cql_llm"}:
+                target_dir = _resolve_dir(str(output_config.get("cql_directory", "output/cql")))
+            else:
+                raise click.UsageError(f"❌ --clean 不支持的 step: {step_name}")
+
+            clear_dir_contents(target_dir)
+            click.echo(f"🧹 已清空输出目录: {target_dir}")
 
         # 参数校验
         if generate_domains and domain:
@@ -246,6 +295,9 @@ def metadata_command(
             generator = MetadataGenerator(config_path)
             config = generator.config  # 复用已解析配置（避免重复加载/环境变量替换差异）
 
+            if clean:
+                _clean_step_output_dir("json_llm", config)
+
             # 透传 CLI 参数（否则 json_llm 会忽略 schemas/tables/max_workers 等过滤条件）
             schemas_list = [s.strip() for s in (schemas or "").split(",") if s.strip()] or None
             tables_list = [t.strip() for t in (tables or "").split(",") if t.strip()] or None
@@ -321,6 +373,9 @@ def metadata_command(
             # 加载配置
             config = load_config(config_path)
 
+            if clean:
+                _clean_step_output_dir("rel_llm", config)
+
             # 初始化连接器
             connector = DatabaseConnector(config.get("database", {}))
 
@@ -389,6 +444,9 @@ def metadata_command(
 
             generator = CQLGenerator(config_path)
 
+            if clean:
+                _clean_step_output_dir("cql_llm", generator.config)
+
             # ✅ 检测废弃配置（帮助用户平滑过渡）
             if generator.config.get("output", {}).get("json_llm_directory"):
                 logger.warning(
@@ -445,6 +503,9 @@ def metadata_command(
 
             generator = CQLGenerator(config_path)
 
+            if clean:
+                _clean_step_output_dir("cql", generator.config)
+
             # ✅ 传递命令名称（用于元数据生成）
             result = generator.generate(step_name="cql")
 
@@ -483,9 +544,14 @@ def metadata_command(
         # Step 3: 关系发现
         if step == "rel":
             from metaweave.core.relationships.pipeline import RelationshipDiscoveryPipeline
+            from services.config_loader import load_config
 
             click.echo("🔗 开始关系发现...")
             click.echo("")
+
+            if clean:
+                config = load_config(config_path)
+                _clean_step_output_dir("rel", config)
 
             pipeline = RelationshipDiscoveryPipeline(config_path)
             result = pipeline.discover()
@@ -549,6 +615,12 @@ def metadata_command(
             click.echo(f"✅ 检测到 {len(ddl_files)} 个 DDL 文件，继续执行...")
         # ==========================================
 
+        # 清理当前 step 输出目录（ddl/json/md）
+        if clean and step_lower in {"ddl", "json", "md"}:
+            from services.config_loader import load_config
+            loaded_config = load_config(config_path)
+            _clean_step_output_dir(step_lower, loaded_config)
+
         # 初始化生成器（Step 2）
         generator = MetadataGenerator(config_path)
         
@@ -567,7 +639,7 @@ def metadata_command(
             click.echo("🔄 增量更新模式")
         
         click.echo(f"⚙️  并发数: {max_workers}")
-        click.echo(f"🧱 执行步骤: {step.lower()}")
+        click.echo(f"🧱 执行步骤: {step_lower}")
         click.echo("")
         
         # 执行生成

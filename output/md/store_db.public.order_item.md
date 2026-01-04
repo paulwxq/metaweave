@@ -1,4 +1,4 @@
-# public.order_item（订单明细表，存储每笔订单中商品的购买数量及对应信息）
+# public.order_item（订单明细表，存储每笔订单中商品的购买数量和相关信息）
 ## 字段列表：
 - item_id (integer(32)) - 订单项唯一标识ID [示例: 1, 2]
 - order_id (integer(32)) - 关联订单的唯一标识ID [示例: 5001, 5001]

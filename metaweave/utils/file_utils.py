@@ -2,6 +2,7 @@
 
 import json
 import logging
+import shutil
 from pathlib import Path
 from typing import Any, Dict
 import yaml
@@ -22,6 +23,28 @@ def ensure_dir(directory: str | Path) -> Path:
     if not dir_path.exists():
         dir_path.mkdir(parents=True, exist_ok=True)
         logger.debug(f"创建目录: {dir_path}")
+    return dir_path
+
+
+def clear_dir_contents(directory: str | Path) -> Path:
+    """清空目录下的所有内容（保留目录本身）
+
+    Args:
+        directory: 目录路径
+
+    Returns:
+        目录的 Path 对象
+    """
+    dir_path = ensure_dir(directory)
+    for child in dir_path.iterdir():
+        try:
+            if child.is_dir():
+                shutil.rmtree(child)
+            else:
+                child.unlink(missing_ok=True)
+        except Exception as e:
+            logger.error(f"清空目录失败 ({child}): {e}")
+            raise
     return dir_path
 
 

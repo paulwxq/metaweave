@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: store_db
 -- Table: public.order_header
--- Comment: 订单信息表，存储客户订单编号、下单日期及客户名称
--- Generated: 2026-01-04 14:12:17
+-- Comment: 订单主信息表，存储订单编号、下单日期及客户姓名
+-- Generated: 2026-01-04 16:34:00
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.order_header (
@@ -18,7 +18,7 @@ COMMENT ON COLUMN public.order_header.order_date IS '订单创建日期';
 COMMENT ON COLUMN public.order_header.customer IS '客户姓名';
 
 -- Table Comment
-COMMENT ON TABLE public.order_header IS '订单信息表，存储客户订单编号、下单日期及客户名称';
+COMMENT ON TABLE public.order_header IS '订单主信息表，存储订单编号、下单日期及客户姓名';
 
 /* SAMPLE_RECORDS
 {

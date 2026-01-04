@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.dim_company
 -- Comment: 公司维表
--- Generated: 2026-01-04 14:12:17
+-- Generated: 2026-01-04 16:33:54
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.dim_company (

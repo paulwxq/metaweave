@@ -6,7 +6,7 @@
 - gender (character(1)) - 性别（M-男，F-女） [示例: M, F]
 - hire_date (date) - 入职日期 [示例: 2020-03-15, 2019-07-01]
 - salary (numeric(10,2)) - 月薪，单位为元 [示例: 12000.0, 15000.0]
-- dept_id (integer(32)) - 所属部门ID [示例: 1, 3]
+- dept_id (integer(32)) - 所属部门唯一标识ID [示例: 1, 3]
 ## 字段补充说明：
 - 主键约束 employee_pkey: emp_id
 - 外键约束 dept_id 关联 public.department.dept_id

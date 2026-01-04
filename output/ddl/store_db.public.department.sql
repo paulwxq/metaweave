@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: store_db
 -- Table: public.department
--- Comment: 部门信息表，存储企业各部门的编码、名称及所在地信息
--- Generated: 2026-01-04 14:12:17
+-- Comment: 部门信息表，存储公司各部门的编码、名称及所在地
+-- Generated: 2026-01-04 16:34:00
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.department (
@@ -16,12 +16,12 @@ CREATE TABLE IF NOT EXISTS public.department (
 
 -- Column Comments
 COMMENT ON COLUMN public.department.dept_id IS '部门唯一标识ID';
-COMMENT ON COLUMN public.department.dept_code IS '部门编码（如HR、FIN等）';
+COMMENT ON COLUMN public.department.dept_code IS '部门编码（如HR、FIN、IT等）';
 COMMENT ON COLUMN public.department.dept_name IS '部门全称';
-COMMENT ON COLUMN public.department.location IS '所在城市（如北京、上海等）';
+COMMENT ON COLUMN public.department.location IS '所在城市（如北京、上海、广州）';
 
 -- Table Comment
-COMMENT ON TABLE public.department IS '部门信息表，存储企业各部门的编码、名称及所在地信息';
+COMMENT ON TABLE public.department IS '部门信息表，存储公司各部门的编码、名称及所在地';
 
 /* SAMPLE_RECORDS
 {

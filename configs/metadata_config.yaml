@@ -280,10 +280,6 @@ comment_generation:
   max_columns_per_call: 120     # 单批处理的缺失字段上限
   enable_batch_processing: true # 超过上限时自动分批
   overwrite_existing: false     # 默认不覆盖已有注释
-  
-  # 缓存配置
-  cache_enabled: true
-  cache_file: cache/comment_cache.json
 
 # 逻辑主键识别配置
 logical_key_detection:

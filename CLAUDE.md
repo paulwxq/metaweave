@@ -132,7 +132,6 @@ MetaWeave uses a multi-step pipeline with two parallel tracks:
 
 **`metaweave/services/`** - Shared services
 - `llm_service.py` - LLM integration (qwen-plus, deepseek) via LangChain
-- `cache_service.py` - Comment caching to avoid redundant LLM calls
 - `embedding_service.py` - Text embedding for vector search
 - `vector_db/` - Vector database adapters (Milvus, pgvector)
 
@@ -149,7 +148,7 @@ Primary config file: `configs/metadata_config.yaml`
 Key sections:
 - `database` - PostgreSQL connection, schemas, exclusions
 - `llm` - Provider selection (qwen-plus/deepseek), API keys, model parameters
-- `comment_generation` - Enable/disable LLM comments, language, caching
+- `comment_generation` - Enable/disable LLM comments, language
 - `logical_key_detection` - Candidate key discovery settings
 - `sampling` - Sample size for data profiling
 - `output` - Output directories and formats
@@ -178,7 +177,7 @@ LLM calls are used for:
 2. **Semantic Classification** (`json_llm` step) - Infers table categories and business domains
 3. **Relationship Inference** (`rel_llm` step) - Discovers implicit relationships through semantic analysis
 
-All LLM results are cached in `cache/comment_cache.json` to minimize API costs.
+LLM outputs are written into the generated artifacts (DDL/JSON). There is no local comment cache file.
 
 ### Output Structure
 

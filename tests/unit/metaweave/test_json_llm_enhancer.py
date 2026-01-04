@@ -2,7 +2,7 @@
 
 测试 JsonLlmEnhancer 的核心功能：
 - Token 优化（裁剪视图）
-- 注释按需生成与缓存
+- 注释按需生成
 - 分类覆盖逻辑
 - 原子写入
 """
@@ -44,7 +44,6 @@ def sample_config():
             "max_columns_per_call": 120,
             "enable_batch_processing": True,
             "overwrite_existing": False,
-            "cache_enabled": False,  # 测试中禁用缓存
         },
     }
 

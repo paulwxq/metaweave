@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.employee
 -- Comment: 员工信息表，存储企业员工的基本信息、薪资及所属部门
--- Generated: 2026-01-04 14:12:17
+-- Generated: 2026-01-04 16:34:01
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.employee (
@@ -25,7 +25,7 @@ COMMENT ON COLUMN public.employee.emp_name IS '员工姓名';
 COMMENT ON COLUMN public.employee.gender IS '性别（M-男，F-女）';
 COMMENT ON COLUMN public.employee.hire_date IS '入职日期';
 COMMENT ON COLUMN public.employee.salary IS '月薪，单位为元';
-COMMENT ON COLUMN public.employee.dept_id IS '所属部门ID';
+COMMENT ON COLUMN public.employee.dept_id IS '所属部门唯一标识ID';
 
 -- Table Comment
 COMMENT ON TABLE public.employee IS '员工信息表，存储企业员工的基本信息、薪资及所属部门';

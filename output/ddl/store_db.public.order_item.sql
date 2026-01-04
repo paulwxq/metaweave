@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: store_db
 -- Table: public.order_item
--- Comment: 订单明细表，存储每笔订单中商品的购买数量及对应信息
--- Generated: 2026-01-04 14:12:17
+-- Comment: 订单明细表，存储每笔订单中商品的购买数量和相关信息
+-- Generated: 2026-01-04 16:34:00
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.order_item (
@@ -23,7 +23,7 @@ COMMENT ON COLUMN public.order_item.product IS '商品名称';
 COMMENT ON COLUMN public.order_item.quantity IS '商品购买数量';
 
 -- Table Comment
-COMMENT ON TABLE public.order_item IS '订单明细表，存储每笔订单中商品的购买数量及对应信息';
+COMMENT ON TABLE public.order_item IS '订单明细表，存储每笔订单中商品的购买数量和相关信息';
 
 /* SAMPLE_RECORDS
 {

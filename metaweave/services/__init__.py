@@ -4,7 +4,5 @@
 """
 
 from metaweave.services.llm_service import LLMService
-from metaweave.services.cache_service import CacheService
 
-__all__ = ["LLMService", "CacheService"]
-
+__all__ = ["LLMService"]

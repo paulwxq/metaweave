@@ -1,6 +1,6 @@
 """注释生成器
 
-使用 LLM 生成表和字段的注释，支持缓存避免重复调用。
+使用 LLM 生成表和字段的注释。
 """
 
 import logging
@@ -8,8 +8,7 @@ from typing import List, Dict, Optional, Any
 import pandas as pd
 
 from metaweave.services.llm_service import LLMService
-from metaweave.services.cache_service import CacheService
-from metaweave.core.metadata.models import ColumnInfo, TableMetadata
+from metaweave.core.metadata.models import TableMetadata
 from metaweave.utils.data_utils import dataframe_to_sample_dict
 
 logger = logging.getLogger("metaweave.comment_generator")
@@ -18,27 +17,21 @@ logger = logging.getLogger("metaweave.comment_generator")
 class CommentGenerator:
     """注释生成器
     
-    使用 LLM 生成表和字段的注释，支持缓存。
+    使用 LLM 生成表和字段的注释。
     """
     
     def __init__(
         self,
-        llm_service: LLMService,
-        cache_service: Optional[CacheService] = None,
-        cache_enabled: bool = True
+        llm_service: LLMService
     ):
         """初始化注释生成器
         
         Args:
             llm_service: LLM 服务实例
-            cache_service: 缓存服务实例（可选）
-            cache_enabled: 是否启用缓存
         """
         self.llm_service = llm_service
-        self.cache_service = cache_service
-        self.cache_enabled = cache_enabled and cache_service is not None
-        
-        logger.info(f"注释生成器已初始化 (缓存: {'启用' if self.cache_enabled else '禁用'})")
+
+        logger.info("注释生成器已初始化")
     
     def generate_table_comment(
         self,
@@ -56,16 +49,6 @@ class CommentGenerator:
         Returns:
             生成的表注释
         """
-        # 构建缓存键
-        cache_key = f"table:{metadata.schema_name}.{metadata.table_name}"
-        
-        # 检查缓存
-        if self.cache_enabled and not force_regenerate:
-            cached_comment = self.cache_service.get(cache_key)
-            if cached_comment:
-                logger.info(f"从缓存获取表注释: {metadata.full_name}")
-                return cached_comment
-        
         # 准备字段信息
         columns = [
             {"name": col.column_name, "type": col.data_type}
@@ -87,10 +70,6 @@ class CommentGenerator:
             )
             
             if comment:
-                # 保存到缓存
-                if self.cache_enabled:
-                    self.cache_service.set(cache_key, comment)
-                
                 logger.info(f"生成表注释: {metadata.full_name}")
                 return comment
             else:
@@ -127,16 +106,6 @@ class CommentGenerator:
             logger.info(f"所有字段都有注释: {metadata.full_name}")
             return {}
         
-        # 构建缓存键
-        cache_key = f"columns:{metadata.schema_name}.{metadata.table_name}"
-        
-        # 检查缓存
-        if self.cache_enabled and not force_regenerate:
-            cached_comments = self.cache_service.get(cache_key)
-            if cached_comments and isinstance(cached_comments, dict):
-                logger.info(f"从缓存获取字段注释: {metadata.full_name}")
-                return cached_comments
-        
         # 准备字段信息（包含样本值）
         columns_info = []
         for col in columns_need_comment:
@@ -167,10 +136,6 @@ class CommentGenerator:
             )
             
             if comments:
-                # 保存到缓存
-                if self.cache_enabled:
-                    self.cache_service.set(cache_key, comments)
-                
                 logger.info(f"生成字段注释: {metadata.full_name}, {len(comments)} 个字段")
                 return comments
             else:
