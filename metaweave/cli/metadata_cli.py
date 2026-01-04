@@ -10,6 +10,7 @@ import yaml
 
 from metaweave.core.metadata.generator import MetadataGenerator
 from metaweave.utils.file_utils import get_project_root
+from metaweave.utils.logger import set_current_step
 
 logger = logging.getLogger("metaweave.cli")
 
@@ -135,6 +136,8 @@ def metadata_command(
         metaweave metadata -c config.yaml --tables users,orders --max-workers 8
     """
     try:
+        set_current_step((step or "all").lower())
+
         def _load_yaml(path: Path) -> Dict:
             if not path.exists():
                 return {}

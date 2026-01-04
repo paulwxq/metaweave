@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-03T13:18:39.094611",
+  "generated_timestamp": "2026-01-04T00:01:12.716537",
   "table_info": {
     "database": "store_db",
     "schema_name": "public",
@@ -184,5 +184,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-01-03T13:18:48.170397"
+  "llm_enhanced_at": "2026-01-04T00:01:19.037769"
 }

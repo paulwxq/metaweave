@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.order_header
 -- Comment: 订单信息表，存储客户订单编号、下单日期及客户名称
--- Generated: 2026-01-03 13:14:41
+-- Generated: 2026-01-04 00:00:35
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.order_header (

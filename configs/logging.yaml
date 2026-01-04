@@ -1,51 +1,106 @@
-# MetaWeave 日志配置
+# MetaWeave 日志配置（按 step 拆分，不考虑兼容性）
 
 version: 1
 disable_existing_loggers: false
 
 formatters:
   default:
-    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    datefmt: '%Y-%m-%d %H:%M:%S'
-  
-  detailed:
-    format: '%(asctime)s - %(name)s - [%(filename)s:%(lineno)d] - %(levelname)s - %(message)s'
+    format: '%(asctime)s - %(name)s - [%(step)s] - %(levelname)s - %(message)s'
     datefmt: '%Y-%m-%d %H:%M:%S'
 
+  detailed:
+    format: '%(asctime)s - %(name)s - [%(step)s] - [%(filename)s:%(lineno)d] - %(levelname)s - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+
+filters:
+  ddl_filter:
+    (): metaweave.utils.logger.StepFilter
+    allowed_steps: ['ddl']
+  json_filter:
+    (): metaweave.utils.logger.StepFilter
+    allowed_steps: ['json', 'json_llm']
+  md_filter:
+    (): metaweave.utils.logger.StepFilter
+    allowed_steps: ['md']
+  rel_filter:
+    (): metaweave.utils.logger.StepFilter
+    allowed_steps: ['rel', 'rel_llm']
+  cql_filter:
+    (): metaweave.utils.logger.StepFilter
+    allowed_steps: ['cql', 'cql_llm']
+  all_filter:
+    (): metaweave.utils.logger.StepFilter
+    allowed_steps: ['all']
+
 handlers:
+  # console handler 保持原样（不加 StepFilter），确保所有日志实时输出到终端
   console:
     class: logging.StreamHandler
     level: INFO
     formatter: default
     stream: ext://sys.stdout
 
-  metadata_file:
+  ddl_file:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
     formatter: detailed
-    filename: logs/metadata.log
+    filename: logs/ddl.log
     maxBytes: 10485760
     backupCount: 5
     encoding: utf8
+    filters: [ddl_filter]
 
-  relationships_file:
+  json_file:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
     formatter: detailed
-    filename: logs/relationships.log
+    filename: logs/json.log
     maxBytes: 10485760
     backupCount: 5
     encoding: utf8
+    filters: [json_filter]
 
-  cql_generator_file:
+  md_file:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
     formatter: detailed
-    filename: logs/cql_generator.log
+    filename: logs/md.log
     maxBytes: 10485760
     backupCount: 5
     encoding: utf8
+    filters: [md_filter]
 
+  rel_file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/rel.log
+    maxBytes: 10485760
+    backupCount: 5
+    encoding: utf8
+    filters: [rel_filter]
+
+  cql_file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/cql.log
+    maxBytes: 10485760
+    backupCount: 5
+    encoding: utf8
+    filters: [cql_filter]
+
+  all_file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/metaweave_all.log
+    maxBytes: 10485760
+    backupCount: 5
+    encoding: utf8
+    filters: [all_filter]
+
+  # loader 日志保持原样（不拆分 step）
   loader_file:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
@@ -56,109 +111,33 @@ handlers:
     encoding: utf8
 
 loggers:
-  # ============================================================
-  # Step 1 & 2: 元数据生成 (--step ddl / --step json)
-  # 日志文件: metadata.log
-  # ============================================================
-  metaweave.generator:
+  # MetaWeave 全局 logger：允许 DEBUG，所有子 logger 默认继承
+  metaweave:
     level: DEBUG
-    handlers: [metadata_file]
-    propagate: true
-  
-  metaweave.logical_key_detector:
-    level: DEBUG
-    handlers: [metadata_file]
-    propagate: true
-  
-  metaweave.connector:
-    level: DEBUG
-    handlers: [metadata_file]
-    propagate: true
-  
-  metaweave.extractor:
-    level: DEBUG
-    handlers: [metadata_file]
-    propagate: true
-  
-  metaweave.formatter:
-    level: DEBUG
-    handlers: [metadata_file]
-    propagate: true
-  
-  metaweave.ddl_loader:
-    level: DEBUG
-    handlers: [metadata_file]
-    propagate: true
-  
-  metaweave.comment_generator:
-    level: DEBUG
-    handlers: [metadata_file]
-    propagate: true
-  
-  metaweave.llm:
-    level: DEBUG
-    handlers: [metadata_file]
-    propagate: true
-  
-  metaweave.cache:
-    level: DEBUG
-    handlers: [metadata_file]
-    propagate: true
-  
-  metaweave.data_utils:
-    level: DEBUG
-    handlers: [metadata_file]
-    propagate: true
-  
-  metaweave.file_utils:
-    level: DEBUG
-    handlers: [metadata_file]
-    propagate: true
-  
-  metaweave.cli:
-    level: DEBUG
-    handlers: [metadata_file]
+    handlers: []
     propagate: true
 
-  metaweave.domain_generator:
-    level: DEBUG
-    handlers: [metadata_file]
-    propagate: true
-
-  # ============================================================
-  # Step 3: 关系发现 (--step rel)
-  # 日志文件: relationships.log
-  # ============================================================
-  metaweave.relationships:
-    level: DEBUG
-    handlers: [relationships_file]
-    propagate: true
-
-  # ============================================================
-  # Step 4: CQL 生成 (--step cql)
-  # 日志文件: cql_generator.log
-  # ============================================================
-  metaweave.cql_generator:
-    level: DEBUG
-    handlers: [cql_generator_file]
-    propagate: true
-
-  # ============================================================
-  # Step 7: 数据加载 (load --type cql)
-  # 日志文件: loader.log
-  # ============================================================
+  # loader：彻底隔离，只写 loader.log + console，不向上级传播
   metaweave.loader:
     level: DEBUG
-    handlers: [loader_file]
-    propagate: true
-  
-  # loader 模块使用 __name__，需要完整路径
-  src.metaweave.core.loaders:
+    handlers: [loader_file, console]
+    propagate: false
+
+  metaweave.core.loaders:
     level: DEBUG
-    handlers: [loader_file]
-    propagate: true
+    handlers: [loader_file, console]
+    propagate: false
+
+  metaweave.dim_value.loader:
+    level: DEBUG
+    handlers: [loader_file, console]
+    propagate: false
+
+  metaweave.table_schema.loader:
+    level: DEBUG
+    handlers: [loader_file, console]
+    propagate: false
 
 root:
   level: INFO
-  handlers: [console]
-
+  handlers: [console, ddl_file, json_file, md_file, rel_file, cql_file, all_file]

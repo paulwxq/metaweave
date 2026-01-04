@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.fact_store_sales_day
 -- Comment: 店铺销售日流水事实表（按天、店铺、商品类型汇总）
--- Generated: 2026-01-03 13:14:41
+-- Generated: 2026-01-04 00:00:34
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.fact_store_sales_day (

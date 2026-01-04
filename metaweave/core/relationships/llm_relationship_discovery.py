@@ -7,6 +7,7 @@
 
 import asyncio
 import json
+import logging
 import time
 from datetime import datetime, timezone
 from itertools import combinations, product
@@ -497,17 +498,51 @@ class LLMRelationshipDiscovery:
         return llm_candidates
 
     def _build_prompt(self, table1: Dict, table2: Dict) -> str:
+        table1 = self._prune_table_json_for_llm(table1)
+        table2 = self._prune_table_json_for_llm(table2)
+
         table1_info = table1.get("table_info", {})
         table2_info = table2.get("table_info", {})
         table1_name = f"{table1_info['schema_name']}.{table1_info['table_name']}"
         table2_name = f"{table2_info['schema_name']}.{table2_info['table_name']}"
 
-        return RELATIONSHIP_DISCOVERY_PROMPT.format(
+        prompt = RELATIONSHIP_DISCOVERY_PROMPT.format(
             table1_name=table1_name,
             table1_json=json.dumps(table1, ensure_ascii=False, indent=2),
             table2_name=table2_name,
             table2_json=json.dumps(table2, ensure_ascii=False, indent=2),
         )
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("LLM 提示词（已裁剪 JSON） - 表对: %s <-> %s\n%s", table1_name, table2_name, prompt)
+        return prompt
+
+    @staticmethod
+    def _prune_table_json_for_llm(table_json: Dict) -> Dict:
+        """构造提交给 LLM 的表 JSON 视图（不修改原始 dict）
+
+        仅删除每列画像中以下字段，保留 statistics 等其它信息：
+        - column_profiles.{col}.semantic_analysis
+        - column_profiles.{col}.structure_flags
+        - column_profiles.{col}.role_specific_info
+        """
+        pruned = dict(table_json or {})
+        column_profiles = pruned.get("column_profiles")
+        if not isinstance(column_profiles, dict):
+            return pruned
+
+        pruned_profiles: Dict[str, Dict] = {}
+        for col_name, col_profile in column_profiles.items():
+            if not isinstance(col_profile, dict):
+                pruned_profiles[col_name] = col_profile
+                continue
+            col_copy = dict(col_profile)
+            col_copy.pop("semantic_analysis", None)
+            col_copy.pop("structure_flags", None)
+            col_copy.pop("role_specific_info", None)
+            pruned_profiles[col_name] = col_copy
+
+        pruned["column_profiles"] = pruned_profiles
+        return pruned
 
     def _run_async(self, coro):
         try:
@@ -826,19 +861,10 @@ class LLMRelationshipDiscovery:
         """
         table1_info = table1.get("table_info", {})
         table2_info = table2.get("table_info", {})
-        
         table1_name = f"{table1_info['schema_name']}.{table1_info['table_name']}"
         table2_name = f"{table2_info['schema_name']}.{table2_info['table_name']}"
-        
-        prompt = RELATIONSHIP_DISCOVERY_PROMPT.format(
-            table1_name=table1_name,
-            table1_json=json.dumps(table1, ensure_ascii=False, indent=2),
-            table2_name=table2_name,
-            table2_json=json.dumps(table2, ensure_ascii=False, indent=2),
-        )
-        
-        # 添加调试日志：输出提示词长度
-        logger.debug(f"LLM 提示词长度: {len(prompt)} 字符, 表对: {table1_name} <-> {table2_name}")
+
+        prompt = self._build_prompt(table1, table2)
         
         # 重试逻辑
         for attempt in range(self.llm_max_retries + 1):

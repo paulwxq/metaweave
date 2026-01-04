@@ -5,7 +5,7 @@
   "json_metadata_version": "2.0",
   "json_files_loaded": 0,
   "database_queries_executed": 0,
-  "generated_timestamp": "2026-01-03T13:38:14.047910",
+  "generated_timestamp": "2026-01-04T00:04:49.820482",
   "statistics": {
     "total_relationships_found": 10,
     "foreign_key_relationships": 2,
@@ -15,7 +15,7 @@
     "active_search_discoveries": 0,
     "dynamic_composite_discoveries": 0,
     "llm_assisted_relationships": 8,
-    "rejected_low_confidence": 1
+    "rejected_low_confidence": 0
   },
   "relationships": [
     {

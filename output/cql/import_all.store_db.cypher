@@ -1,6 +1,6 @@
 // import_all.store_db.cypher
 // Neo4j 元数据导入脚本（global 模式，包含所有表和关系）
-// 生成时间: 2026-01-03T01:05:25.805954
+// 生成时间: 2026-01-04T00:05:34.146686
 // 统计: 13 张表, 60 个列, 10 个关系
 
 // =====================================================================
@@ -149,7 +149,7 @@
     "logic_uk": [],
     "indexes": [],
     "table_domains": [],
-    "table_category": "fact"
+    "table_category": "dim"
   },
   {
     "id": "store_db.public.equipment_config",
@@ -378,7 +378,7 @@
     "logic_uk": [],
     "indexes": [],
     "table_domains": [],
-    "table_category": "bridge"
+    "table_category": "fact"
   }
 ] AS t
 	MERGE (n:Table {full_name: t.full_name})

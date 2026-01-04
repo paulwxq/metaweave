@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.order_item
 -- Comment: 订单明细表，存储每笔订单中商品的购买数量及对应信息
--- Generated: 2026-01-03 13:14:41
+-- Generated: 2026-01-04 00:00:35
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.order_item (
