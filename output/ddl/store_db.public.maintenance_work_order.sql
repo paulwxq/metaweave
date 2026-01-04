@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.maintenance_work_order
 -- Comment: 维修工单事实表：粒度为“工单-行/条目”，记录设备故障发生时间、故障码上下文、以及停机与成本等关键指标。
--- Generated: 2026-01-04 00:00:34
+-- Generated: 2026-01-04 14:12:17
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.maintenance_work_order (

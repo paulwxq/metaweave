@@ -520,6 +520,35 @@ def metadata_command(
 
             return
 
+        # ========== 新增：md 步骤依赖检查 ==========
+        if step.lower() == "md":
+            from services.config_loader import load_config
+
+            # 加载配置获取真实的 output_dir
+            loaded_config = load_config(config_path)
+            output_dir = Path(loaded_config.get("output", {}).get("output_dir", "output"))
+            if not output_dir.is_absolute():
+                output_dir = get_project_root() / output_dir
+
+            ddl_dir = output_dir / "ddl"
+
+            if not ddl_dir.exists():
+                raise click.UsageError(
+                    f"❌ --step md 依赖 DDL 文件，但 DDL 目录不存在: {ddl_dir}\n"
+                    f"请先执行: metaweave metadata --config {config} --step ddl"
+                )
+
+            # 检查是否有 DDL 文件（文件名格式：{database}.{schema}.{table}.sql）
+            ddl_files = list(ddl_dir.glob("*.sql"))
+            if not ddl_files:
+                raise click.UsageError(
+                    f"❌ --step md 依赖 DDL 文件，但 DDL 目录为空: {ddl_dir}\n"
+                    f"请先执行: metaweave metadata --config {config} --step ddl"
+                )
+
+            click.echo(f"✅ 检测到 {len(ddl_files)} 个 DDL 文件，继续执行...")
+        # ==========================================
+
         # 初始化生成器（Step 2）
         generator = MetadataGenerator(config_path)
         

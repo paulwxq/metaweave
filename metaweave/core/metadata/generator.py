@@ -68,13 +68,13 @@ class MetadataGenerator:
     
     def _init_components(self):
         """初始化所有组件"""
-        # 数据库连接器
+        # 数据库连接器（延迟初始化，md 步骤不需要）
         db_config = self.config.get("database", {})
         self.database_name = db_config.get("database")
-        self.connector = DatabaseConnector(db_config)
-        
-        # 元数据提取器
-        self.extractor = MetadataExtractor(self.connector)
+        self.connector = None  # 延迟初始化，仅在需要时创建
+
+        # 元数据提取器（延迟初始化）
+        self.extractor = None
         
         # LLM 服务（如果启用）
         comment_config = self.config.get("comment_generation", {})
@@ -137,7 +137,48 @@ class MetadataGenerator:
         self.column_stats_enabled = column_stats_config.get("enabled", True)
         self.value_dist_threshold = column_stats_config.get("value_distribution_threshold", 10)
         logger.info(f"列统计配置: enabled={self.column_stats_enabled}, threshold={self.value_dist_threshold}")
-    
+
+    def _ensure_connector(self):
+        """延迟初始化数据库连接器（仅在需要时）"""
+        if self.connector is None:
+            db_config = self.config.get("database", {})
+            self.connector = DatabaseConnector(db_config)
+            self.extractor = MetadataExtractor(self.connector)
+            logger.info("数据库连接器已延迟初始化")
+
+    def _infer_schemas_from_ddl_dir(self) -> List[str]:
+        """从 DDL 目录推断 schemas（用于 md 步骤）
+
+        仅支持严格的 {database}.{schema}.{table}.sql 文件名格式。
+        schema 或 table 名称包含特殊字符（如 '.'）的文件会被跳过并警告。
+
+        Returns:
+            schema 列表（去重）
+        """
+        ddl_dir = self.formatter.output_dir / "ddl"
+        if not ddl_dir.exists():
+            logger.warning(f"DDL 目录不存在: {ddl_dir}")
+            return []
+
+        # DDL 文件格式: {database}.{schema}.{table}.sql
+        database_name = self.database_name
+        pattern = f"{database_name}.*.*.sql"  # glob 用于粗过滤（匹配 db.*.*.sql）
+        schemas = set()
+
+        # 注意：glob 只是粗过滤，最终以 stem 校验为准
+        for ddl_file in ddl_dir.glob(pattern):
+            # 解析文件名 stem（去除 .sql）: store_db.public.employee
+            parts = ddl_file.stem.split(".")
+            if len(parts) == 3:  # 严格校验 stem 为 3 段：db.schema.table
+                schema = parts[1]
+                schemas.add(schema)
+            else:
+                logger.warning(f"DDL 文件 stem 格式异常，跳过: {ddl_file.name}（期望 stem 3 段，实际 {len(parts)} 段）")
+
+        schema_list = sorted(schemas)
+        logger.info(f"从 DDL 目录推断出 {len(schema_list)} 个 schema: {schema_list}")
+        return schema_list
+
     def generate(
         self,
         schemas: Optional[List[str]] = None,
@@ -163,18 +204,34 @@ class MetadataGenerator:
         logger.info(f"执行步骤: {self.active_step}")
         
         try:
-            # 测试数据库连接
-            if not self.connector.test_connection():
-                result.success = False
-                result.add_error("数据库连接失败")
-                return result
-            
+            # 测试数据库连接（md 步骤跳过）
+            if self.active_step != "md":
+                self._ensure_connector()  # 延迟初始化
+                if not self.connector.test_connection():
+                    result.success = False
+                    result.add_error("数据库连接失败")
+                    return result
+            else:
+                logger.info("md 步骤跳过数据库连接（从 DDL 文件读取）")
+
             # 获取要处理的 schema 列表
             if schemas is None:
                 schemas = self.config.get("database", {}).get("schemas", [])
-            
+
             if not schemas:
-                schemas = self.connector.get_schemas()
+                if self.active_step == "md":
+                    # md 步骤：从 DDL 目录推断 schemas
+                    schemas = self._infer_schemas_from_ddl_dir()
+                    if not schemas:
+                        result.success = False
+                        result.add_error(
+                            "md 步骤无法推断 schemas：DDL 目录为空且配置文件未指定 database.schemas\n"
+                            "请在配置文件中设置 database.schemas 或先执行 --step ddl"
+                        )
+                        return result
+                else:
+                    self._ensure_connector()
+                    schemas = self.connector.get_schemas()
             
             logger.info(f"将处理以下 schema: {schemas}")
             
@@ -205,30 +262,71 @@ class MetadataGenerator:
             result.add_error(str(e))
         
         finally:
-            # 关闭数据库连接
-            self.connector.close()
+            # 关闭数据库连接（防空检查）
+            if self.connector is not None:
+                self.connector.close()
         
         return result
     
+    def _get_tables_from_ddl_dir(self, schema: str) -> List[str]:
+        """从 DDL 目录扫描表名（用于 md 步骤）
+
+        仅支持严格的 {database}.{schema}.{table}.sql 文件名格式。
+        table 名称包含特殊字符（如 '.'）的文件会被跳过并警告。
+
+        Args:
+            schema: schema 名称
+
+        Returns:
+            表名列表
+        """
+        ddl_dir = self.formatter.output_dir / "ddl"
+        if not ddl_dir.exists():
+            logger.warning(f"DDL 目录不存在: {ddl_dir}")
+            return []
+
+        # DDL 文件格式: {database}.{schema}.{table}.sql
+        database_name = self.database_name
+        pattern = f"{database_name}.{schema}.*.sql"  # glob 用于粗过滤
+
+        tables = []
+        # 注意：glob 只是粗过滤，最终以 stem 校验为准
+        for ddl_file in ddl_dir.glob(pattern):
+            # 解析文件名 stem（去除 .sql）: store_db.public.employee → employee
+            parts = ddl_file.stem.split(".")
+            if len(parts) == 3:  # 严格校验 stem 为 3 段：db.schema.table
+                table_name = parts[2]
+                tables.append(table_name)
+                logger.debug(f"从 DDL 文件发现表: {schema}.{table_name}")
+            else:
+                logger.warning(f"DDL 文件 stem 格式异常，跳过: {ddl_file.name}（期望 stem 3 段，实际 {len(parts)} 段）")
+
+        logger.info(f"从 DDL 目录扫描到 {len(tables)} 张表: {schema}.*")
+        return tables
+
     def _get_tables_to_process(
         self,
         schemas: List[str],
         tables: Optional[List[str]]
     ) -> List[tuple]:
         """获取要处理的表列表
-        
+
         Args:
             schemas: schema 列表
             tables: 表名列表（可选）
-            
+
         Returns:
             (schema, table) 元组列表
         """
         all_tables = []
         exclude_patterns = self.config.get("database", {}).get("exclude_tables", [])
-        
+
         for schema in schemas:
-            schema_tables = self.connector.get_tables(schema)
+            # md 步骤：从 DDL 目录枚举表
+            if self.active_step == "md":
+                schema_tables = self._get_tables_from_ddl_dir(schema)
+            else:
+                schema_tables = self.connector.get_tables(schema)
             
             for table in schema_tables:
                 # 如果指定了表名列表，只处理列表中的表
@@ -309,8 +407,13 @@ class MetadataGenerator:
         result: GenerationResult
     ):
         if self.active_step == "json":
+            # json 步骤：从 DDL 读取，但执行 COUNT/采样/画像（需要数据库）
             self._process_table_from_ddl(schema, table, result)
+        elif self.active_step == "md":
+            # md 步骤：完全 file-only，不访问数据库
+            self._process_table_from_ddl_for_md(schema, table, result)
         else:
+            # ddl/rel 等其他步骤：直接查库
             self._process_table_from_db(schema, table, result)
 
     def _process_table_from_db(
@@ -468,7 +571,79 @@ class MetadataGenerator:
             result.add_output_file(file_path)
 
         logger.info(f"表处理完成 (JSON): {schema}.{table}")
-    
+
+    def _process_table_from_ddl_for_md(
+        self,
+        schema: str,
+        table: str,
+        result: GenerationResult
+    ):
+        """md 专用：从 DDL 文件生成 Markdown（file-only，不访问数据库）
+
+        与 _process_table_from_ddl() 的区别：
+        - 不执行 COUNT 查询（md 不展示行数）
+        - 不执行列画像/逻辑主键/表画像（md 不需要）
+        - 不采样数据库（使用 DDL 的 sample_records）
+        - 完全 file-only，零数据库访问
+        """
+        logger.info(f"开始处理表 (Markdown): {schema}.{table}")
+
+        # 1. 从 DDL 文件加载元数据
+        try:
+            parsed = self._get_ddl_loader().load_table(schema, table)
+            metadata = parsed.metadata
+            metadata.database = self.database_name
+        except DDLLoaderError as exc:
+            logger.error(f"DDL 解析失败 ({schema}.{table}): {exc}")
+            result.failed_tables += 1
+            result.add_error(f"{schema}.{table}: {exc}")
+            return
+
+        # 2. 将 DDL sample_records 转换为 DataFrame（仅用于注释生成辅助）
+        sample_data = None
+        if parsed.sample_records:
+            import pandas as pd
+            records_data = [rec.get("data", {}) for rec in parsed.sample_records if rec.get("data")]
+            if records_data:
+                sample_data = pd.DataFrame(records_data)
+                logger.info(f"使用 DDL 样例数据: {schema}.{table}, {len(sample_data)} 行")
+            else:
+                logger.warning(f"DDL 样例数据为空: {schema}.{table}")
+        else:
+            logger.warning(f"DDL 无样例数据: {schema}.{table}")
+
+        # 3. 补全缺失的注释（可选，使用 LLM + 缓存）
+        if self.comment_enabled:
+            comment_count = self.comment_generator.enrich_metadata_with_comments(
+                metadata,
+                sample_data  # 辅助 LLM 理解字段含义
+            )
+            if comment_count > 0:
+                result.generated_comments += comment_count
+                logger.info(f"补全注释: {schema}.{table}, {comment_count} 个")
+
+        # 4. 跳过列统计、画像、逻辑主键（md 不需要）
+        # 注意：
+        # - md 输出不展示列统计信息
+        # - md 输出不展示画像/逻辑主键
+        # - 保持字段为空值，避免序列化错误
+        metadata.column_profiles = {}
+        metadata.candidate_logical_primary_keys = []
+        metadata.table_profile = None
+
+        # 5. 格式化输出（仅生成 markdown）
+        output_files = self.formatter.format_and_save(
+            metadata,
+            sample_data,  # 用于提取示例值
+            formats_override=["markdown"]  # 仅输出 md 格式
+        )
+        for file_path in output_files.values():
+            result.add_output_file(file_path)
+
+        # 注意：不需要 result.processed_tables += 1
+        # 外层框架（_process_tables_sequential/parallel）已统计
+        logger.info(f"Markdown 生成完成: {schema}.{table}")
+
     def _generate_summary(self, result: GenerationResult):
         """生成汇总报告"""
         summary_lines = []

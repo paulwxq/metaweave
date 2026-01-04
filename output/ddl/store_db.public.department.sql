@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.department
 -- Comment: 部门信息表，存储企业各部门的编码、名称及所在地信息
--- Generated: 2026-01-04 00:00:34
+-- Generated: 2026-01-04 14:12:17
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.department (

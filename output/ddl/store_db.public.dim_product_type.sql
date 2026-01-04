@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.dim_product_type
 -- Comment: 商品类型维表
--- Generated: 2026-01-04 00:00:34
+-- Generated: 2026-01-04 14:12:17
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.dim_product_type (

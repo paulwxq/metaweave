@@ -2,7 +2,7 @@
 -- Database: store_db
 -- Table: public.employee
 -- Comment: 员工信息表，存储企业员工的基本信息、薪资及所属部门
--- Generated: 2026-01-04 00:00:34
+-- Generated: 2026-01-04 14:12:17
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.employee (
