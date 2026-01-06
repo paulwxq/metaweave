@@ -212,10 +212,29 @@ def metadata_command(
                 raise click.UsageError(f"❌ --clean 不支持的 step: {step_name}")
 
             clear_dir_contents(target_dir)
-            click.echo(f"🧹 已清空输出目录: {target_dir}")
+            logger.debug(f"🧹 已清空输出目录: {target_dir}")
+
+        def _log_step_failure(step_name: str, message: str, errors: Optional[List[str]] = None):
+            """记录步骤失败日志（不抛出异常）
+
+            Args:
+                step_name: 当前失败的步骤名
+                message: 失败原因摘要
+                errors: 可选的错误列表（最多输出前 10 条）
+            """
+            logger.error("步骤失败 [%s]: %s", step_name, message)
+            click.echo(f"❌ 步骤失败 [{step_name}]: {message}", err=True)
+            if errors:
+                for e in errors[:10]:
+                    logger.error("  - %s", e)
+                    click.echo(f"  - {e}", err=True)
+                if len(errors) > 10:
+                    msg = f"  ... 还有 {len(errors) - 10} 个错误"
+                    logger.error(msg)
+                    click.echo(msg, err=True)
 
         def _abort_step(step_name: str, message: str, errors: Optional[List[str]] = None):
-            """以 fail-fast 方式终止 orchestrator 并输出错误摘要
+            """以 fail-fast 方式终止 orchestrator 并输出错误摘要（仅供单步骤使用）
 
             Args:
                 step_name: 当前失败的步骤名
@@ -225,13 +244,7 @@ def metadata_command(
             Raises:
                 click.Abort: 终止 CLI 执行（返回非 0）
             """
-            logger.error("步骤失败 [%s]: %s", step_name, message)
-            click.echo(f"❌ 步骤失败 [{step_name}]: {message}", err=True)
-            if errors:
-                for e in errors[:10]:
-                    click.echo(f"  - {e}", err=True)
-                if len(errors) > 10:
-                    click.echo(f"  ... 还有 {len(errors) - 10} 个错误", err=True)
+            _log_step_failure(step_name, message, errors)
             raise click.Abort()
 
         # 参数校验
@@ -298,25 +311,38 @@ def metadata_command(
             else:
                 steps = ["ddl", "md", "json_llm", "rel_llm", "cql"]
 
+            # 明确设置主上下文并记录启动日志
+            parent_step = step_lower
+            set_current_step(parent_step)
+            
+            logger.info("🚀 开始全流程执行: %s", parent_step)
+            logger.info("🧭 调度顺序: %s", " -> ".join(steps))
+
             click.echo(f"🧱 执行步骤: {step_lower}")
             click.echo(f"🧭 调度顺序: {' -> '.join(steps)}")
             click.echo(f"⚙️  并发数: {max_workers}")
             click.echo("")
 
-            for child_step in steps:
-                set_current_step(child_step)
+            try:
+                for child_step in steps:
+                    # --- 阶段 1: 启动前 (Parent Context) ---
+                    set_current_step(parent_step)
+                    logger.info("▶️  正在启动子步骤: %s", child_step)
 
-                click.echo("")
-                click.echo("=" * 60)
-                click.echo(f"▶️  开始步骤: {child_step}")
-                click.echo("=" * 60)
+                    click.echo("")
+                    click.echo("=" * 60)
+                    click.echo(f"▶️  开始步骤: {child_step}")
+                    click.echo("=" * 60)
 
-                if clean:
-                    _clean_step_output_dir(child_step, loaded_config)
+                    # --- 阶段 2: 执行子步骤 (Child Context) ---
+                    set_current_step(child_step)
 
-                try:
-                    if child_step in {"ddl", "json", "md"}:
-                        # md 依赖 ddl：保留现有检查逻辑（更清晰的错误提示）
+                    step_success = False
+                    step_error_msg = ""
+                    step_errors = []
+
+                    try:
+                        # 1. 依赖检查
                         if child_step == "md":
                             output_dir = Path(loaded_config.get("output", {}).get("output_dir", "output"))
                             if not output_dir.is_absolute():
@@ -324,132 +350,170 @@ def metadata_command(
                             ddl_dir = output_dir / "ddl"
                             ddl_files = list(ddl_dir.glob("*.sql")) if ddl_dir.exists() else []
                             if not ddl_files:
-                                _abort_step(
-                                    "md",
-                                    f"--step md 依赖 DDL 文件，但 DDL 目录不存在或为空: {ddl_dir}",
+                                raise ValueError(f"DDL 目录为空: {ddl_dir}")
+
+                        # 2. 清理操作
+                        if clean:
+                            logger.debug(f"正在清理输出目录: {child_step}")
+                            _clean_step_output_dir(child_step, loaded_config)
+
+                        # 3. 执行子步骤
+                        if child_step in {"ddl", "json", "md"}:
+                            generator = MetadataGenerator(config_path)
+                            result = generator.generate(
+                                schemas=schemas_list,
+                                tables=tables_list,
+                                incremental=incremental,
+                                max_workers=max_workers,
+                                step=child_step,
+                            )
+
+                            if (not result.success) or (result.failed_tables > 0):
+                                step_error_msg = f"处理失败: 成功 {result.processed_tables}，失败 {result.failed_tables}"
+                                step_errors = result.errors
+                            else:
+                                step_success = True
+
+                        elif child_step == "json_llm":
+                            from metaweave.core.metadata.json_llm_enhancer import JsonLlmEnhancer
+                            
+                            click.echo("📊 阶段 1/2: 生成全量 JSON（--step json）...")
+                            generator = MetadataGenerator(config_path)
+                            config_for_llm = generator.config
+
+                            result_a = generator.generate(
+                                schemas=schemas_list,
+                                tables=tables_list,
+                                incremental=incremental,
+                                max_workers=max_workers,
+                                step="json",
+                            )
+
+                            if (not result_a.success) or (result_a.failed_tables > 0):
+                                step_error_msg = "阶段 A (--step json) 失败"
+                                step_errors = result_a.errors
+                            else:
+                                json_dir = (generator.formatter.output_dir / "json").resolve()
+                                json_files = [
+                                    Path(p)
+                                    for p in result_a.output_files
+                                    if Path(p).suffix == ".json" and Path(p).resolve().parent == json_dir
+                                ]
+
+                                if not json_files:
+                                    step_error_msg = "阶段 A 未生成任何 JSON 文件"
+                                else:
+                                    cli_config = copy.deepcopy(config_for_llm)
+                                    if "llm" in cli_config and "langchain_config" in cli_config["llm"]:
+                                        cli_config["llm"]["langchain_config"]["use_async"] = False
+
+                                    click.echo("🤖 阶段 2/2: LLM 增强处理（原地写回 output/json）...")
+                                    enhancer = JsonLlmEnhancer(cli_config)
+                                    enhanced_count = enhancer.enhance_json_files(json_files)
+                                    step_success = True
+
+                        elif child_step == "rel":
+                            from metaweave.core.relationships.pipeline import RelationshipDiscoveryPipeline
+
+                            pipeline = RelationshipDiscoveryPipeline(config_path)
+                            result = pipeline.discover()
+                            if not result.success:
+                                step_error_msg = "关系发现失败"
+                                step_errors = result.errors
+                            else:
+                                step_success = True
+
+                        elif child_step == "rel_llm":
+                            from metaweave.core.relationships.llm_relationship_discovery import LLMRelationshipDiscovery
+                            from metaweave.core.relationships.writer import RelationshipWriter
+                            from metaweave.core.metadata.connector import DatabaseConnector
+
+                            connector = DatabaseConnector(loaded_config.get("database", {}))
+                            try:
+                                discovery = LLMRelationshipDiscovery(
+                                    config=loaded_config,
+                                    connector=connector,
+                                    domain_filter=domain,
+                                    cross_domain=cross_domain,
+                                    db_domains_config=db_domains_config,
                                 )
 
-                        generator = MetadataGenerator(config_path)
-                        result = generator.generate(
-                            schemas=schemas_list,
-                            tables=tables_list,
-                            incremental=incremental,
-                            max_workers=max_workers,
-                            step=child_step,
-                        )
+                                if not discovery.json_dir.exists():
+                                    raise FileNotFoundError(f"json 目录不存在: {discovery.json_dir}")
 
-                        if (not result.success) or (result.failed_tables > 0):
-                            _abort_step(
-                                child_step,
-                                "生成失败",
-                                errors=result.errors,
-                            )
+                                relations, rejected_count, extra_statistics = discovery.discover()
 
-                        click.echo(f"✅ {child_step} 完成：成功 {result.processed_tables}，失败 {result.failed_tables}")
+                                writer = RelationshipWriter(loaded_config)
+                                output_files = writer.write_results(
+                                    relations=relations,
+                                    suppressed=[],
+                                    config=loaded_config,
+                                    tables=discovery.tables,
+                                    generated_by="rel_llm",
+                                    extra_statistics=extra_statistics,
+                                )
+                                for f in output_files:
+                                    logger.info("rel_llm 输出文件: %s", f)
+                                step_success = True
+                            finally:
+                                connector.close()
 
-                    elif child_step == "json_llm":
-                        # 复用现有 json_llm 逻辑（两阶段）
-                        from metaweave.core.metadata.json_llm_enhancer import JsonLlmEnhancer
+                        elif child_step == "cql":
+                            from metaweave.core.cql_generator.generator import CQLGenerator
 
-                        click.echo("📊 阶段 1/2: 生成全量 JSON（--step json）...")
-                        generator = MetadataGenerator(config_path)
-                        config_for_llm = generator.config
+                            generator = CQLGenerator(config_path)
+                            result = generator.generate(step_name="cql")
+                            if not result.success:
+                                step_error_msg = "CQL 生成失败"
+                                step_errors = result.errors
+                            else:
+                                step_success = True
 
-                        result_a = generator.generate(
-                            schemas=schemas_list,
-                            tables=tables_list,
-                            incremental=incremental,
-                            max_workers=max_workers,
-                            step="json",
-                        )
+                        else:
+                            raise ValueError(f"未知步骤: {child_step}")
 
-                        if (not result_a.success) or (result_a.failed_tables > 0):
-                            _abort_step("json_llm", "阶段 A (--step json) 失败", errors=result_a.errors)
+                    except Exception as e:
+                        # 捕获异常：保留完整堆栈到 child.log
+                        logger.error("子步骤内部异常: %s", e, exc_info=True)
+                        step_success = False
+                        step_error_msg = str(e)
 
-                        json_dir = (generator.formatter.output_dir / "json").resolve()
-                        json_files = [
-                            Path(p)
-                            for p in result_a.output_files
-                            if Path(p).suffix == ".json" and Path(p).resolve().parent == json_dir
-                        ]
+                    # --- 阶段 3: 执行后 (Parent Context) ---
+                    set_current_step(parent_step)
 
-                        if not json_files:
-                            _abort_step("json_llm", "阶段 A 未生成任何 JSON 文件")
-
-                        cli_config = copy.deepcopy(config_for_llm)
-                        if "llm" in cli_config and "langchain_config" in cli_config["llm"]:
-                            cli_config["llm"]["langchain_config"]["use_async"] = False
-
-                        click.echo("🤖 阶段 2/2: LLM 增强处理（原地写回 output/json）...")
-                        enhancer = JsonLlmEnhancer(cli_config)
-                        enhanced_count = enhancer.enhance_json_files(json_files)
-
-                        click.echo(f"✅ json_llm 完成：阶段A {result_a.processed_tables} 张表，阶段B 增强 {enhanced_count} 个文件")
-
-                    elif child_step == "rel":
-                        from metaweave.core.relationships.pipeline import RelationshipDiscoveryPipeline
-
-                        pipeline = RelationshipDiscoveryPipeline(config_path)
-                        result = pipeline.discover()
-                        if not result.success:
-                            _abort_step("rel", "关系发现失败", errors=result.errors)
-                        click.echo(f"✅ rel 完成：关系 {result.total_relations} 个")
-
-                    elif child_step == "rel_llm":
-                        from metaweave.core.relationships.llm_relationship_discovery import LLMRelationshipDiscovery
-                        from metaweave.core.relationships.writer import RelationshipWriter
-                        from metaweave.core.metadata.connector import DatabaseConnector
-
-                        connector = DatabaseConnector(loaded_config.get("database", {}))
-                        try:
-                            discovery = LLMRelationshipDiscovery(
-                                config=loaded_config,
-                                connector=connector,
-                                domain_filter=domain,
-                                cross_domain=cross_domain,
-                                db_domains_config=db_domains_config,
-                            )
-
-                            if not discovery.json_dir.exists():
-                                _abort_step("rel_llm", f"json 目录不存在: {discovery.json_dir}")
-
-                            relations, rejected_count, extra_statistics = discovery.discover()
-
-                            writer = RelationshipWriter(loaded_config)
-                            output_files = writer.write_results(
-                                relations=relations,
-                                suppressed=[],
-                                config=loaded_config,
-                                tables=discovery.tables,
-                                generated_by="rel_llm",
-                                extra_statistics=extra_statistics,
-                            )
-                            click.echo(f"✅ rel_llm 完成：关系 {len(relations)} 个（拒绝 {rejected_count}）")
-                            for f in output_files:
-                                logger.info("rel_llm 输出文件: %s", f)
-                        finally:
-                            connector.close()
-
-                    elif child_step == "cql":
-                        from metaweave.core.cql_generator.generator import CQLGenerator
-
-                        generator = CQLGenerator(config_path)
-                        result = generator.generate(step_name="cql")
-                        if not result.success:
-                            _abort_step("cql", "CQL 生成失败", errors=result.errors)
-                        click.echo(f"✅ cql 完成：输出文件 {len(result.output_files)} 个")
-
+                    if not step_success:
+                        logger.error("❌ 子步骤失败: %s. 原因: %s", child_step, step_error_msg)
+                        click.echo(f"❌ {child_step} 失败: {step_error_msg}", err=True)
+                        
+                        if step_errors:
+                            for err in step_errors[:10]:
+                                logger.error("  - %s", err)
+                                click.echo(f"  - {err}", err=True)
+                            if len(step_errors) > 10:
+                                msg = f"  ... 还有 {len(step_errors) - 10} 个错误"
+                                logger.error(msg)
+                                click.echo(msg, err=True)
+                                
+                        logger.error("⛔ 全流程终止")
+                        raise click.Abort()
                     else:
-                        _abort_step(child_step, f"未知步骤: {child_step}")
+                        logger.info("✅ 子步骤完成: %s", child_step)
+                        click.echo(f"✅ {child_step} 完成")
 
-                except click.Abort:
-                    raise
-                except Exception as e:
-                    _abort_step(child_step, str(e))
+                logger.info("✨ 全流程执行成功完成")
+                click.echo("")
+                click.echo(f"✨ {parent_step} 处理完成！")
+                return
 
-            click.echo("")
-            click.echo("✨ all 处理完成！" if step_lower == "all" else "✨ all_llm 处理完成！")
-            return
+            except click.Abort:
+                set_current_step(parent_step)
+                logger.error("🛑 流程被中止")
+                raise
+            except Exception as e:
+                set_current_step(parent_step)
+                logger.error("❌ 全局未捕获异常: %s", e, exc_info=True)
+                click.echo(f"❌ 未预期错误: {e}", err=True)
+                raise click.Abort()
 
         # Step: json_llm - 基于 json 的 LLM 增强（两阶段串行）
         if step == "json_llm":

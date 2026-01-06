@@ -1,0 +1,520 @@
+{
+  "metadata_version": "2.0",
+  "generated_timestamp": "2026-01-06T10:56:04.577817",
+  "table_info": {
+    "database": "dvdrental",
+    "schema_name": "public",
+    "table_name": "payment",
+    "table_type": "table",
+    "comment": "支付记录表，存储客户租赁交易的付款信息",
+    "comment_source": "ddl",
+    "total_rows": 14596,
+    "total_columns": 6
+  },
+  "column_profiles": {
+    "payment_id": {
+      "column_name": "payment_id",
+      "ordinal_position": 1,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": "nextval('payment_payment_id_seq'::regclass)",
+      "comment": "支付记录唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1000,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "min": "17503",
+        "max": "18502",
+        "mean": "18002.5"
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": true,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": true
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": true,
+          "composite_columns": null
+        }
+      }
+    },
+    "customer_id": {
+      "column_name": "customer_id",
+      "ordinal_position": 2,
+      "data_type": "smallint",
+      "character_maximum_length": null,
+      "numeric_precision": 16,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "客户唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 263,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.263,
+        "min": "1",
+        "max": "599",
+        "mean": "456.173"
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:foreign_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": true,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "foreign_key",
+          "is_surrogate": false
+        },
+        "foreign_key_info": {
+          "target_schema": "public",
+          "target_table": "customer",
+          "target_columns": [
+            "customer_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        },
+        "index_info": {
+          "index_name": "idx_fk_customer_id",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "staff_id": {
+      "column_name": "staff_id",
+      "ordinal_position": 3,
+      "data_type": "smallint",
+      "character_maximum_length": null,
+      "numeric_precision": 16,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "员工唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 2,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.002,
+        "min": "1",
+        "max": "2",
+        "mean": "1.495",
+        "value_distribution": {
+          "1": 505,
+          "2": 495
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:foreign_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": true,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "foreign_key",
+          "is_surrogate": false
+        },
+        "foreign_key_info": {
+          "target_schema": "public",
+          "target_table": "staff",
+          "target_columns": [
+            "staff_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        },
+        "index_info": {
+          "index_name": "idx_fk_staff_id",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "rental_id": {
+      "column_name": "rental_id",
+      "ordinal_position": 4,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "租赁订单唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1000,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "min": "1158",
+        "max": "3467",
+        "mean": "2292.49"
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:foreign_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": true,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "foreign_key",
+          "is_surrogate": false
+        },
+        "foreign_key_info": {
+          "target_schema": "public",
+          "target_table": "rental",
+          "target_columns": [
+            "rental_id"
+          ],
+          "on_delete": "SET NULL ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        },
+        "index_info": {
+          "index_name": "idx_fk_rental_id",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "amount": {
+      "column_name": "amount",
+      "ordinal_position": 5,
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "numeric_precision": 5,
+      "numeric_scale": 2,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "支付金额",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 11,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.011,
+        "min": "0.99",
+        "max": "10.99",
+        "mean": "4.196"
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "numeric_type",
+          "metric_pattern:amount"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "amount",
+          "suggested_aggregations": [
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX"
+          ]
+        }
+      }
+    },
+    "payment_date": {
+      "column_name": "payment_date",
+      "ordinal_position": 6,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "支付时间",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1000,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_date$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    }
+  },
+  "table_profile": {
+    "table_category": "fact",
+    "confidence": 0.95,
+    "inference_basis": [
+      "llm_inferred"
+    ],
+    "physical_constraints": {
+      "primary_key": {
+        "constraint_name": "payment_pkey",
+        "columns": [
+          "payment_id"
+        ]
+      },
+      "foreign_keys": [
+        {
+          "constraint_name": "payment_customer_id_fkey",
+          "source_columns": [
+            "customer_id"
+          ],
+          "target_schema": "public",
+          "target_table": "customer",
+          "target_columns": [
+            "customer_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        },
+        {
+          "constraint_name": "payment_rental_id_fkey",
+          "source_columns": [
+            "rental_id"
+          ],
+          "target_schema": "public",
+          "target_table": "rental",
+          "target_columns": [
+            "rental_id"
+          ],
+          "on_delete": "SET NULL ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        },
+        {
+          "constraint_name": "payment_staff_id_fkey",
+          "source_columns": [
+            "staff_id"
+          ],
+          "target_schema": "public",
+          "target_table": "staff",
+          "target_columns": [
+            "staff_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        }
+      ],
+      "unique_constraints": []
+    },
+    "indexes": [
+      {
+        "index_name": "idx_fk_customer_id",
+        "index_type": "btree",
+        "columns": [
+          "customer_id"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      },
+      {
+        "index_name": "idx_fk_rental_id",
+        "index_type": "btree",
+        "columns": [
+          "rental_id"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      },
+      {
+        "index_name": "idx_fk_staff_id",
+        "index_type": "btree",
+        "columns": [
+          "staff_id"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      }
+    ],
+    "column_statistics": {
+      "total_columns": 6,
+      "identifier_count": 4,
+      "metric_count": 1,
+      "datetime_count": 0,
+      "enum_count": 0,
+      "audit_count": 1,
+      "attribute_count": 0,
+      "primary_key_count": 1,
+      "foreign_key_count": 3
+    },
+    "table_category_rule_based": "fact",
+    "confidence_rule_based": 0.85,
+    "inference_basis_rule_based": [
+      "fact_has_metric",
+      "fact_dimension_columns"
+    ]
+  },
+  "sample_records": {
+    "sample_method": "random",
+    "sample_size": 5,
+    "total_rows": 14596,
+    "records": [
+      {
+        "payment_id": 17503,
+        "customer_id": 341,
+        "staff_id": 2,
+        "rental_id": 1520,
+        "amount": 7.99,
+        "payment_date": "2007-02-15 22:25:46.996577"
+      },
+      {
+        "payment_id": 17504,
+        "customer_id": 341,
+        "staff_id": 1,
+        "rental_id": 1778,
+        "amount": 1.99,
+        "payment_date": "2007-02-16 17:23:14.996577"
+      },
+      {
+        "payment_id": 17505,
+        "customer_id": 341,
+        "staff_id": 1,
+        "rental_id": 1849,
+        "amount": 7.99,
+        "payment_date": "2007-02-16 22:41:45.996577"
+      },
+      {
+        "payment_id": 17506,
+        "customer_id": 341,
+        "staff_id": 2,
+        "rental_id": 2829,
+        "amount": 2.99,
+        "payment_date": "2007-02-19 19:39:56.996577"
+      },
+      {
+        "payment_id": 17507,
+        "customer_id": 341,
+        "staff_id": 2,
+        "rental_id": 3130,
+        "amount": 7.99,
+        "payment_date": "2007-02-20 17:31:48.996577"
+      }
+    ]
+  },
+  "llm_enhanced_at": "2026-01-06T10:56:57.195507"
+}

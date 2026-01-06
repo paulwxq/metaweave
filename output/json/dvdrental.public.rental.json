@@ -1,0 +1,528 @@
+{
+  "metadata_version": "2.0",
+  "generated_timestamp": "2026-01-06T10:56:04.647338",
+  "table_info": {
+    "database": "dvdrental",
+    "schema_name": "public",
+    "table_name": "rental",
+    "table_type": "table",
+    "comment": "租赁记录表，存储影片租赁的详细信息及租还时间",
+    "comment_source": "ddl",
+    "total_rows": 16044,
+    "total_columns": 7
+  },
+  "column_profiles": {
+    "rental_id": {
+      "column_name": "rental_id",
+      "ordinal_position": 1,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": "nextval('rental_rental_id_seq'::regclass)",
+      "comment": "租赁记录唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1000,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "min": "2",
+        "max": "1002",
+        "mean": "502.181"
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": true,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": true
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": true,
+          "composite_columns": null
+        }
+      }
+    },
+    "rental_date": {
+      "column_name": "rental_date",
+      "ordinal_position": 2,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "租借发生的时间",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 999,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.999
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_date$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "inventory_id": {
+      "column_name": "inventory_id",
+      "ordinal_position": 3,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "库存物品的唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1000,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "min": "2",
+        "max": "4581",
+        "mean": "2258.521"
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:foreign_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": true,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "foreign_key",
+          "is_surrogate": false
+        },
+        "foreign_key_info": {
+          "target_schema": "public",
+          "target_table": "inventory",
+          "target_columns": [
+            "inventory_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        },
+        "index_info": {
+          "index_name": "idx_fk_inventory_id",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "customer_id": {
+      "column_name": "customer_id",
+      "ordinal_position": 4,
+      "data_type": "smallint",
+      "character_maximum_length": null,
+      "numeric_precision": 16,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "客户的唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 486,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.486,
+        "min": "1",
+        "max": "597",
+        "mean": "296.675"
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:foreign_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": true,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "foreign_key",
+          "is_surrogate": false
+        },
+        "foreign_key_info": {
+          "target_schema": "public",
+          "target_table": "customer",
+          "target_columns": [
+            "customer_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        }
+      }
+    },
+    "return_date": {
+      "column_name": "return_date",
+      "ordinal_position": 5,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "预计或实际归还时间",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 997,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.997
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_date$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "staff_id": {
+      "column_name": "staff_id",
+      "ordinal_position": 6,
+      "data_type": "smallint",
+      "character_maximum_length": null,
+      "numeric_precision": 16,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "处理租赁的员工ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 2,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.002,
+        "min": "1",
+        "max": "2",
+        "mean": "1.521",
+        "value_distribution": {
+          "2": 521,
+          "1": 479
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:foreign_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": true,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "foreign_key",
+          "is_surrogate": false
+        },
+        "foreign_key_info": {
+          "target_schema": "public",
+          "target_table": "staff",
+          "target_columns": [
+            "staff_id"
+          ],
+          "on_delete": "NO ACTION",
+          "on_update": "NO ACTION"
+        }
+      }
+    },
+    "last_update": {
+      "column_name": "last_update",
+      "ordinal_position": 7,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": "now()",
+      "comment": "记录最后一次更新时间",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.001,
+        "value_distribution": {
+          "2006-02-16 02:30:53": 1000
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {}
+    }
+  },
+  "table_profile": {
+    "table_category": "fact",
+    "confidence": 0.95,
+    "inference_basis": [
+      "llm_inferred"
+    ],
+    "physical_constraints": {
+      "primary_key": {
+        "constraint_name": "rental_pkey",
+        "columns": [
+          "rental_id"
+        ]
+      },
+      "foreign_keys": [
+        {
+          "constraint_name": "rental_customer_id_fkey",
+          "source_columns": [
+            "customer_id"
+          ],
+          "target_schema": "public",
+          "target_table": "customer",
+          "target_columns": [
+            "customer_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        },
+        {
+          "constraint_name": "rental_inventory_id_fkey",
+          "source_columns": [
+            "inventory_id"
+          ],
+          "target_schema": "public",
+          "target_table": "inventory",
+          "target_columns": [
+            "inventory_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        },
+        {
+          "constraint_name": "rental_staff_id_key",
+          "source_columns": [
+            "staff_id"
+          ],
+          "target_schema": "public",
+          "target_table": "staff",
+          "target_columns": [
+            "staff_id"
+          ],
+          "on_delete": "NO ACTION",
+          "on_update": "NO ACTION"
+        }
+      ],
+      "unique_constraints": []
+    },
+    "indexes": [
+      {
+        "index_name": "idx_fk_inventory_id",
+        "index_type": "btree",
+        "columns": [
+          "inventory_id"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      }
+    ],
+    "column_statistics": {
+      "total_columns": 7,
+      "identifier_count": 4,
+      "metric_count": 0,
+      "datetime_count": 0,
+      "enum_count": 0,
+      "audit_count": 2,
+      "attribute_count": 1,
+      "primary_key_count": 1,
+      "foreign_key_count": 3
+    },
+    "table_category_rule_based": "dim",
+    "confidence_rule_based": 0.95,
+    "inference_basis_rule_based": [
+      "fact_dimension_columns",
+      "dim_identifier_columns",
+      "dim_has_primary_key"
+    ]
+  },
+  "sample_records": {
+    "sample_method": "random",
+    "sample_size": 5,
+    "total_rows": 16044,
+    "records": [
+      {
+        "rental_id": 2,
+        "rental_date": "2005-05-24 22:54:33",
+        "inventory_id": 1525,
+        "customer_id": 459,
+        "return_date": "2005-05-28 19:40:33",
+        "staff_id": 1,
+        "last_update": "2006-02-16 02:30:53"
+      },
+      {
+        "rental_id": 3,
+        "rental_date": "2005-05-24 23:03:39",
+        "inventory_id": 1711,
+        "customer_id": 408,
+        "return_date": "2005-06-01 22:12:39",
+        "staff_id": 1,
+        "last_update": "2006-02-16 02:30:53"
+      },
+      {
+        "rental_id": 4,
+        "rental_date": "2005-05-24 23:04:41",
+        "inventory_id": 2452,
+        "customer_id": 333,
+        "return_date": "2005-06-03 01:43:41",
+        "staff_id": 2,
+        "last_update": "2006-02-16 02:30:53"
+      },
+      {
+        "rental_id": 5,
+        "rental_date": "2005-05-24 23:05:21",
+        "inventory_id": 2079,
+        "customer_id": 222,
+        "return_date": "2005-06-02 04:33:21",
+        "staff_id": 1,
+        "last_update": "2006-02-16 02:30:53"
+      },
+      {
+        "rental_id": 6,
+        "rental_date": "2005-05-24 23:08:07",
+        "inventory_id": 2792,
+        "customer_id": 549,
+        "return_date": "2005-05-27 01:32:07",
+        "staff_id": 1,
+        "last_update": "2006-02-16 02:30:53"
+      }
+    ]
+  },
+  "llm_enhanced_at": "2026-01-06T10:57:01.499127"
+}

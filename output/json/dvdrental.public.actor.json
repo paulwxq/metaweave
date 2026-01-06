@@ -1,0 +1,295 @@
+{
+  "metadata_version": "2.0",
+  "generated_timestamp": "2026-01-06T10:56:04.393592",
+  "table_info": {
+    "database": "dvdrental",
+    "schema_name": "public",
+    "table_name": "actor",
+    "table_type": "table",
+    "comment": "演员信息表，存储电影演员的基本信息及更新时间",
+    "comment_source": "ddl",
+    "total_rows": 200,
+    "total_columns": 4
+  },
+  "column_profiles": {
+    "actor_id": {
+      "column_name": "actor_id",
+      "ordinal_position": 1,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": "nextval('actor_actor_id_seq'::regclass)",
+      "comment": "演员唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 200,
+        "unique_count": 200,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "min": "1",
+        "max": "200",
+        "mean": "100.5"
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": true,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": true
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": true,
+          "composite_columns": null
+        }
+      }
+    },
+    "first_name": {
+      "column_name": "first_name",
+      "ordinal_position": 2,
+      "data_type": "character varying",
+      "character_maximum_length": 45,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "演员名字",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 200,
+        "unique_count": 128,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.64,
+        "avg_length": 5.3,
+        "min_length": 2,
+        "max_length": 11,
+        "median_length": 5.0,
+        "length_std": 1.73
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {}
+    },
+    "last_name": {
+      "column_name": "last_name",
+      "ordinal_position": 3,
+      "data_type": "character varying",
+      "character_maximum_length": 45,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "演员姓氏",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 200,
+        "unique_count": 121,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.605,
+        "avg_length": 6.23,
+        "min_length": 3,
+        "max_length": 12,
+        "median_length": 6.0,
+        "length_std": 1.67
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "index_info": {
+          "index_name": "idx_actor_last_name",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "last_update": {
+      "column_name": "last_update",
+      "ordinal_position": 4,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": "now()",
+      "comment": "记录最后更新时间",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 200,
+        "unique_count": 1,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.005,
+        "value_distribution": {
+          "2013-05-26 14:47:57.620000": 200
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {}
+    }
+  },
+  "table_profile": {
+    "table_category": "dim",
+    "confidence": 0.95,
+    "inference_basis": [
+      "llm_inferred"
+    ],
+    "physical_constraints": {
+      "primary_key": {
+        "constraint_name": "actor_pkey",
+        "columns": [
+          "actor_id"
+        ]
+      },
+      "foreign_keys": [],
+      "unique_constraints": []
+    },
+    "indexes": [
+      {
+        "index_name": "idx_actor_last_name",
+        "index_type": "btree",
+        "columns": [
+          "last_name"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      }
+    ],
+    "column_statistics": {
+      "total_columns": 4,
+      "identifier_count": 1,
+      "metric_count": 0,
+      "datetime_count": 0,
+      "enum_count": 0,
+      "audit_count": 0,
+      "attribute_count": 3,
+      "primary_key_count": 1,
+      "foreign_key_count": 0
+    },
+    "table_category_rule_based": "dim",
+    "confidence_rule_based": 0.95,
+    "inference_basis_rule_based": [
+      "dim_identifier_columns",
+      "dim_has_primary_key"
+    ]
+  },
+  "sample_records": {
+    "sample_method": "random",
+    "sample_size": 5,
+    "total_rows": 200,
+    "records": [
+      {
+        "actor_id": 1,
+        "first_name": "Penelope",
+        "last_name": "Guiness",
+        "last_update": "2013-05-26 14:47:57.620000"
+      },
+      {
+        "actor_id": 2,
+        "first_name": "Nick",
+        "last_name": "Wahlberg",
+        "last_update": "2013-05-26 14:47:57.620000"
+      },
+      {
+        "actor_id": 3,
+        "first_name": "Ed",
+        "last_name": "Chase",
+        "last_update": "2013-05-26 14:47:57.620000"
+      },
+      {
+        "actor_id": 4,
+        "first_name": "Jennifer",
+        "last_name": "Davis",
+        "last_update": "2013-05-26 14:47:57.620000"
+      },
+      {
+        "actor_id": 5,
+        "first_name": "Johnny",
+        "last_name": "Lollobrigida",
+        "last_update": "2013-05-26 14:47:57.620000"
+      }
+    ]
+  },
+  "llm_enhanced_at": "2026-01-06T10:56:12.474663"
+}

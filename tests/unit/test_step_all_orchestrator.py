@@ -143,8 +143,9 @@ def test_step_all_orchestrates_in_order(tmp_path: Path, monkeypatch):
     result = runner.invoke(metadata_cli.metadata_command, ["--config", str(cfg), "--step", "all"])
 
     assert result.exit_code == 0, result.output
-    assert steps[:1] == ["all"]
-    assert steps[1:] == ["ddl", "md", "json", "rel", "cql"]
+    # 过滤掉 parent_step，只看子步骤顺序
+    sub_steps = [s for s in steps if s != "all"]
+    assert sub_steps == ["ddl", "md", "json", "rel", "cql"]
     assert "开始步骤: ddl" in result.output
     assert "开始步骤: cql" in result.output
 
@@ -243,9 +244,10 @@ def test_step_all_fails_on_ddl_error(tmp_path: Path, monkeypatch):
     result = runner.invoke(metadata_cli.metadata_command, ["--config", str(cfg), "--step", "all"])
 
     assert result.exit_code != 0
-    assert steps[:1] == ["all"]
-    assert steps[1:] == ["ddl"]
-    assert "步骤失败 [ddl]" in result.output
+    # 过滤掉 parent_step，只看子步骤顺序
+    sub_steps = [s for s in steps if s != "all"]
+    assert sub_steps == ["ddl"]
+    assert "❌ ddl 失败" in result.output
 
 
 def test_step_all_stops_after_first_failure(tmp_path: Path, monkeypatch):
@@ -291,10 +293,10 @@ def test_step_all_stops_after_first_failure(tmp_path: Path, monkeypatch):
     result = runner.invoke(metadata_cli.metadata_command, ["--config", str(cfg), "--step", "all"])
 
     assert result.exit_code != 0
-    assert steps[:1] == ["all"]
     # ddl/md/json 执行后在 json 失败，后续 rel/cql 不应出现
-    assert steps[1:] == ["ddl", "md", "json"]
-    assert "步骤失败 [json]" in result.output
+    sub_steps = [s for s in steps if s != "all"]
+    assert sub_steps == ["ddl", "md", "json"]
+    assert "❌ json 失败" in result.output
 
 
 def test_step_all_llm_orchestrates_in_order(tmp_path: Path, monkeypatch):
@@ -338,5 +340,6 @@ def test_step_all_llm_orchestrates_in_order(tmp_path: Path, monkeypatch):
     result = runner.invoke(metadata_cli.metadata_command, ["--config", str(cfg), "--step", "all_llm"])
 
     assert result.exit_code == 0, result.output
-    assert steps[:1] == ["all_llm"]
-    assert steps[1:] == ["ddl", "md", "json_llm", "rel_llm", "cql"]
+    # 过滤掉 parent_step，只看子步骤顺序
+    sub_steps = [s for s in steps if s != "all_llm"]
+    assert sub_steps == ["ddl", "md", "json_llm", "rel_llm", "cql"]

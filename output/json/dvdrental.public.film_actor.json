@@ -1,0 +1,305 @@
+{
+  "metadata_version": "2.0",
+  "generated_timestamp": "2026-01-06T10:56:04.494629",
+  "table_info": {
+    "database": "dvdrental",
+    "schema_name": "public",
+    "table_name": "film_actor",
+    "table_type": "table",
+    "comment": "演员影片关联表，记录演员参演的电影及更新时间",
+    "comment_source": "ddl",
+    "total_rows": 5462,
+    "total_columns": 3
+  },
+  "column_profiles": {
+    "actor_id": {
+      "column_name": "actor_id",
+      "ordinal_position": 1,
+      "data_type": "smallint",
+      "character_maximum_length": null,
+      "numeric_precision": 16,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "演员唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 39,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.039,
+        "min": "1",
+        "max": "39",
+        "mean": "19.834"
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": true,
+        "is_foreign_key": true,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": false
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": false,
+          "composite_columns": [
+            "actor_id",
+            "film_id"
+          ]
+        },
+        "foreign_key_info": {
+          "target_schema": "public",
+          "target_table": "actor",
+          "target_columns": [
+            "actor_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        }
+      }
+    },
+    "film_id": {
+      "column_name": "film_id",
+      "ordinal_position": 2,
+      "data_type": "smallint",
+      "character_maximum_length": null,
+      "numeric_precision": 16,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "电影唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 614,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.614,
+        "min": "1",
+        "max": "998",
+        "mean": "484.974"
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": true,
+        "is_foreign_key": true,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": false
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": false,
+          "composite_columns": [
+            "actor_id",
+            "film_id"
+          ]
+        },
+        "foreign_key_info": {
+          "target_schema": "public",
+          "target_table": "film",
+          "target_columns": [
+            "film_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        },
+        "index_info": {
+          "index_name": "idx_fk_film_id",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "last_update": {
+      "column_name": "last_update",
+      "ordinal_position": 3,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": "now()",
+      "comment": "最后更新时间戳",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.001,
+        "value_distribution": {
+          "2006-02-15 10:05:03": 1000
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {}
+    }
+  },
+  "table_profile": {
+    "table_category": "bridge",
+    "confidence": 0.95,
+    "inference_basis": [
+      "llm_inferred"
+    ],
+    "physical_constraints": {
+      "primary_key": {
+        "constraint_name": "film_actor_pkey",
+        "columns": [
+          "actor_id",
+          "film_id"
+        ]
+      },
+      "foreign_keys": [
+        {
+          "constraint_name": "film_actor_actor_id_fkey",
+          "source_columns": [
+            "actor_id"
+          ],
+          "target_schema": "public",
+          "target_table": "actor",
+          "target_columns": [
+            "actor_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        },
+        {
+          "constraint_name": "film_actor_film_id_fkey",
+          "source_columns": [
+            "film_id"
+          ],
+          "target_schema": "public",
+          "target_table": "film",
+          "target_columns": [
+            "film_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        }
+      ],
+      "unique_constraints": []
+    },
+    "indexes": [
+      {
+        "index_name": "idx_fk_film_id",
+        "index_type": "btree",
+        "columns": [
+          "film_id"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      }
+    ],
+    "column_statistics": {
+      "total_columns": 3,
+      "identifier_count": 2,
+      "metric_count": 0,
+      "datetime_count": 0,
+      "enum_count": 0,
+      "audit_count": 0,
+      "attribute_count": 1,
+      "primary_key_count": 2,
+      "foreign_key_count": 2
+    },
+    "table_category_rule_based": "bridge",
+    "confidence_rule_based": 0.85,
+    "inference_basis_rule_based": [
+      "bridge_fk_threshold"
+    ]
+  },
+  "sample_records": {
+    "sample_method": "random",
+    "sample_size": 5,
+    "total_rows": 5462,
+    "records": [
+      {
+        "actor_id": 1,
+        "film_id": 1,
+        "last_update": "2006-02-15 10:05:03"
+      },
+      {
+        "actor_id": 1,
+        "film_id": 23,
+        "last_update": "2006-02-15 10:05:03"
+      },
+      {
+        "actor_id": 1,
+        "film_id": 25,
+        "last_update": "2006-02-15 10:05:03"
+      },
+      {
+        "actor_id": 1,
+        "film_id": 106,
+        "last_update": "2006-02-15 10:05:03"
+      },
+      {
+        "actor_id": 1,
+        "film_id": 140,
+        "last_update": "2006-02-15 10:05:03"
+      }
+    ]
+  },
+  "llm_enhanced_at": "2026-01-06T10:56:38.483874"
+}

@@ -1,0 +1,788 @@
+{
+  "metadata_version": "2.0",
+  "generated_timestamp": "2026-01-06T10:56:04.545818",
+  "table_info": {
+    "database": "dvdrental",
+    "schema_name": "public",
+    "table_name": "film",
+    "table_type": "table",
+    "comment": "电影信息表，存储影片的基本信息、租赁属性和播放详情",
+    "comment_source": "ddl",
+    "total_rows": 1000,
+    "total_columns": 13
+  },
+  "column_profiles": {
+    "film_id": {
+      "column_name": "film_id",
+      "ordinal_position": 1,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": "nextval('film_film_id_seq'::regclass)",
+      "comment": "电影唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1000,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "min": "1",
+        "max": "1000",
+        "mean": "500.5"
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": true,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": true
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": true,
+          "composite_columns": null
+        }
+      }
+    },
+    "title": {
+      "column_name": "title",
+      "ordinal_position": 2,
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "电影标题",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1000,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "avg_length": 14.23,
+        "min_length": 8,
+        "max_length": 27,
+        "median_length": 14.0,
+        "length_std": 3.03
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "high_uniqueness"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "logical_primary_key",
+          "is_surrogate": true
+        },
+        "index_info": {
+          "index_name": "idx_title",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "description": {
+      "column_name": "description",
+      "ordinal_position": 3,
+      "data_type": "text",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "电影剧情描述",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1000,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "avg_length": 93.84,
+        "min_length": 70,
+        "max_length": 130,
+        "median_length": 93.0,
+        "length_std": 11.01
+      },
+      "semantic_analysis": {
+        "semantic_role": "description",
+        "semantic_confidence": 0.85,
+        "inference_basis": [
+          "description_keyword_match"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "description_info": {
+          "avg_length": 93.84,
+          "max_length": 130,
+          "length_variance": 11.01,
+          "is_rich_text": false
+        }
+      }
+    },
+    "release_year": {
+      "column_name": "release_year",
+      "ordinal_position": 4,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "发行年份",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.001,
+        "min": "2006",
+        "max": "2006",
+        "mean": "2006.0",
+        "value_distribution": {
+          "2006": 1000
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "datetime",
+        "semantic_confidence": 0.85,
+        "inference_basis": [
+          "datetime_name_match"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "datetime_info": {
+          "datetime_type": "integer",
+          "datetime_grain": "year"
+        }
+      }
+    },
+    "language_id": {
+      "column_name": "language_id",
+      "ordinal_position": 5,
+      "data_type": "smallint",
+      "character_maximum_length": null,
+      "numeric_precision": 16,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "语言种类ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.001,
+        "min": "1",
+        "max": "1",
+        "mean": "1.0",
+        "value_distribution": {
+          "1": 1000
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:foreign_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": true,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "foreign_key",
+          "is_surrogate": false
+        },
+        "foreign_key_info": {
+          "target_schema": "public",
+          "target_table": "language",
+          "target_columns": [
+            "language_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        },
+        "index_info": {
+          "index_name": "idx_fk_language_id",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "rental_duration": {
+      "column_name": "rental_duration",
+      "ordinal_position": 6,
+      "data_type": "smallint",
+      "character_maximum_length": null,
+      "numeric_precision": 16,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": "3",
+      "comment": "租借时长（天）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 5,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.005,
+        "min": "3",
+        "max": "7",
+        "mean": "4.985",
+        "value_distribution": {
+          "6": 212,
+          "3": 203,
+          "4": 203,
+          "7": 191,
+          "5": 191
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "numeric_type",
+          "metric_pattern:ratio"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "ratio",
+          "suggested_aggregations": [
+            "AVG"
+          ]
+        }
+      }
+    },
+    "rental_rate": {
+      "column_name": "rental_rate",
+      "ordinal_position": 7,
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "numeric_precision": 4,
+      "numeric_scale": 2,
+      "is_nullable": false,
+      "column_default": "4.99",
+      "comment": "租借费率",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 3,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.003,
+        "min": "0.99",
+        "max": "4.99",
+        "mean": "2.980000000000001",
+        "value_distribution": {
+          "0.99": 341,
+          "4.99": 336,
+          "2.99": 323
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "numeric_type",
+          "metric_pattern:rate"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "ratio",
+          "suggested_aggregations": [
+            "AVG"
+          ]
+        }
+      }
+    },
+    "length": {
+      "column_name": "length",
+      "ordinal_position": 8,
+      "data_type": "smallint",
+      "character_maximum_length": null,
+      "numeric_precision": 16,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "电影时长（分钟）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 140,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.14,
+        "min": "46",
+        "max": "185",
+        "mean": "115.272"
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "numeric_type"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "metric",
+          "suggested_aggregations": [
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX"
+          ]
+        }
+      }
+    },
+    "replacement_cost": {
+      "column_name": "replacement_cost",
+      "ordinal_position": 9,
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "numeric_precision": 5,
+      "numeric_scale": 2,
+      "is_nullable": false,
+      "column_default": "19.99",
+      "comment": "替换成本费用",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 21,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.021,
+        "min": "9.99",
+        "max": "29.99",
+        "mean": "19.984"
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "numeric_type",
+          "metric_pattern:cost"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "amount",
+          "suggested_aggregations": [
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX"
+          ]
+        }
+      }
+    },
+    "rating": {
+      "column_name": "rating",
+      "ordinal_position": 10,
+      "data_type": "user-defined",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": "'G'::mpaa_rating",
+      "comment": "分级评级（如PG、R等）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 5,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.005,
+        "avg_length": 2.93,
+        "min_length": 1,
+        "max_length": 5,
+        "median_length": 2.0,
+        "length_std": 1.85,
+        "value_distribution": {
+          "PG-13": 223,
+          "NC-17": 210,
+          "R": 195,
+          "PG": 194,
+          "G": 178
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {}
+    },
+    "last_update": {
+      "column_name": "last_update",
+      "ordinal_position": 11,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": "now()",
+      "comment": "最后更新时间",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.001,
+        "value_distribution": {
+          "2013-05-26 14:50:58.951000": 1000
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {}
+    },
+    "special_features": {
+      "column_name": "special_features",
+      "ordinal_position": 12,
+      "data_type": "array",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "特别收录特性列表",
+      "comment_source": "ddl",
+      "statistics": {},
+      "semantic_analysis": {
+        "semantic_role": "complex",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "complex_type:array"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {}
+    },
+    "fulltext": {
+      "column_name": "fulltext",
+      "ordinal_position": 13,
+      "data_type": "tsvector",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "全文检索向量字段",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1000,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "avg_length": 133.48,
+        "min_length": 98,
+        "max_length": 205,
+        "median_length": 131.0,
+        "length_std": 16.34
+      },
+      "semantic_analysis": {
+        "semantic_role": "complex",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "complex_type:tsvector"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "index_info": {
+          "index_name": "film_fulltext_idx",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    }
+  },
+  "table_profile": {
+    "table_category": "dim",
+    "confidence": 0.95,
+    "inference_basis": [
+      "llm_inferred"
+    ],
+    "physical_constraints": {
+      "primary_key": {
+        "constraint_name": "film_pkey",
+        "columns": [
+          "film_id"
+        ]
+      },
+      "foreign_keys": [
+        {
+          "constraint_name": "film_language_id_fkey",
+          "source_columns": [
+            "language_id"
+          ],
+          "target_schema": "public",
+          "target_table": "language",
+          "target_columns": [
+            "language_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        }
+      ],
+      "unique_constraints": []
+    },
+    "indexes": [
+      {
+        "index_name": "film_fulltext_idx",
+        "index_type": "btree",
+        "columns": [
+          "fulltext"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      },
+      {
+        "index_name": "idx_fk_language_id",
+        "index_type": "btree",
+        "columns": [
+          "language_id"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      },
+      {
+        "index_name": "idx_title",
+        "index_type": "btree",
+        "columns": [
+          "title"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      }
+    ],
+    "column_statistics": {
+      "total_columns": 13,
+      "identifier_count": 3,
+      "metric_count": 4,
+      "datetime_count": 1,
+      "enum_count": 0,
+      "audit_count": 0,
+      "attribute_count": 2,
+      "primary_key_count": 1,
+      "foreign_key_count": 1
+    },
+    "table_category_rule_based": "fact",
+    "confidence_rule_based": 0.95,
+    "inference_basis_rule_based": [
+      "fact_has_metric",
+      "fact_dimension_columns",
+      "fact_datetime"
+    ]
+  },
+  "sample_records": {
+    "sample_method": "random",
+    "sample_size": 0,
+    "total_rows": 1000,
+    "records": []
+  },
+  "llm_enhanced_at": "2026-01-06T10:56:48.400584"
+}

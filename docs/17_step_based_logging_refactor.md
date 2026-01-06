@@ -4,7 +4,7 @@
 - `metaweave metadata --step <x>` 每个 step 写入独立日志文件，文件名与 step 对齐。
 - `json/json_llm` 共用一个日志文件；`rel/rel_llm` 共用一个日志文件；`cql/cql_llm` 共用一个日志文件。
 - `metaweave load ...`（loader）日志配置保持不变。
-- `--step all` 若按阶段拆分成本高，则统一写入 `logs/metaweave_all.log`。
+- `--step all` 若按阶段拆分成本高，则统一写入 `logs/all.log`。
 
 ## 现状问题（简述）
 - 当前日志路由以 “logger 名称（模块）→ 文件” 为主，导致 “按 step 执行” 时日志混杂（尤其 metadata 相关）。
@@ -18,7 +18,7 @@
 | `md` | `logs/md.log` |
 | `rel` / `rel_llm` | `logs/rel.log` |
 | `cql` / `cql_llm` | `logs/cql.log` |
-| `all` | `logs/metaweave_all.log`（先不做阶段拆分） |
+| `all` | `logs/all.log`（先不做阶段拆分） |
 | `load ...` | 保持 `logs/loader.log`（不改） |
 
 ## 实现方案（按 step 路由）
@@ -43,7 +43,7 @@
   - `md_file` → `logs/md.log`（filter: `StepFilter(['md'])`）
   - `rel_file` → `logs/rel.log`（filter: `StepFilter(['rel','rel_llm'])`）
   - `cql_file` → `logs/cql.log`（filter: `StepFilter(['cql','cql_llm'])`）
-  - `all_file` → `logs/metaweave_all.log`（filter: `StepFilter(['all'])`）
+  - `all_file` → `logs/all.log`（filter: `StepFilter(['all'])`）
 - formatter 统一显示 step（方案1：所有日志文件/console 都显示 step）：
   - `format: '%(asctime)s - %(name)s - [%(step)s] - %(levelname)s - %(message)s'`
 - `%(step)s` 由 LogRecordFactory 全局注入，handlers 无需额外注入 filter。
@@ -60,7 +60,7 @@
     - 依赖点：`json.log` 的 handler filter 需要覆盖 `StepFilter(['json','json_llm'])`，保证 `json` 与 `json_llm` 都能写入同一文件。
   - `rel_llm` 分支设置 step 为 `rel_llm`（路由到 `logs/rel.log`）。
   - `cql_llm` 分支设置 step 为 `cql_llm`（路由到 `logs/cql.log`）。
-  - `all` 设置 step 为 `all`（路由到 `logs/metaweave_all.log`）。
+  - `all` 设置 step 为 `all`（路由到 `logs/all.log`）。
 
 ## 需要修改的文件清单
 - `metaweave/utils/logger.py`
@@ -83,7 +83,7 @@
   - `metaweave metadata --step rel_llm` → `logs/rel.log`
   - `metaweave metadata --step cql` → `logs/cql.log`
   - `metaweave metadata --step cql_llm` → `logs/cql.log`
-  - `metaweave metadata --step all` → `logs/metaweave_all.log`
+  - `metaweave metadata --step all` → `logs/all.log`
 - `metaweave load ...` 仍写入原有 `logs/loader.log`。
 
 ## 不在本次范围

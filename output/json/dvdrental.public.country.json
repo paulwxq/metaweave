@@ -1,0 +1,233 @@
+{
+  "metadata_version": "2.0",
+  "generated_timestamp": "2026-01-06T10:56:04.428596",
+  "table_info": {
+    "database": "dvdrental",
+    "schema_name": "public",
+    "table_name": "country",
+    "table_type": "table",
+    "comment": "国家信息表，存储全球国家名称及其更新时间",
+    "comment_source": "ddl",
+    "total_rows": 109,
+    "total_columns": 3
+  },
+  "column_profiles": {
+    "country_id": {
+      "column_name": "country_id",
+      "ordinal_position": 1,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": "nextval('country_country_id_seq'::regclass)",
+      "comment": "国家唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 109,
+        "unique_count": 109,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "min": "1",
+        "max": "109",
+        "mean": "55.0"
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": true,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": true
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": true,
+          "composite_columns": null
+        }
+      }
+    },
+    "country": {
+      "column_name": "country",
+      "ordinal_position": 2,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "国家名称",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 109,
+        "unique_count": 109,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "avg_length": 8.94,
+        "min_length": 4,
+        "max_length": 37,
+        "median_length": 7.0,
+        "length_std": 5.24
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.6,
+        "inference_basis": [
+          "metric_pattern:count"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "count",
+          "suggested_aggregations": [
+            "SUM"
+          ]
+        }
+      }
+    },
+    "last_update": {
+      "column_name": "last_update",
+      "ordinal_position": 3,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": "now()",
+      "comment": "最后更新时间",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 109,
+        "unique_count": 1,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.0092,
+        "value_distribution": {
+          "2006-02-15 09:44:00": 109
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {}
+    }
+  },
+  "table_profile": {
+    "table_category": "dim",
+    "confidence": 0.95,
+    "inference_basis": [
+      "llm_inferred"
+    ],
+    "physical_constraints": {
+      "primary_key": {
+        "constraint_name": "country_pkey",
+        "columns": [
+          "country_id"
+        ]
+      },
+      "foreign_keys": [],
+      "unique_constraints": []
+    },
+    "indexes": [],
+    "column_statistics": {
+      "total_columns": 3,
+      "identifier_count": 1,
+      "metric_count": 1,
+      "datetime_count": 0,
+      "enum_count": 0,
+      "audit_count": 0,
+      "attribute_count": 1,
+      "primary_key_count": 1,
+      "foreign_key_count": 0
+    },
+    "table_category_rule_based": "unknown",
+    "confidence_rule_based": 0.5,
+    "inference_basis_rule_based": [
+      "fact_has_metric"
+    ]
+  },
+  "sample_records": {
+    "sample_method": "random",
+    "sample_size": 5,
+    "total_rows": 109,
+    "records": [
+      {
+        "country_id": 1,
+        "country": "Afghanistan",
+        "last_update": "2006-02-15 09:44:00"
+      },
+      {
+        "country_id": 2,
+        "country": "Algeria",
+        "last_update": "2006-02-15 09:44:00"
+      },
+      {
+        "country_id": 3,
+        "country": "American Samoa",
+        "last_update": "2006-02-15 09:44:00"
+      },
+      {
+        "country_id": 4,
+        "country": "Angola",
+        "last_update": "2006-02-15 09:44:00"
+      },
+      {
+        "country_id": 5,
+        "country": "Anguilla",
+        "last_update": "2006-02-15 09:44:00"
+      }
+    ]
+  },
+  "llm_enhanced_at": "2026-01-06T10:56:19.675542"
+}

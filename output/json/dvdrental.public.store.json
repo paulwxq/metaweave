@@ -1,0 +1,323 @@
+{
+  "metadata_version": "2.0",
+  "generated_timestamp": "2026-01-06T10:56:04.647338",
+  "table_info": {
+    "database": "dvdrental",
+    "schema_name": "public",
+    "table_name": "store",
+    "table_type": "table",
+    "comment": "门店信息表，存储门店及其管理员和地址信息",
+    "comment_source": "ddl",
+    "total_rows": 2,
+    "total_columns": 4
+  },
+  "column_profiles": {
+    "store_id": {
+      "column_name": "store_id",
+      "ordinal_position": 1,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": "nextval('store_store_id_seq'::regclass)",
+      "comment": "门店唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 2,
+        "unique_count": 2,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "min": "1",
+        "max": "2",
+        "mean": "1.5",
+        "value_distribution": {
+          "1": 1,
+          "2": 1
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": true,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": true
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": true,
+          "composite_columns": null
+        }
+      }
+    },
+    "manager_staff_id": {
+      "column_name": "manager_staff_id",
+      "ordinal_position": 2,
+      "data_type": "smallint",
+      "character_maximum_length": null,
+      "numeric_precision": 16,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "门店经理员工ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 2,
+        "unique_count": 2,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "min": "1",
+        "max": "2",
+        "mean": "1.5",
+        "value_distribution": {
+          "1": 1,
+          "2": 1
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:foreign_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": true,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "foreign_key",
+          "is_surrogate": false
+        },
+        "foreign_key_info": {
+          "target_schema": "public",
+          "target_table": "staff",
+          "target_columns": [
+            "staff_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        }
+      }
+    },
+    "address_id": {
+      "column_name": "address_id",
+      "ordinal_position": 3,
+      "data_type": "smallint",
+      "character_maximum_length": null,
+      "numeric_precision": 16,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "门店地址关联ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 2,
+        "unique_count": 2,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "min": "1",
+        "max": "2",
+        "mean": "1.5",
+        "value_distribution": {
+          "1": 1,
+          "2": 1
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:foreign_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": true,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "foreign_key",
+          "is_surrogate": false
+        },
+        "foreign_key_info": {
+          "target_schema": "public",
+          "target_table": "address",
+          "target_columns": [
+            "address_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        }
+      }
+    },
+    "last_update": {
+      "column_name": "last_update",
+      "ordinal_position": 4,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": "now()",
+      "comment": "最后更新时间戳",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 2,
+        "unique_count": 1,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.5,
+        "value_distribution": {
+          "2006-02-15 09:57:12": 2
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {}
+    }
+  },
+  "table_profile": {
+    "table_category": "dim",
+    "confidence": 0.95,
+    "inference_basis": [
+      "llm_inferred"
+    ],
+    "physical_constraints": {
+      "primary_key": {
+        "constraint_name": "store_pkey",
+        "columns": [
+          "store_id"
+        ]
+      },
+      "foreign_keys": [
+        {
+          "constraint_name": "store_address_id_fkey",
+          "source_columns": [
+            "address_id"
+          ],
+          "target_schema": "public",
+          "target_table": "address",
+          "target_columns": [
+            "address_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        },
+        {
+          "constraint_name": "store_manager_staff_id_fkey",
+          "source_columns": [
+            "manager_staff_id"
+          ],
+          "target_schema": "public",
+          "target_table": "staff",
+          "target_columns": [
+            "staff_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        }
+      ],
+      "unique_constraints": []
+    },
+    "indexes": [],
+    "column_statistics": {
+      "total_columns": 4,
+      "identifier_count": 3,
+      "metric_count": 0,
+      "datetime_count": 0,
+      "enum_count": 0,
+      "audit_count": 0,
+      "attribute_count": 1,
+      "primary_key_count": 1,
+      "foreign_key_count": 2
+    },
+    "table_category_rule_based": "bridge",
+    "confidence_rule_based": 0.85,
+    "inference_basis_rule_based": [
+      "bridge_fk_threshold"
+    ]
+  },
+  "sample_records": {
+    "sample_method": "random",
+    "sample_size": 2,
+    "total_rows": 2,
+    "records": [
+      {
+        "store_id": 1,
+        "manager_staff_id": 1,
+        "address_id": 1,
+        "last_update": "2006-02-15 09:57:12"
+      },
+      {
+        "store_id": 2,
+        "manager_staff_id": 2,
+        "address_id": 2,
+        "last_update": "2006-02-15 09:57:12"
+      }
+    ]
+  },
+  "llm_enhanced_at": "2026-01-06T10:57:06.353962"
+}

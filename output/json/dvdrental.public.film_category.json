@@ -1,0 +1,288 @@
+{
+  "metadata_version": "2.0",
+  "generated_timestamp": "2026-01-06T10:56:04.481118",
+  "table_info": {
+    "database": "dvdrental",
+    "schema_name": "public",
+    "table_name": "film_category",
+    "table_type": "table",
+    "comment": "电影分类关联表，记录电影与所属分类的对应关系",
+    "comment_source": "ddl",
+    "total_rows": 1000,
+    "total_columns": 3
+  },
+  "column_profiles": {
+    "film_id": {
+      "column_name": "film_id",
+      "ordinal_position": 1,
+      "data_type": "smallint",
+      "character_maximum_length": null,
+      "numeric_precision": 16,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "电影唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1000,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "min": "1",
+        "max": "1000",
+        "mean": "500.5"
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": true,
+        "is_foreign_key": true,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": false
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": false,
+          "composite_columns": [
+            "film_id",
+            "category_id"
+          ]
+        },
+        "foreign_key_info": {
+          "target_schema": "public",
+          "target_table": "film",
+          "target_columns": [
+            "film_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        }
+      }
+    },
+    "category_id": {
+      "column_name": "category_id",
+      "ordinal_position": 2,
+      "data_type": "smallint",
+      "character_maximum_length": null,
+      "numeric_precision": 16,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "影片分类唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 16,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.016,
+        "min": "1",
+        "max": "16",
+        "mean": "8.478"
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": true,
+        "is_foreign_key": true,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": false
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": false,
+          "composite_columns": [
+            "film_id",
+            "category_id"
+          ]
+        },
+        "foreign_key_info": {
+          "target_schema": "public",
+          "target_table": "category",
+          "target_columns": [
+            "category_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        }
+      }
+    },
+    "last_update": {
+      "column_name": "last_update",
+      "ordinal_position": 3,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": "now()",
+      "comment": "最后更新时间戳",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.001,
+        "value_distribution": {
+          "2006-02-15 10:07:09": 1000
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {}
+    }
+  },
+  "table_profile": {
+    "table_category": "bridge",
+    "confidence": 0.95,
+    "inference_basis": [
+      "llm_inferred"
+    ],
+    "physical_constraints": {
+      "primary_key": {
+        "constraint_name": "film_category_pkey",
+        "columns": [
+          "film_id",
+          "category_id"
+        ]
+      },
+      "foreign_keys": [
+        {
+          "constraint_name": "film_category_category_id_fkey",
+          "source_columns": [
+            "category_id"
+          ],
+          "target_schema": "public",
+          "target_table": "category",
+          "target_columns": [
+            "category_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        },
+        {
+          "constraint_name": "film_category_film_id_fkey",
+          "source_columns": [
+            "film_id"
+          ],
+          "target_schema": "public",
+          "target_table": "film",
+          "target_columns": [
+            "film_id"
+          ],
+          "on_delete": "RESTRICT ON UPDATE CASCADE",
+          "on_update": "CASCADE"
+        }
+      ],
+      "unique_constraints": []
+    },
+    "indexes": [],
+    "column_statistics": {
+      "total_columns": 3,
+      "identifier_count": 2,
+      "metric_count": 0,
+      "datetime_count": 0,
+      "enum_count": 0,
+      "audit_count": 0,
+      "attribute_count": 1,
+      "primary_key_count": 2,
+      "foreign_key_count": 2
+    },
+    "table_category_rule_based": "bridge",
+    "confidence_rule_based": 0.85,
+    "inference_basis_rule_based": [
+      "bridge_fk_threshold"
+    ]
+  },
+  "sample_records": {
+    "sample_method": "random",
+    "sample_size": 5,
+    "total_rows": 1000,
+    "records": [
+      {
+        "film_id": 1,
+        "category_id": 6,
+        "last_update": "2006-02-15 10:07:09"
+      },
+      {
+        "film_id": 2,
+        "category_id": 11,
+        "last_update": "2006-02-15 10:07:09"
+      },
+      {
+        "film_id": 3,
+        "category_id": 6,
+        "last_update": "2006-02-15 10:07:09"
+      },
+      {
+        "film_id": 4,
+        "category_id": 11,
+        "last_update": "2006-02-15 10:07:09"
+      },
+      {
+        "film_id": 5,
+        "category_id": 8,
+        "last_update": "2006-02-15 10:07:09"
+      }
+    ]
+  },
+  "llm_enhanced_at": "2026-01-06T10:56:33.764511"
+}
