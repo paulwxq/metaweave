@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.category
--- Comment: 电影分类表，存储影片分类名称及更新时间
--- Generated: 2026-01-06 10:55:03
+-- Comment: 电影分类表，存储影片类别的名称及更新时间
+-- Generated: 2026-01-06 12:15:31
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.category (
@@ -14,11 +14,11 @@ CREATE TABLE IF NOT EXISTS public.category (
 
 -- Column Comments
 COMMENT ON COLUMN public.category.category_id IS '分类唯一标识ID';
-COMMENT ON COLUMN public.category.name IS '分类名称';
+COMMENT ON COLUMN public.category.name IS '分类名称（如动作、动画、儿童等）';
 COMMENT ON COLUMN public.category.last_update IS '最后更新时间';
 
 -- Table Comment
-COMMENT ON TABLE public.category IS '电影分类表，存储影片分类名称及更新时间';
+COMMENT ON TABLE public.category IS '电影分类表，存储影片类别的名称及更新时间';
 
 /* SAMPLE_RECORDS
 {

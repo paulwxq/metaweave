@@ -21,6 +21,7 @@ class Relation:
         target_columns: 目标列名列表
         relationship_type: 关系类型（foreign_key | inferred）
         cardinality: 基数（1:1 | 1:N | N:1 | M:N）
+        constraint_name: 外键约束名（仅外键关系有值）
         composite_score: 综合评分（仅推断关系有值，0-1）
         score_details: 评分明细（4个维度：inclusion_rate, name_similarity, type_compatibility, jaccard_index）
         inference_method: 推断方法（如single_active_search, composite_physical等）
@@ -34,6 +35,7 @@ class Relation:
     target_columns: List[str]
     relationship_type: str  # foreign_key | inferred
     cardinality: str = "N:1"  # 默认多对一
+    constraint_name: Optional[str] = None  # 外键约束名
     composite_score: Optional[float] = None
     score_details: Optional[Dict[str, float]] = None
     inference_method: Optional[str] = None

@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-06T10:56:04.647338",
+  "generated_timestamp": "2026-01-06T12:16:18.344694",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "rental",
     "table_type": "table",
-    "comment": "租赁记录表，存储影片租赁的详细信息及租还时间",
+    "comment": "租赁记录表，存储影片租赁的借还时间、客户及员工信息",
     "comment_source": "ddl",
     "total_rows": 16044,
     "total_columns": 7
@@ -524,5 +524,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-01-06T10:57:01.499127"
+  "llm_enhanced_at": "2026-01-06T12:17:14.483019"
 }

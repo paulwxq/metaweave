@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.language
--- Comment: 语言信息表，存储电影支持的语言种类及更新时间
--- Generated: 2026-01-06 10:55:16
+-- Comment: 语言信息表，存储电影支持的语言种类及名称
+-- Generated: 2026-01-06 12:15:43
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.language (
@@ -13,12 +13,12 @@ CREATE TABLE IF NOT EXISTS public.language (
 );
 
 -- Column Comments
-COMMENT ON COLUMN public.language.language_id IS '语言记录的唯一标识ID';
+COMMENT ON COLUMN public.language.language_id IS '语言唯一标识ID';
 COMMENT ON COLUMN public.language.name IS '语言名称';
-COMMENT ON COLUMN public.language.last_update IS '记录最后更新时间';
+COMMENT ON COLUMN public.language.last_update IS '最后更新时间';
 
 -- Table Comment
-COMMENT ON TABLE public.language IS '语言信息表，存储电影支持的语言种类及更新时间';
+COMMENT ON TABLE public.language IS '语言信息表，存储电影支持的语言种类及名称';
 
 /* SAMPLE_RECORDS
 {

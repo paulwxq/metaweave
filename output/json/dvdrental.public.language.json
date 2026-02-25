@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-06T10:56:04.544853",
+  "generated_timestamp": "2026-01-06T12:16:18.251584",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "language",
     "table_type": "table",
-    "comment": "语言信息表，存储电影支持的语言种类及更新时间",
+    "comment": "语言信息表，存储电影支持的语言种类及名称",
     "comment_source": "ddl",
     "total_rows": 6,
     "total_columns": 3
@@ -21,7 +21,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": "nextval('language_language_id_seq'::regclass)",
-      "comment": "语言记录的唯一标识ID",
+      "comment": "语言唯一标识ID",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 6,
@@ -137,7 +137,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": "now()",
-      "comment": "记录最后更新时间",
+      "comment": "最后更新时间",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 6,
@@ -239,5 +239,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-01-06T10:56:42.846986"
+  "llm_enhanced_at": "2026-01-06T12:16:50.982814"
 }

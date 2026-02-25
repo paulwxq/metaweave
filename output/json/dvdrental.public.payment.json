@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-06T10:56:04.577817",
+  "generated_timestamp": "2026-01-06T12:16:18.268031",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "payment",
     "table_type": "table",
-    "comment": "支付记录表，存储客户租赁交易的付款信息",
+    "comment": "支付记录表，存储客户租赁订单的付款金额及时间信息",
     "comment_source": "ddl",
     "total_rows": 14596,
     "total_columns": 6
@@ -326,7 +326,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "支付时间",
+      "comment": "支付发生的时间",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -516,5 +516,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-01-06T10:56:57.195507"
+  "llm_enhanced_at": "2026-01-06T12:17:02.541580"
 }

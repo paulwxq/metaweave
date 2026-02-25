@@ -1,7 +1,7 @@
 // import_all.dvdrental.cypher
 // Neo4j 元数据导入脚本（global 模式，包含所有表和关系）
-// 生成时间: 2026-01-06T10:59:49.943812
-// 统计: 15 张表, 86 个列, 26 个关系
+// 生成时间: 2026-01-06T12:18:44.539165
+// 统计: 15 张表, 86 个列, 25 个关系
 
 // =====================================================================
 // 1. 创建唯一约束
@@ -46,7 +46,7 @@
     "full_name": "public.address",
     "schema": "public",
     "name": "address",
-    "comment": "地址信息表，存储客户或机构的详细联系地址及区域归属",
+    "comment": "地址信息表，存储客户的详细地址及联系方式",
     "pk": [
       "address_id"
     ],
@@ -73,7 +73,7 @@
     "full_name": "public.category",
     "schema": "public",
     "name": "category",
-    "comment": "电影分类表，存储影片分类名称及更新时间",
+    "comment": "电影分类表，存储影片类别的名称及更新时间",
     "pk": [
       "category_id"
     ],
@@ -204,7 +204,7 @@
     "full_name": "public.film_actor",
     "schema": "public",
     "name": "film_actor",
-    "comment": "演员影片关联表，记录演员参演的电影及更新时间",
+    "comment": "演员影片关联表，记录演员参演的电影及最后更新时间",
     "pk": [
       "actor_id",
       "film_id"
@@ -262,7 +262,7 @@
     "full_name": "public.inventory",
     "schema": "public",
     "name": "inventory",
-    "comment": "库存记录表，存储影片在各门店的库存情况",
+    "comment": "库存信息表，记录影片在各门店的库存情况及更新时间",
     "pk": [
       "inventory_id"
     ],
@@ -290,7 +290,7 @@
     "full_name": "public.language",
     "schema": "public",
     "name": "language",
-    "comment": "语言信息表，存储电影支持的语言种类及更新时间",
+    "comment": "语言信息表，存储电影支持的语言种类及名称",
     "pk": [
       "language_id"
     ],
@@ -309,7 +309,7 @@
     "full_name": "public.payment",
     "schema": "public",
     "name": "payment",
-    "comment": "支付记录表，存储客户租赁交易的付款信息",
+    "comment": "支付记录表，存储客户租赁订单的付款金额及时间信息",
     "pk": [
       "payment_id"
     ],
@@ -348,7 +348,7 @@
     "full_name": "public.rental",
     "schema": "public",
     "name": "rental",
-    "comment": "租赁记录表，存储影片租赁的详细信息及租还时间",
+    "comment": "租赁记录表，存储影片租赁的借还时间、客户及员工信息",
     "pk": [
       "rental_id"
     ],
@@ -404,7 +404,7 @@
     "full_name": "public.store",
     "schema": "public",
     "name": "store",
-    "comment": "门店信息表，存储门店及其管理员和地址信息",
+    "comment": "门店信息表，存储门店的管理人、地址及最后更新时间",
     "pk": [
       "store_id"
     ],
@@ -556,7 +556,7 @@
     "schema": "public",
     "table": "address",
     "name": "address",
-    "comment": "详细地址信息",
+    "comment": "详细街道地址",
     "data_type": "character varying",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -575,7 +575,7 @@
     "schema": "public",
     "table": "address",
     "name": "address2",
-    "comment": "补充地址信息",
+    "comment": "额外地址信息（可选）",
     "data_type": "character varying",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -594,7 +594,7 @@
     "schema": "public",
     "table": "address",
     "name": "district",
-    "comment": "所属行政区或地区",
+    "comment": "所属行政区或地区名称",
     "data_type": "character varying",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -613,7 +613,7 @@
     "schema": "public",
     "table": "address",
     "name": "city_id",
-    "comment": "城市唯一标识ID",
+    "comment": "所属城市唯一标识ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -651,7 +651,7 @@
     "schema": "public",
     "table": "address",
     "name": "phone",
-    "comment": "联系电话",
+    "comment": "联系电话号码",
     "data_type": "character varying",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -670,7 +670,7 @@
     "schema": "public",
     "table": "address",
     "name": "last_update",
-    "comment": "最后更新时间",
+    "comment": "最后更新时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -708,7 +708,7 @@
     "schema": "public",
     "table": "category",
     "name": "name",
-    "comment": "分类名称",
+    "comment": "分类名称（如动作、动画、儿童等）",
     "data_type": "character varying",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -993,7 +993,7 @@
     "schema": "public",
     "table": "customer",
     "name": "activebool",
-    "comment": "是否激活账户（True-是，False-否）",
+    "comment": "是否激活状态（True-是，False-否）",
     "data_type": "boolean",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1126,7 +1126,7 @@
     "schema": "public",
     "table": "film",
     "name": "release_year",
-    "comment": "发行年份",
+    "comment": "电影发布年份",
     "data_type": "integer",
     "semantic_role": "datetime",
     "is_pk": false,
@@ -1183,7 +1183,7 @@
     "schema": "public",
     "table": "film",
     "name": "rental_rate",
-    "comment": "租借费率",
+    "comment": "租借费用",
     "data_type": "numeric",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1221,7 +1221,7 @@
     "schema": "public",
     "table": "film",
     "name": "replacement_cost",
-    "comment": "替换成本费用",
+    "comment": "替换成本（丢失赔偿价）",
     "data_type": "numeric",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1240,7 +1240,7 @@
     "schema": "public",
     "table": "film",
     "name": "rating",
-    "comment": "分级评级（如PG、R等）",
+    "comment": "电影分级（如PG、R等）",
     "data_type": "user-defined",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1259,7 +1259,7 @@
     "schema": "public",
     "table": "film",
     "name": "last_update",
-    "comment": "最后更新时间",
+    "comment": "记录最后更新时间",
     "data_type": "timestamp without time zone",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1278,7 +1278,7 @@
     "schema": "public",
     "table": "film",
     "name": "special_features",
-    "comment": "特别收录特性列表",
+    "comment": "特别收录内容（如花絮、预告片等）",
     "data_type": "array",
     "semantic_role": "complex",
     "is_pk": false,
@@ -1411,7 +1411,7 @@
     "schema": "public",
     "table": "film_category",
     "name": "last_update",
-    "comment": "最后更新时间戳",
+    "comment": "记录最后更新时间",
     "data_type": "timestamp without time zone",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1449,7 +1449,7 @@
     "schema": "public",
     "table": "inventory",
     "name": "film_id",
-    "comment": "电影信息关联ID",
+    "comment": "电影影片的唯一标识ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1468,7 +1468,7 @@
     "schema": "public",
     "table": "inventory",
     "name": "store_id",
-    "comment": "门店信息关联ID",
+    "comment": "门店的唯一标识ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1506,7 +1506,7 @@
     "schema": "public",
     "table": "language",
     "name": "language_id",
-    "comment": "语言记录的唯一标识ID",
+    "comment": "语言唯一标识ID",
     "data_type": "integer",
     "semantic_role": "identifier",
     "is_pk": true,
@@ -1544,7 +1544,7 @@
     "schema": "public",
     "table": "language",
     "name": "last_update",
-    "comment": "记录最后更新时间",
+    "comment": "最后更新时间",
     "data_type": "timestamp without time zone",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1658,7 +1658,7 @@
     "schema": "public",
     "table": "payment",
     "name": "payment_date",
-    "comment": "支付时间",
+    "comment": "支付发生的时间",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -2000,7 +2000,7 @@
     "schema": "public",
     "table": "staff",
     "name": "picture",
-    "comment": "员工照片（二进制）",
+    "comment": "员工照片（二进制数据）",
     "data_type": "bytea",
     "semantic_role": "complex",
     "is_pk": false,
@@ -2467,10 +2467,10 @@ MERGE (t)-[:HAS_COLUMN]->(c);
 
 UNWIND [
   {
-    "src_full_name": "public.address",
-    "dst_full_name": "public.city",
+    "source_table": "public.address",
+    "target_table": "public.city",
     "cardinality": "1:1",
-    "constraint_name": null,
+    "constraint_name": "fk_address_city",
     "join_type": "INNER JOIN",
     "on": "SRC.city_id = DST.city_id",
     "source_columns": [
@@ -2478,13 +2478,15 @@ UNWIND [
     ],
     "target_columns": [
       "city_id"
-    ]
+    ],
+    "src_full_name": "public.address",
+    "dst_full_name": "public.city"
   },
   {
-    "src_full_name": "public.city",
-    "dst_full_name": "public.country",
+    "source_table": "public.city",
+    "target_table": "public.country",
     "cardinality": "N:1",
-    "constraint_name": null,
+    "constraint_name": "fk_city",
     "join_type": "INNER JOIN",
     "on": "SRC.country_id = DST.country_id",
     "source_columns": [
@@ -2492,13 +2494,15 @@ UNWIND [
     ],
     "target_columns": [
       "country_id"
-    ]
+    ],
+    "src_full_name": "public.city",
+    "dst_full_name": "public.country"
   },
   {
-    "src_full_name": "public.customer",
-    "dst_full_name": "public.address",
+    "source_table": "public.customer",
+    "target_table": "public.address",
     "cardinality": "1:1",
-    "constraint_name": null,
+    "constraint_name": "customer_address_id_fkey",
     "join_type": "INNER JOIN",
     "on": "SRC.address_id = DST.address_id",
     "source_columns": [
@@ -2506,13 +2510,15 @@ UNWIND [
     ],
     "target_columns": [
       "address_id"
-    ]
+    ],
+    "src_full_name": "public.customer",
+    "dst_full_name": "public.address"
   },
   {
-    "src_full_name": "public.film",
-    "dst_full_name": "public.language",
+    "source_table": "public.film",
+    "target_table": "public.language",
     "cardinality": "N:1",
-    "constraint_name": null,
+    "constraint_name": "film_language_id_fkey",
     "join_type": "INNER JOIN",
     "on": "SRC.language_id = DST.language_id",
     "source_columns": [
@@ -2520,13 +2526,15 @@ UNWIND [
     ],
     "target_columns": [
       "language_id"
-    ]
+    ],
+    "src_full_name": "public.film",
+    "dst_full_name": "public.language"
   },
   {
-    "src_full_name": "public.film_actor",
-    "dst_full_name": "public.actor",
+    "source_table": "public.film_actor",
+    "target_table": "public.actor",
     "cardinality": "N:1",
-    "constraint_name": null,
+    "constraint_name": "film_actor_actor_id_fkey",
     "join_type": "INNER JOIN",
     "on": "SRC.actor_id = DST.actor_id",
     "source_columns": [
@@ -2534,13 +2542,15 @@ UNWIND [
     ],
     "target_columns": [
       "actor_id"
-    ]
+    ],
+    "src_full_name": "public.film_actor",
+    "dst_full_name": "public.actor"
   },
   {
-    "src_full_name": "public.film_actor",
-    "dst_full_name": "public.film",
+    "source_table": "public.film_actor",
+    "target_table": "public.film",
     "cardinality": "N:1",
-    "constraint_name": null,
+    "constraint_name": "film_actor_film_id_fkey",
     "join_type": "INNER JOIN",
     "on": "SRC.film_id = DST.film_id",
     "source_columns": [
@@ -2548,13 +2558,15 @@ UNWIND [
     ],
     "target_columns": [
       "film_id"
-    ]
+    ],
+    "src_full_name": "public.film_actor",
+    "dst_full_name": "public.film"
   },
   {
-    "src_full_name": "public.film_category",
-    "dst_full_name": "public.category",
+    "source_table": "public.film_category",
+    "target_table": "public.category",
     "cardinality": "N:1",
-    "constraint_name": null,
+    "constraint_name": "film_category_category_id_fkey",
     "join_type": "INNER JOIN",
     "on": "SRC.category_id = DST.category_id",
     "source_columns": [
@@ -2562,13 +2574,15 @@ UNWIND [
     ],
     "target_columns": [
       "category_id"
-    ]
-  },
-  {
+    ],
     "src_full_name": "public.film_category",
-    "dst_full_name": "public.film",
+    "dst_full_name": "public.category"
+  },
+  {
+    "source_table": "public.film_category",
+    "target_table": "public.film",
     "cardinality": "1:1",
-    "constraint_name": null,
+    "constraint_name": "film_category_film_id_fkey",
     "join_type": "INNER JOIN",
     "on": "SRC.film_id = DST.film_id",
     "source_columns": [
@@ -2576,27 +2590,31 @@ UNWIND [
     ],
     "target_columns": [
       "film_id"
-    ]
+    ],
+    "src_full_name": "public.film_category",
+    "dst_full_name": "public.film"
   },
   {
+    "source_table": "public.inventory",
+    "target_table": "public.film",
+    "cardinality": "N:1",
+    "constraint_name": "inventory_film_id_fkey",
+    "join_type": "INNER JOIN",
+    "on": "SRC.film_id = DST.film_id",
+    "source_columns": [
+      "film_id"
+    ],
+    "target_columns": [
+      "film_id"
+    ],
     "src_full_name": "public.inventory",
-    "dst_full_name": "public.film",
-    "cardinality": "N:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.film_id = DST.film_id",
-    "source_columns": [
-      "film_id"
-    ],
-    "target_columns": [
-      "film_id"
-    ]
+    "dst_full_name": "public.film"
   },
   {
-    "src_full_name": "public.payment",
-    "dst_full_name": "public.customer",
+    "source_table": "public.payment",
+    "target_table": "public.customer",
     "cardinality": "N:1",
-    "constraint_name": null,
+    "constraint_name": "payment_customer_id_fkey",
     "join_type": "INNER JOIN",
     "on": "SRC.customer_id = DST.customer_id",
     "source_columns": [
@@ -2604,13 +2622,15 @@ UNWIND [
     ],
     "target_columns": [
       "customer_id"
-    ]
+    ],
+    "src_full_name": "public.payment",
+    "dst_full_name": "public.customer"
   },
   {
-    "src_full_name": "public.payment",
-    "dst_full_name": "public.rental",
+    "source_table": "public.payment",
+    "target_table": "public.rental",
     "cardinality": "1:1",
-    "constraint_name": null,
+    "constraint_name": "payment_rental_id_fkey",
     "join_type": "INNER JOIN",
     "on": "SRC.rental_id = DST.rental_id",
     "source_columns": [
@@ -2618,13 +2638,15 @@ UNWIND [
     ],
     "target_columns": [
       "rental_id"
-    ]
+    ],
+    "src_full_name": "public.payment",
+    "dst_full_name": "public.rental"
   },
   {
-    "src_full_name": "public.payment",
-    "dst_full_name": "public.staff",
+    "source_table": "public.payment",
+    "target_table": "public.staff",
     "cardinality": "N:1",
-    "constraint_name": null,
+    "constraint_name": "payment_staff_id_fkey",
     "join_type": "INNER JOIN",
     "on": "SRC.staff_id = DST.staff_id",
     "source_columns": [
@@ -2632,13 +2654,15 @@ UNWIND [
     ],
     "target_columns": [
       "staff_id"
-    ]
+    ],
+    "src_full_name": "public.payment",
+    "dst_full_name": "public.staff"
   },
   {
-    "src_full_name": "public.rental",
-    "dst_full_name": "public.customer",
+    "source_table": "public.rental",
+    "target_table": "public.customer",
     "cardinality": "N:1",
-    "constraint_name": null,
+    "constraint_name": "rental_customer_id_fkey",
     "join_type": "INNER JOIN",
     "on": "SRC.customer_id = DST.customer_id",
     "source_columns": [
@@ -2646,13 +2670,15 @@ UNWIND [
     ],
     "target_columns": [
       "customer_id"
-    ]
+    ],
+    "src_full_name": "public.rental",
+    "dst_full_name": "public.customer"
   },
   {
-    "src_full_name": "public.rental",
-    "dst_full_name": "public.inventory",
+    "source_table": "public.rental",
+    "target_table": "public.inventory",
     "cardinality": "1:1",
-    "constraint_name": null,
+    "constraint_name": "rental_inventory_id_fkey",
     "join_type": "INNER JOIN",
     "on": "SRC.inventory_id = DST.inventory_id",
     "source_columns": [
@@ -2660,13 +2686,15 @@ UNWIND [
     ],
     "target_columns": [
       "inventory_id"
-    ]
+    ],
+    "src_full_name": "public.rental",
+    "dst_full_name": "public.inventory"
   },
   {
-    "src_full_name": "public.rental",
-    "dst_full_name": "public.staff",
+    "source_table": "public.rental",
+    "target_table": "public.staff",
     "cardinality": "N:1",
-    "constraint_name": null,
+    "constraint_name": "rental_staff_id_key",
     "join_type": "INNER JOIN",
     "on": "SRC.staff_id = DST.staff_id",
     "source_columns": [
@@ -2674,13 +2702,31 @@ UNWIND [
     ],
     "target_columns": [
       "staff_id"
-    ]
+    ],
+    "src_full_name": "public.rental",
+    "dst_full_name": "public.staff"
   },
   {
+    "source_table": "public.staff",
+    "target_table": "public.address",
+    "cardinality": "1:1",
+    "constraint_name": "staff_address_id_fkey",
+    "join_type": "INNER JOIN",
+    "on": "SRC.address_id = DST.address_id",
+    "source_columns": [
+      "address_id"
+    ],
+    "target_columns": [
+      "address_id"
+    ],
     "src_full_name": "public.staff",
-    "dst_full_name": "public.address",
+    "dst_full_name": "public.address"
+  },
+  {
+    "source_table": "public.store",
+    "target_table": "public.address",
     "cardinality": "1:1",
-    "constraint_name": null,
+    "constraint_name": "store_address_id_fkey",
     "join_type": "INNER JOIN",
     "on": "SRC.address_id = DST.address_id",
     "source_columns": [
@@ -2688,27 +2734,15 @@ UNWIND [
     ],
     "target_columns": [
       "address_id"
-    ]
-  },
-  {
-    "src_full_name": "public.store",
-    "dst_full_name": "public.address",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.address_id = DST.address_id",
-    "source_columns": [
-      "address_id"
     ],
-    "target_columns": [
-      "address_id"
-    ]
+    "src_full_name": "public.store",
+    "dst_full_name": "public.address"
   },
   {
-    "src_full_name": "public.store",
-    "dst_full_name": "public.staff",
+    "source_table": "public.store",
+    "target_table": "public.staff",
     "cardinality": "1:1",
-    "constraint_name": null,
+    "constraint_name": "store_manager_staff_id_fkey",
     "join_type": "INNER JOIN",
     "on": "SRC.manager_staff_id = DST.staff_id",
     "source_columns": [
@@ -2716,11 +2750,13 @@ UNWIND [
     ],
     "target_columns": [
       "staff_id"
-    ]
+    ],
+    "src_full_name": "public.store",
+    "dst_full_name": "public.staff"
   },
   {
-    "src_full_name": "public.customer",
-    "dst_full_name": "public.inventory",
+    "source_table": "public.customer",
+    "target_table": "public.inventory",
     "cardinality": "M:N",
     "constraint_name": null,
     "join_type": "INNER JOIN",
@@ -2730,11 +2766,13 @@ UNWIND [
     ],
     "target_columns": [
       "store_id"
-    ]
+    ],
+    "src_full_name": "public.customer",
+    "dst_full_name": "public.inventory"
   },
   {
-    "src_full_name": "public.customer",
-    "dst_full_name": "public.store",
+    "source_table": "public.customer",
+    "target_table": "public.store",
     "cardinality": "N:1",
     "constraint_name": null,
     "join_type": "INNER JOIN",
@@ -2744,11 +2782,13 @@ UNWIND [
     ],
     "target_columns": [
       "store_id"
-    ]
+    ],
+    "src_full_name": "public.customer",
+    "dst_full_name": "public.store"
   },
   {
-    "src_full_name": "public.film_actor",
-    "dst_full_name": "public.film_category",
+    "source_table": "public.film_actor",
+    "target_table": "public.film_category",
     "cardinality": "N:1",
     "constraint_name": null,
     "join_type": "INNER JOIN",
@@ -2758,11 +2798,13 @@ UNWIND [
     ],
     "target_columns": [
       "film_id"
-    ]
+    ],
+    "src_full_name": "public.film_actor",
+    "dst_full_name": "public.film_category"
   },
   {
-    "src_full_name": "public.film_actor",
-    "dst_full_name": "public.film_category",
+    "source_table": "public.film_actor",
+    "target_table": "public.film_category",
     "cardinality": "N:1",
     "constraint_name": null,
     "join_type": "INNER JOIN",
@@ -2772,11 +2814,13 @@ UNWIND [
     ],
     "target_columns": [
       "film_id"
-    ]
+    ],
+    "src_full_name": "public.film_actor",
+    "dst_full_name": "public.film_category"
   },
   {
-    "src_full_name": "public.inventory",
-    "dst_full_name": "public.staff",
+    "source_table": "public.inventory",
+    "target_table": "public.staff",
     "cardinality": "N:1",
     "constraint_name": null,
     "join_type": "INNER JOIN",
@@ -2786,11 +2830,13 @@ UNWIND [
     ],
     "target_columns": [
       "store_id"
-    ]
+    ],
+    "src_full_name": "public.inventory",
+    "dst_full_name": "public.staff"
   },
   {
-    "src_full_name": "public.inventory",
-    "dst_full_name": "public.store",
+    "source_table": "public.inventory",
+    "target_table": "public.store",
     "cardinality": "N:1",
     "constraint_name": null,
     "join_type": "INNER JOIN",
@@ -2800,35 +2846,25 @@ UNWIND [
     ],
     "target_columns": [
       "store_id"
-    ]
-  },
-  {
-    "src_full_name": "public.payment",
-    "dst_full_name": "public.rental",
-    "cardinality": "M:N",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.customer_id = DST.customer_id",
-    "source_columns": [
-      "customer_id"
     ],
-    "target_columns": [
-      "customer_id"
-    ]
+    "src_full_name": "public.inventory",
+    "dst_full_name": "public.store"
   },
   {
-    "src_full_name": "public.payment",
-    "dst_full_name": "public.rental",
-    "cardinality": "M:N",
+    "source_table": "public.rental",
+    "target_table": "public.store",
+    "cardinality": "N:1",
     "constraint_name": null,
     "join_type": "INNER JOIN",
-    "on": "SRC.staff_id = DST.staff_id",
+    "on": "SRC.staff_id = DST.manager_staff_id",
     "source_columns": [
       "staff_id"
     ],
     "target_columns": [
-      "staff_id"
-    ]
+      "manager_staff_id"
+    ],
+    "src_full_name": "public.rental",
+    "dst_full_name": "public.store"
   }
 ] AS j
 MATCH (src:Table {full_name: j.src_full_name})
@@ -2839,4 +2875,6 @@ SET r.cardinality     = j.cardinality,
     r.join_type       = coalesce(j.join_type, 'INNER JOIN'),
     r.on              = j.on,
     r.source_columns  = j.source_columns,
-    r.target_columns  = j.target_columns;
+    r.target_columns  = j.target_columns,
+    r.source_table    = j.source_table,
+    r.target_table    = j.target_table;

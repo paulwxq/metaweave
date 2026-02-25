@@ -209,6 +209,12 @@ MERGE (t)-[:HAS_COLUMN]->(c);
 
         # 转换为 Cypher 参数格式
         rels_data = [r.to_cypher_dict() for r in rels]
+        
+        # 添加 src_full_name 和 dst_full_name 用于 MATCH（不存储到边属性）
+        for i, rel in enumerate(rels):
+            rels_data[i]["src_full_name"] = rel.src_full_name
+            rels_data[i]["dst_full_name"] = rel.dst_full_name
+        
         rels_json = json.dumps(rels_data, ensure_ascii=False, indent=2)
 
         content = f"""// 05_rels_join_on.cypher
@@ -223,7 +229,9 @@ SET r.cardinality     = j.cardinality,
     r.join_type       = coalesce(j.join_type, 'INNER JOIN'),
     r.on              = j.on,
     r.source_columns  = j.source_columns,
-    r.target_columns  = j.target_columns;
+    r.target_columns  = j.target_columns,
+    r.source_table    = j.source_table,
+    r.target_table    = j.target_table;
 """
 
         with open(output_file, "w", encoding="utf-8") as f:
@@ -250,6 +258,11 @@ SET r.cardinality     = j.cardinality,
         columns_data = [c.to_cypher_dict() for c in columns]
         has_column_data = [r.to_cypher_dict() for r in has_column_rels]
         join_on_data = [r.to_cypher_dict() for r in join_on_rels]
+        
+        # 添加 src_full_name 和 dst_full_name 用于 MATCH（不存储到边属性）
+        for i, rel in enumerate(join_on_rels):
+            join_on_data[i]["src_full_name"] = rel.src_full_name
+            join_on_data[i]["dst_full_name"] = rel.dst_full_name
 
         tables_json = json.dumps(tables_data, ensure_ascii=False, indent=2)
         columns_json = json.dumps(columns_data, ensure_ascii=False, indent=2)
@@ -344,7 +357,9 @@ SET r.cardinality     = j.cardinality,
     r.join_type       = coalesce(j.join_type, 'INNER JOIN'),
     r.on              = j.on,
     r.source_columns  = j.source_columns,
-    r.target_columns  = j.target_columns;
+    r.target_columns  = j.target_columns,
+    r.source_table    = j.source_table,
+    r.target_table    = j.target_table;
 """
 
         with open(output_file, "w", encoding="utf-8") as f:

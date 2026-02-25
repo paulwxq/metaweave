@@ -1,16 +1,16 @@
 # 表间关系发现报告
 database: dvdrental
 生成方式: rel_llm
-生成时间: 2026-01-06 10:58:59
-关系总数: 26
+生成时间: 2026-01-06 12:18:31
+关系总数: 25
 
 ## 统计摘要
 - 外键直通: 18
-- 推断关系: 8
+- 推断关系: 7
 - 复合键关系: 0
-- 单列关系: 26
+- 单列关系: 25
 - 高置信度 (≥0.9): 6
-- 中置信度 (0.8-0.9): 1
+- 中置信度 (0.8-0.9): 0
 
 ## 关系详情
 ### 1. public.address.city_id → public.city.city_id
@@ -199,28 +199,15 @@ database: dvdrental
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 25. public.payment.customer_id → public.rental.customer_id
-- **类型**: 单列
-- **源列**: `customer_id`
-- **目标列**: `customer_id`
-- **关系类型**: inferred
-- **置信度**: 0.833 (中)
-- **评分明细**:
-  - inclusion_rate: 0.806
-  - jaccard_index: 0.395
-  - name_similarity: 1.000
-  - type_compatibility: 1.000
-- **推断方法**: llm_assisted
-
-### 26. public.payment.staff_id → public.rental.staff_id
+### 25. public.rental.staff_id → public.store.manager_staff_id
 - **类型**: 单列
 - **源列**: `staff_id`
-- **目标列**: `staff_id`
+- **目标列**: `manager_staff_id`
 - **关系类型**: inferred
-- **置信度**: 1.000 (高)
+- **置信度**: 0.971 (高)
 - **评分明细**:
   - inclusion_rate: 1.000
   - jaccard_index: 1.000
-  - name_similarity: 1.000
+  - name_similarity: 0.856
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted

@@ -171,10 +171,16 @@ class JOINOnRelation:
     constraint_name: Optional[str] = None
 
     def to_cypher_dict(self) -> Dict[str, Any]:
-        """转换为 Cypher 参数字典"""
+        """转换为 Cypher 参数字典
+        
+        注意：
+        - src_full_name 和 dst_full_name 不包含在返回字典中
+        - 它们会在写入时临时添加，仅用于 MATCH 语句
+        - 边属性中使用 source_table 和 target_table 存储表名
+        """
         return {
-            "src_full_name": self.src_full_name,
-            "dst_full_name": self.dst_full_name,
+            "source_table": self.src_full_name,
+            "target_table": self.dst_full_name,
             "cardinality": self.cardinality,
             "constraint_name": self.constraint_name,
             "join_type": self.join_type,

@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-06T10:56:04.545818",
+  "generated_timestamp": "2026-01-06T12:16:18.249020",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
@@ -185,7 +185,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "发行年份",
+      "comment": "电影发布年份",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -361,7 +361,7 @@
       "numeric_scale": 2,
       "is_nullable": false,
       "column_default": "4.99",
-      "comment": "租借费率",
+      "comment": "租借费用",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -470,7 +470,7 @@
       "numeric_scale": 2,
       "is_nullable": false,
       "column_default": "19.99",
-      "comment": "替换成本费用",
+      "comment": "替换成本（丢失赔偿价）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -524,7 +524,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": "'G'::mpaa_rating",
-      "comment": "分级评级（如PG、R等）",
+      "comment": "电影分级（如PG、R等）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -576,7 +576,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": "now()",
-      "comment": "最后更新时间",
+      "comment": "记录最后更新时间",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -619,7 +619,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "特别收录特性列表",
+      "comment": "特别收录内容（如花絮、预告片等）",
       "comment_source": "ddl",
       "statistics": {},
       "semantic_analysis": {
@@ -784,5 +784,5 @@
     "total_rows": 1000,
     "records": []
   },
-  "llm_enhanced_at": "2026-01-06T10:56:48.400584"
+  "llm_enhanced_at": "2026-01-06T12:16:58.629028"
 }

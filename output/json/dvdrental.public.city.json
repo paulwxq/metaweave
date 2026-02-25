@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-06T10:56:04.406591",
+  "generated_timestamp": "2026-01-06T12:16:18.095692",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
@@ -324,5 +324,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-01-06T10:56:16.449356"
+  "llm_enhanced_at": "2026-01-06T12:16:29.867991"
 }

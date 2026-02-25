@@ -2,7 +2,7 @@
 -- Database: dvdrental
 -- Table: public.customer
 -- Comment: 客户信息表，存储客户的个人资料、联系方式及账户状态
--- Generated: 2026-01-06 10:55:11
+-- Generated: 2026-01-06 12:15:39
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.customer (
@@ -27,7 +27,7 @@ COMMENT ON COLUMN public.customer.first_name IS '客户名字';
 COMMENT ON COLUMN public.customer.last_name IS '客户姓氏';
 COMMENT ON COLUMN public.customer.email IS '客户电子邮箱地址';
 COMMENT ON COLUMN public.customer.address_id IS '关联地址的ID';
-COMMENT ON COLUMN public.customer.activebool IS '是否激活账户（True-是，False-否）';
+COMMENT ON COLUMN public.customer.activebool IS '是否激活状态（True-是，False-否）';
 COMMENT ON COLUMN public.customer.create_date IS '客户创建日期';
 COMMENT ON COLUMN public.customer.last_update IS '最后更新时间戳';
 COMMENT ON COLUMN public.customer.active IS '活跃状态（1-活跃，0-非活跃）';

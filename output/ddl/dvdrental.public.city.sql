@@ -2,7 +2,7 @@
 -- Database: dvdrental
 -- Table: public.city
 -- Comment: 城市信息表，存储全球城市名称及其所属国家和更新时间
--- Generated: 2026-01-06 10:55:04
+-- Generated: 2026-01-06 12:15:31
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.city (

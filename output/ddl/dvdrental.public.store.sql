@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.store
--- Comment: 门店信息表，存储门店及其管理员和地址信息
--- Generated: 2026-01-06 10:55:22
+-- Comment: 门店信息表，存储门店的管理人、地址及最后更新时间
+-- Generated: 2026-01-06 12:15:48
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.store (
@@ -22,7 +22,7 @@ COMMENT ON COLUMN public.store.address_id IS '门店地址关联ID';
 COMMENT ON COLUMN public.store.last_update IS '最后更新时间戳';
 
 -- Table Comment
-COMMENT ON TABLE public.store IS '门店信息表，存储门店及其管理员和地址信息';
+COMMENT ON TABLE public.store IS '门店信息表，存储门店的管理人、地址及最后更新时间';
 
 /* SAMPLE_RECORDS
 {

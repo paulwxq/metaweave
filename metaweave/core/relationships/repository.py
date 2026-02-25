@@ -133,7 +133,8 @@ class MetadataRepository:
                         target_table=target_table,
                         target_columns=target_columns,
                         relationship_type="foreign_key",
-                        cardinality=self._infer_cardinality(fk, tables, full_name, target_schema, target_table)
+                        cardinality=self._infer_cardinality(fk, tables, full_name, target_schema, target_table),
+                        constraint_name=fk.get("constraint_name")  # ✅ 提取外键约束名
                     )
 
                     pre_existing_relations.append(relation)

@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Communication Language
+
+**始终使用简体中文与用户交流。** Always communicate with the user in Simplified Chinese.
+
 ## Project Overview
 
 MetaWeave is a database metadata generation and enhancement platform that extracts metadata from PostgreSQL databases, generates data profiles, discovers table relationships, and exports to graph databases (Neo4j) and vector databases (Milvus). The project supports both traditional rule-based analysis and LLM-enhanced semantic understanding.

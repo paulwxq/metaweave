@@ -2,7 +2,7 @@
 -- Database: dvdrental
 -- Table: public.staff
 -- Comment: 员工信息表，存储门店员工的基本资料、联系方式及账户信息
--- Generated: 2026-01-06 10:55:24
+-- Generated: 2026-01-06 12:15:49
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.staff (
@@ -32,7 +32,7 @@ COMMENT ON COLUMN public.staff.active IS '是否在职（True-在职，False-离
 COMMENT ON COLUMN public.staff.username IS '登录用户名';
 COMMENT ON COLUMN public.staff.password IS '登录密码（加密存储）';
 COMMENT ON COLUMN public.staff.last_update IS '最后更新时间';
-COMMENT ON COLUMN public.staff.picture IS '员工照片（二进制）';
+COMMENT ON COLUMN public.staff.picture IS '员工照片（二进制数据）';
 
 -- Table Comment
 COMMENT ON TABLE public.staff IS '员工信息表，存储门店员工的基本资料、联系方式及账户信息';

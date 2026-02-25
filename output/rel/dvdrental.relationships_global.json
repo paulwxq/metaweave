@@ -5,17 +5,17 @@
   "json_metadata_version": "2.0",
   "json_files_loaded": 0,
   "database_queries_executed": 0,
-  "generated_timestamp": "2026-01-06T10:58:59.574367",
+  "generated_timestamp": "2026-01-06T12:18:31.770560",
   "statistics": {
-    "total_relationships_found": 26,
+    "total_relationships_found": 25,
     "foreign_key_relationships": 18,
     "composite_key_relationships": 0,
-    "single_column_relationships": 26,
+    "single_column_relationships": 25,
     "total_suppressed_single_relations": 0,
     "active_search_discoveries": 0,
     "dynamic_composite_discoveries": 0,
-    "llm_assisted_relationships": 8,
-    "rejected_low_confidence": 0
+    "llm_assisted_relationships": 7,
+    "rejected_low_confidence": 2
   },
   "relationships": [
     {
@@ -34,7 +34,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "1:1"
+      "cardinality": "1:1",
+      "constraint_name": "fk_address_city"
     },
     {
       "relationship_id": "rel_d705267786bd",
@@ -52,7 +53,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "N:1"
+      "cardinality": "N:1",
+      "constraint_name": "fk_city"
     },
     {
       "relationship_id": "rel_ca50b07f34cd",
@@ -70,7 +72,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "1:1"
+      "cardinality": "1:1",
+      "constraint_name": "customer_address_id_fkey"
     },
     {
       "relationship_id": "rel_4347df9ed304",
@@ -88,7 +91,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "N:1"
+      "cardinality": "N:1",
+      "constraint_name": "film_language_id_fkey"
     },
     {
       "relationship_id": "rel_7975161a5c77",
@@ -106,7 +110,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "N:1"
+      "cardinality": "N:1",
+      "constraint_name": "film_actor_actor_id_fkey"
     },
     {
       "relationship_id": "rel_762cea59559c",
@@ -124,7 +129,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "N:1"
+      "cardinality": "N:1",
+      "constraint_name": "film_actor_film_id_fkey"
     },
     {
       "relationship_id": "rel_31a00f7ba37e",
@@ -142,7 +148,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "N:1"
+      "cardinality": "N:1",
+      "constraint_name": "film_category_category_id_fkey"
     },
     {
       "relationship_id": "rel_8c655247780d",
@@ -160,7 +167,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "1:1"
+      "cardinality": "1:1",
+      "constraint_name": "film_category_film_id_fkey"
     },
     {
       "relationship_id": "rel_374971fbfb4c",
@@ -178,7 +186,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "N:1"
+      "cardinality": "N:1",
+      "constraint_name": "inventory_film_id_fkey"
     },
     {
       "relationship_id": "rel_a03796bb44ab",
@@ -196,7 +205,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "N:1"
+      "cardinality": "N:1",
+      "constraint_name": "payment_customer_id_fkey"
     },
     {
       "relationship_id": "rel_a6e3c91ae946",
@@ -214,7 +224,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "1:1"
+      "cardinality": "1:1",
+      "constraint_name": "payment_rental_id_fkey"
     },
     {
       "relationship_id": "rel_e3673554399e",
@@ -232,7 +243,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "N:1"
+      "cardinality": "N:1",
+      "constraint_name": "payment_staff_id_fkey"
     },
     {
       "relationship_id": "rel_fe65d2964034",
@@ -250,7 +262,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "N:1"
+      "cardinality": "N:1",
+      "constraint_name": "rental_customer_id_fkey"
     },
     {
       "relationship_id": "rel_f27973dfee19",
@@ -268,7 +281,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "1:1"
+      "cardinality": "1:1",
+      "constraint_name": "rental_inventory_id_fkey"
     },
     {
       "relationship_id": "rel_6aa74408d3a4",
@@ -286,7 +300,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "N:1"
+      "cardinality": "N:1",
+      "constraint_name": "rental_staff_id_key"
     },
     {
       "relationship_id": "rel_1b73ae91e640",
@@ -304,7 +319,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "1:1"
+      "cardinality": "1:1",
+      "constraint_name": "staff_address_id_fkey"
     },
     {
       "relationship_id": "rel_eea94f04c2ef",
@@ -322,7 +338,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "1:1"
+      "cardinality": "1:1",
+      "constraint_name": "store_address_id_fkey"
     },
     {
       "relationship_id": "rel_8c6394434103",
@@ -340,7 +357,8 @@
       "discovery_method": "foreign_key_constraint",
       "target_source_type": "foreign_key",
       "source_constraint": null,
-      "cardinality": "1:1"
+      "cardinality": "1:1",
+      "constraint_name": "store_manager_staff_id_fkey"
     },
     {
       "relationship_id": "rel_6a377d434b78",
@@ -499,56 +517,30 @@
       "cardinality": "N:1"
     },
     {
-      "relationship_id": "rel_118ebb423e3c",
+      "relationship_id": "rel_b09dbb9244b1",
       "type": "single_column",
       "from_table": {
         "schema": "public",
-        "table": "payment"
+        "table": "rental"
       },
       "to_table": {
         "schema": "public",
-        "table": "rental"
-      },
-      "from_column": "customer_id",
-      "to_column": "customer_id",
-      "discovery_method": "llm_assisted",
-      "target_source_type": "llm_inferred",
-      "source_constraint": null,
-      "composite_score": 0.8328,
-      "confidence_level": "medium",
-      "metrics": {
-        "inclusion_rate": 0.8061,
-        "jaccard_index": 0.3948,
-        "name_similarity": 1.0,
-        "type_compatibility": 1.0
-      },
-      "cardinality": "M:N"
-    },
-    {
-      "relationship_id": "rel_70a8a9565d5e",
-      "type": "single_column",
-      "from_table": {
-        "schema": "public",
-        "table": "payment"
-      },
-      "to_table": {
-        "schema": "public",
-        "table": "rental"
+        "table": "store"
       },
       "from_column": "staff_id",
-      "to_column": "staff_id",
+      "to_column": "manager_staff_id",
       "discovery_method": "llm_assisted",
       "target_source_type": "llm_inferred",
       "source_constraint": null,
-      "composite_score": 1.0,
+      "composite_score": 0.9712,
       "confidence_level": "high",
       "metrics": {
         "inclusion_rate": 1.0,
         "jaccard_index": 1.0,
-        "name_similarity": 1.0,
+        "name_similarity": 0.8559,
         "type_compatibility": 1.0
       },
-      "cardinality": "M:N"
+      "cardinality": "N:1"
     }
   ]
 }

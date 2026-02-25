@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-06T10:56:04.648339",
+  "generated_timestamp": "2026-01-06T12:16:18.323602",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
@@ -534,7 +534,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "员工照片（二进制）",
+      "comment": "员工照片（二进制数据）",
       "comment_source": "ddl",
       "statistics": {},
       "semantic_analysis": {
@@ -643,5 +643,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-01-06T10:57:10.360030"
+  "llm_enhanced_at": "2026-01-06T12:17:10.433451"
 }

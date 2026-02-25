@@ -2,7 +2,7 @@
 -- Database: dvdrental
 -- Table: public.film_category
 -- Comment: 电影分类关联表，记录电影与所属分类的对应关系
--- Generated: 2026-01-06 10:55:14
+-- Generated: 2026-01-06 12:15:42
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.film_category (
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS public.film_category (
 -- Column Comments
 COMMENT ON COLUMN public.film_category.film_id IS '电影唯一标识ID';
 COMMENT ON COLUMN public.film_category.category_id IS '影片分类唯一标识ID';
-COMMENT ON COLUMN public.film_category.last_update IS '最后更新时间戳';
+COMMENT ON COLUMN public.film_category.last_update IS '记录最后更新时间';
 
 -- Table Comment
 COMMENT ON TABLE public.film_category IS '电影分类关联表，记录电影与所属分类的对应关系';

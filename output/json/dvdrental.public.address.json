@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-06T10:56:04.427597",
+  "generated_timestamp": "2026-01-06T12:16:18.097692",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "address",
     "table_type": "table",
-    "comment": "地址信息表，存储客户或机构的详细联系地址及区域归属",
+    "comment": "地址信息表，存储客户的详细地址及联系方式",
     "comment_source": "ddl",
     "total_rows": 603,
     "total_columns": 8
@@ -76,7 +76,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "详细地址信息",
+      "comment": "详细街道地址",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 603,
@@ -127,7 +127,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "补充地址信息",
+      "comment": "额外地址信息（可选）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 603,
@@ -175,7 +175,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "所属行政区或地区",
+      "comment": "所属行政区或地区名称",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 603,
@@ -220,7 +220,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "城市唯一标识ID",
+      "comment": "所属城市唯一标识ID",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 603,
@@ -335,7 +335,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "联系电话",
+      "comment": "联系电话号码",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 603,
@@ -386,7 +386,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": "now()",
-      "comment": "最后更新时间",
+      "comment": "最后更新时间戳",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 603,
@@ -539,5 +539,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-01-06T10:56:24.568185"
+  "llm_enhanced_at": "2026-01-06T12:16:34.318985"
 }

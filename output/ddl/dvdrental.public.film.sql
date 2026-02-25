@@ -2,7 +2,7 @@
 -- Database: dvdrental
 -- Table: public.film
 -- Comment: 电影信息表，存储影片的基本信息、租赁属性和播放详情
--- Generated: 2026-01-06 10:55:11
+-- Generated: 2026-01-06 12:15:38
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.film (
@@ -27,15 +27,15 @@ CREATE TABLE IF NOT EXISTS public.film (
 COMMENT ON COLUMN public.film.film_id IS '电影唯一标识ID';
 COMMENT ON COLUMN public.film.title IS '电影标题';
 COMMENT ON COLUMN public.film.description IS '电影剧情描述';
-COMMENT ON COLUMN public.film.release_year IS '发行年份';
+COMMENT ON COLUMN public.film.release_year IS '电影发布年份';
 COMMENT ON COLUMN public.film.language_id IS '语言种类ID';
 COMMENT ON COLUMN public.film.rental_duration IS '租借时长（天）';
-COMMENT ON COLUMN public.film.rental_rate IS '租借费率';
+COMMENT ON COLUMN public.film.rental_rate IS '租借费用';
 COMMENT ON COLUMN public.film.length IS '电影时长（分钟）';
-COMMENT ON COLUMN public.film.replacement_cost IS '替换成本费用';
-COMMENT ON COLUMN public.film.rating IS '分级评级（如PG、R等）';
-COMMENT ON COLUMN public.film.last_update IS '最后更新时间';
-COMMENT ON COLUMN public.film.special_features IS '特别收录特性列表';
+COMMENT ON COLUMN public.film.replacement_cost IS '替换成本（丢失赔偿价）';
+COMMENT ON COLUMN public.film.rating IS '电影分级（如PG、R等）';
+COMMENT ON COLUMN public.film.last_update IS '记录最后更新时间';
+COMMENT ON COLUMN public.film.special_features IS '特别收录内容（如花絮、预告片等）';
 COMMENT ON COLUMN public.film.fulltext IS '全文检索向量字段';
 
 -- Indexes

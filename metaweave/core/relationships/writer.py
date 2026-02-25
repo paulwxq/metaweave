@@ -288,6 +288,10 @@ class RelationshipWriter:
 
         # 关系基数（所有关系都有）
         result["cardinality"] = rel.cardinality
+        
+        # 外键约束名（仅外键关系有值）
+        if rel.constraint_name is not None:
+            result["constraint_name"] = rel.constraint_name
 
         return result
 

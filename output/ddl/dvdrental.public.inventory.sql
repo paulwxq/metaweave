@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.inventory
--- Comment: 库存记录表，存储影片在各门店的库存情况
--- Generated: 2026-01-06 10:55:17
+-- Comment: 库存信息表，记录影片在各门店的库存情况及更新时间
+-- Generated: 2026-01-06 12:15:42
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.inventory (
@@ -16,15 +16,15 @@ CREATE TABLE IF NOT EXISTS public.inventory (
 
 -- Column Comments
 COMMENT ON COLUMN public.inventory.inventory_id IS '库存记录唯一标识ID';
-COMMENT ON COLUMN public.inventory.film_id IS '电影信息关联ID';
-COMMENT ON COLUMN public.inventory.store_id IS '门店信息关联ID';
+COMMENT ON COLUMN public.inventory.film_id IS '电影影片的唯一标识ID';
+COMMENT ON COLUMN public.inventory.store_id IS '门店的唯一标识ID';
 COMMENT ON COLUMN public.inventory.last_update IS '最后更新时间戳';
 
 -- Indexes
 CREATE INDEX idx_store_id_film_id ON public.inventory(store_id, film_id);
 
 -- Table Comment
-COMMENT ON TABLE public.inventory IS '库存记录表，存储影片在各门店的库存情况';
+COMMENT ON TABLE public.inventory IS '库存信息表，记录影片在各门店的库存情况及更新时间';
 
 /* SAMPLE_RECORDS
 {
