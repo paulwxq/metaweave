@@ -12,15 +12,34 @@ MetaWeave is a database metadata generation and enhancement platform that extrac
 
 ## Common Commands
 
-### Environment Setup
+### Virtual Environment Setup
+
+项目根目录下有两套虚拟环境，按运行平台选择：
+
+| 目录 | 适用平台 | 激活命令 |
+|------|---------|---------|
+| `.venv-wsl` | WSL / Linux | `source .venv-wsl/bin/activate` |
+| `.venv-win` | Windows（PowerShell）| `.venv-win\Scripts\Activate.ps1` |
+| `.venv-win` | Windows（CMD）| `.venv-win\Scripts\activate.bat` |
+
+**创建环境并同步依赖（WSL）**：
 ```bash
-# Create virtual environment (WSL)
-uv venv .venv-wsl
+uv venv .venv-wsl --python 3.12
+source .venv-wsl/bin/activate
+uv sync --active
+```
 
-# Install dependencies
-uv sync
+**创建环境并同步依赖（Windows）**：
+```powershell
+uv venv .venv-win --python 3.12
+.venv-win\Scripts\Activate.ps1
+uv sync --active
+```
 
-# Install in editable mode
+> 两套环境完全独立，不可混用。在 WSL 下运行测试必须激活 `.venv-wsl`，在 Windows 下必须激活 `.venv-win`。
+
+```bash
+# Install in editable mode（激活环境后执行）
 uv pip install -e .
 ```
 
@@ -49,17 +68,19 @@ uv run metaweave --debug metadata -c configs/metadata_config.yaml
 
 ### Testing
 
+运行测试前需先激活对应平台的虚拟环境（见上方 Virtual Environment Setup）。
+
 ```bash
-# Run all tests
+# 激活环境后运行全部测试
 pytest tests/
 
-# Run specific test directory
+# 运行指定目录
 pytest tests/metaweave_relationships/
 
-# Run with coverage
+# 带覆盖率
 pytest --cov=metaweave tests/
 
-# Run single test file
+# 运行单个文件
 pytest tests/test_composite_matching.py
 ```
 
@@ -152,7 +173,7 @@ Primary config file: `configs/metadata_config.yaml`
 Key sections:
 - `database` - PostgreSQL connection, schemas, exclusions
 - `llm` - Provider selection (qwen-plus/deepseek), API keys, model parameters
-- `comment_generation` - Enable/disable LLM comments, language
+- `llm_comment_generation` - Enable/disable LLM comments, language
 - `logical_key_detection` - Candidate key discovery settings
 - `sampling` - Sample size for data profiling
 - `output` - Output directories and formats
@@ -201,7 +222,7 @@ output/
 This is a standalone project migrated from `nl2sql_v3/src/metaweave/` (copy only, no modifications to original).
 
 ### Virtual Environment
-The project uses `uv` for dependency management. WSL virtual environment must be manually created as `.venv-wsl`.
+项目使用 `uv` 管理依赖。`.venv-wsl` 用于 WSL/Linux，`.venv-win` 用于 Windows，两套环境独立维护，不可混用。依赖同步方式见上方 Virtual Environment Setup。
 
 ### Concurrent Processing
 The metadata generator supports concurrent table processing via `--max-workers` flag. Default is 4 workers.

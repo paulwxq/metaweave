@@ -30,6 +30,9 @@ class OutputFormatter:
         Args:
             config: 配置字典
                 - output_dir: 输出目录
+                - ddl_directory: DDL 输出目录
+                - json_directory: JSON 输出目录
+                - markdown_directory: Markdown 输出目录
                 - formats: 输出格式列表 ['ddl', 'markdown', 'json']
                 - ddl_options: DDL 选项
                 - markdown_options: Markdown 选项
@@ -51,16 +54,40 @@ class OutputFormatter:
             int(self.markdown_options.get("sample_value_count", 2))
         )
 
-	        # 确保输出目录存在
-        ensure_dir(self.output_dir / "ddl")
-        self.markdown_dir = self.output_dir / "md"
+        # 1. 确定并确保 DDL 目录存在
+        ddl_dir_str = config.get("ddl_directory")
+        if ddl_dir_str:
+            self.ddl_dir = Path(ddl_dir_str)
+            if not self.ddl_dir.is_absolute():
+                self.ddl_dir = Path.cwd() / self.ddl_dir
+        else:
+            self.ddl_dir = self.output_dir / "ddl"
+        ensure_dir(self.ddl_dir)
+
+        # 2. 确定并确保 Markdown 目录存在
+        md_dir_str = config.get("markdown_directory")
+        if md_dir_str:
+            self.markdown_dir = Path(md_dir_str)
+            if not self.markdown_dir.is_absolute():
+                self.markdown_dir = Path.cwd() / self.markdown_dir
+        else:
+            self.markdown_dir = self.output_dir / "md"
         ensure_dir(self.markdown_dir)
-        ensure_dir(self.output_dir / "json")
+
+        # 3. 确定并确保 JSON 目录存在
+        json_dir_str = config.get("json_directory")
+        if json_dir_str:
+            self.json_dir = Path(json_dir_str)
+            if not self.json_dir.is_absolute():
+                self.json_dir = Path.cwd() / self.json_dir
+        else:
+            self.json_dir = self.output_dir / "json"
+        ensure_dir(self.json_dir)
         
         # 数据库名：统一来自 database.database
         self.database_name = database_name
         
-        logger.info(f"输出格式化器已初始化: {self.output_dir}")
+        logger.info(f"输出格式化器已初始化. DDL: {self.ddl_dir}, JSON: {self.json_dir}, MD: {self.markdown_dir}")
     
     def _get_filename(self, metadata: TableMetadata, extension: str) -> str:
         """生成标准文件名：database.schema.table.{extension}
@@ -383,7 +410,7 @@ class OutputFormatter:
         try:
             ddl_content = self.generate_ddl(metadata, sample_data)
             filename = self._get_filename(metadata, "sql")
-            file_path = self.output_dir / "ddl" / filename
+            file_path = self.ddl_dir / filename
             save_text(ddl_content, file_path)
             logger.info(f"保存 DDL: {file_path}")
             return file_path
@@ -419,7 +446,7 @@ class OutputFormatter:
         """
         try:
             filename = self._get_filename(metadata, "sql")
-            ddl_file = self.output_dir / "ddl" / filename
+            ddl_file = self.ddl_dir / filename
             if not ddl_file.exists():
                 return None
             
@@ -508,7 +535,7 @@ class OutputFormatter:
             json_data["sample_records"] = sample_records
             
             filename = self._get_filename(metadata, "json")
-            file_path = self.output_dir / "json" / filename
+            file_path = self.json_dir / filename
             save_json(json_data, file_path)
             logger.info(f"保存 JSON: {file_path}")
             return file_path

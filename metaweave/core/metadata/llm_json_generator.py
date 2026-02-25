@@ -88,10 +88,8 @@ class LLMJsonGenerator:
         self.use_async = langchain_config.get("use_async", False)
         self.batch_size = max(1, int(langchain_config.get("batch_size", 50) or 50))
 
-        # 注释生成配置（兼容 comment_generation 顶层或 llm 内部）
-        comment_config = config.get("llm", {}).get("comment_generation", {}) or config.get(
-            "comment_generation", {}
-        )
+        # 注释生成配置
+        comment_config = config.get("llm_comment_generation", {})
         self.comment_generation_enabled = comment_config.get("enabled", True)
         self.comment_language = comment_config.get("language", "zh")
         # 兼容 zh-CN 写法

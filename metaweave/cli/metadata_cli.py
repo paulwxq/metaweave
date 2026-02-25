@@ -21,7 +21,8 @@ logger = logging.getLogger("metaweave.cli")
     "--config",
     "-c",
     type=click.Path(exists=True),
-    required=True,
+    default="configs/metadata_config.yaml",
+    show_default=True,
     help="配置文件路径"
 )
 @click.option(
@@ -79,7 +80,13 @@ logger = logging.getLogger("metaweave.cli")
     "--generate-domains",
     is_flag=True,
     default=False,
-    help="根据 db_domains.yaml 中的 database.description 自动生成 domains 列表"
+    help="基于 md 摘要（和可选的 --description）自动生成 domains 配置并写入 YAML"
+)
+@click.option(
+    "--description",
+    type=str,
+    default=None,
+    help="可选：生成 domains 时提供数据库补充说明（用于 LLM 提示词，不直接写入 YAML）"
 )
 @click.option(
     "--cross-domain",
@@ -91,7 +98,7 @@ logger = logging.getLogger("metaweave.cli")
     "--md-context",
     is_flag=True,
     default=False,
-    help="生成 domains 时附加 md 目录摘要"
+    help="生成 domains 时附加 md 目录摘要（兼容参数，内部默认启用）"
 )
 @click.option(
     "--md-context-dir",
@@ -124,6 +131,7 @@ def metadata_command(
     domain: Optional[str],
     domains_config: str,
     generate_domains: bool,
+    description: Optional[str],
     cross_domain: bool,
     md_context: bool,
     md_context_dir: str,
@@ -199,15 +207,15 @@ def metadata_command(
             output_dir = _resolve_dir(str(output_config.get("output_dir", "output")))
 
             if step_name == "ddl":
-                target_dir = output_dir / "ddl"
+                target_dir = _resolve_dir(str(output_config.get("ddl_directory", output_dir / "ddl")))
             elif step_name in {"json", "json_llm"}:
-                target_dir = output_dir / "json"
+                target_dir = _resolve_dir(str(output_config.get("json_directory", output_dir / "json")))
             elif step_name == "md":
-                target_dir = output_dir / "md"
+                target_dir = _resolve_dir(str(output_config.get("markdown_directory", output_dir / "md")))
             elif step_name in {"rel", "rel_llm"}:
-                target_dir = _resolve_dir(str(output_config.get("rel_directory", "output/rel")))
+                target_dir = _resolve_dir(str(output_config.get("rel_directory", output_dir / "rel")))
             elif step_name in {"cql", "cql_llm"}:
-                target_dir = _resolve_dir(str(output_config.get("cql_directory", "output/cql")))
+                target_dir = _resolve_dir(str(output_config.get("cql_directory", output_dir / "cql")))
             else:
                 raise click.UsageError(f"❌ --clean 不支持的 step: {step_name}")
 
@@ -248,8 +256,8 @@ def metadata_command(
             raise click.Abort()
 
         # 参数校验
-        if generate_domains and domain:
-            raise click.UsageError("--generate-domains 和 --domain 不能同时使用，请分两步执行")
+        if generate_domains and (domain or cross_domain):
+            raise click.UsageError("--generate-domains 与 --domain/--cross-domain 互斥，请分两步执行")
 
         domains_config_path = Path(domains_config)
         if not domains_config_path.is_absolute():
@@ -264,35 +272,70 @@ def metadata_command(
             if not domains_list:
                 raise click.UsageError(f"错误：{domains_config} 中 domains 列表为空，请先执行 --generate-domains")
 
-        if generate_domains:
-            if not domains_config_path.exists():
-                raise click.UsageError(f"错误：{domains_config} 文件不存在，请先创建并填写 database.description")
-            db_domains_config = _load_yaml(domains_config_path)
-            description = db_domains_config.get("database", {}).get("description", "")
-            if not description or not description.strip():
-                raise click.UsageError("错误：database.description 为空，无法生成 domains 列表")
+        def _resolve_md_context_dir(loaded_config: Dict, cli_md_context_dir: str) -> Path:
+            """解析 generate-domains 使用的 md 目录。
 
-        # generate-domains 可独立执行（不依赖 step）
-        if generate_domains and step != "json_llm":
+            优先级：
+            1) 显式 CLI 参数 --md-context-dir
+            2) output.markdown_directory
+            3) output.output_dir + /md
+            4) output/md
+            """
+            project_root = get_project_root()
+
+            def _to_abs(path_like: str | Path) -> Path:
+                p = Path(path_like)
+                if not p.is_absolute():
+                    p = project_root / p
+                return p
+
+            # 判定是否显式从命令行传入了 --md-context-dir（即使值等于默认值）
+            explicit_cli_md_dir = False
+            ctx = click.get_current_context(silent=True)
+            if ctx is not None and hasattr(ctx, "get_parameter_source"):
+                try:
+                    source = ctx.get_parameter_source("md_context_dir")
+                    source_name = getattr(source, "name", str(source)).lower()
+                    explicit_cli_md_dir = "commandline" in source_name
+                except Exception:
+                    explicit_cli_md_dir = False
+
+            if explicit_cli_md_dir:
+                return _to_abs(cli_md_context_dir)
+
+            output_cfg = loaded_config.get("output", {}) or {}
+            markdown_dir = output_cfg.get("markdown_directory")
+            if markdown_dir:
+                return _to_abs(str(markdown_dir))
+
+            output_dir = output_cfg.get("output_dir")
+            if output_dir:
+                return _to_abs(Path(str(output_dir)) / "md")
+
+            return _to_abs("output/md")
+
+        # generate-domains 可独立执行（不依赖 step），并在完成后提前返回
+        if generate_domains:
             from metaweave.core.metadata.domain_generator import DomainGenerator
             from services.config_loader import load_config
 
             config = load_config(config_path)
-            md_dir = Path(md_context_dir)
-            if not md_dir.is_absolute():
-                md_dir = get_project_root() / md_dir
+            md_dir = _resolve_md_context_dir(config, md_context_dir)
 
             generator = DomainGenerator(
                 config=config,
                 yaml_path=str(domains_config_path),
-                md_context=md_context,
+                # 兼容保留 --md-context 参数，但内部强制启用 MD 上下文。
+                md_context=True,
                 md_context_dir=str(md_dir),
                 md_context_mode=md_context_mode,
                 md_context_limit=md_context_limit,
             )
-            domains = generator.generate_from_description()
-            generator.write_to_yaml(domains)
-            click.echo(f"✅ 已生成 {len(domains)} 个 domain 并写入 {domains_config_path}")
+            generated_config = generator.generate_from_context(user_description=description)
+            final_domains = generator.write_to_yaml(generated_config)
+            click.echo(
+                f"✅ 已生成 {max(0, len(final_domains) - 1)} 个 domain 并写入 {domains_config_path}"
+            )
             return
 
         domain_filter = _parse_domain_filter(domain)
@@ -344,10 +387,19 @@ def metadata_command(
                     try:
                         # 1. 依赖检查
                         if child_step == "md":
-                            output_dir = Path(loaded_config.get("output", {}).get("output_dir", "output"))
+                            output_config = loaded_config.get("output", {})
+                            output_dir = Path(output_config.get("output_dir", "output"))
                             if not output_dir.is_absolute():
                                 output_dir = get_project_root() / output_dir
-                            ddl_dir = output_dir / "ddl"
+                            
+                            ddl_dir_str = output_config.get("ddl_directory")
+                            if ddl_dir_str:
+                                ddl_dir = Path(ddl_dir_str)
+                                if not ddl_dir.is_absolute():
+                                    ddl_dir = get_project_root() / ddl_dir
+                            else:
+                                ddl_dir = output_dir / "ddl"
+
                             ddl_files = list(ddl_dir.glob("*.sql")) if ddl_dir.exists() else []
                             if not ddl_files:
                                 raise ValueError(f"DDL 目录为空: {ddl_dir}")
@@ -393,7 +445,7 @@ def metadata_command(
                                 step_error_msg = "阶段 A (--step json) 失败"
                                 step_errors = result_a.errors
                             else:
-                                json_dir = (generator.formatter.output_dir / "json").resolve()
+                                json_dir = generator.formatter.json_dir.resolve()
                                 json_files = [
                                     Path(p)
                                     for p in result_a.output_files
@@ -518,32 +570,11 @@ def metadata_command(
         # Step: json_llm - 基于 json 的 LLM 增强（两阶段串行）
         if step == "json_llm":
             from metaweave.core.metadata.json_llm_enhancer import JsonLlmEnhancer
-            from metaweave.core.metadata.domain_generator import DomainGenerator
-            from services.config_loader import load_config
 
             click.echo("📦 开始 LLM 增强处理（json_llm）...")
             click.echo("   ├─ 阶段 1/2: 生成全量 JSON（--step json）")
             click.echo("   └─ 阶段 2/2: LLM 增强（分类覆盖 + 注释补全）")
             click.echo("")
-
-            # generate-domains 单独执行
-            if generate_domains:
-                config = load_config(config_path)
-                md_dir = Path(md_context_dir)
-                if not md_dir.is_absolute():
-                    md_dir = get_project_root() / md_dir
-                generator = DomainGenerator(
-                    config=config,
-                    yaml_path=str(domains_config_path),
-                    md_context=md_context,
-                    md_context_dir=str(md_dir),
-                    md_context_mode=md_context_mode,
-                    md_context_limit=md_context_limit,
-                )
-                domains = generator.generate_from_description()
-                generator.write_to_yaml(domains)
-                click.echo(f"✅ 已生成 {len(domains)} 个 domain 并写入 {domains_config_path}")
-                return
 
             # ====== 阶段 A：生成全量 JSON（失败则直接退出）======
             click.echo("📊 阶段 1/2: 生成全量 JSON（--step json）...")
@@ -581,7 +612,7 @@ def metadata_command(
             click.echo("🤖 阶段 2/2: LLM 增强处理（原地写回 output/json）...")
 
             # 阶段B只处理本次阶段A产出的 JSON 文件，且限定在 output/json 目录下，避免误包含其他 JSON
-            json_dir = (generator.formatter.output_dir / "json").resolve()
+            json_dir = generator.formatter.json_dir.resolve()
             json_files = [
                 Path(p)
                 for p in result_a.output_files
@@ -847,13 +878,20 @@ def metadata_command(
         if step.lower() == "md":
             from services.config_loader import load_config
 
-            # 加载配置获取真实的 output_dir
+            # 加载配置获取真实的 ddl_dir
             loaded_config = load_config(config_path)
-            output_dir = Path(loaded_config.get("output", {}).get("output_dir", "output"))
+            output_config = loaded_config.get("output", {})
+            output_dir = Path(output_config.get("output_dir", "output"))
             if not output_dir.is_absolute():
                 output_dir = get_project_root() / output_dir
 
-            ddl_dir = output_dir / "ddl"
+            ddl_dir_str = output_config.get("ddl_directory")
+            if ddl_dir_str:
+                ddl_dir = Path(ddl_dir_str)
+                if not ddl_dir.is_absolute():
+                    ddl_dir = get_project_root() / ddl_dir
+            else:
+                ddl_dir = output_dir / "ddl"
 
             if not ddl_dir.exists():
                 raise click.UsageError(

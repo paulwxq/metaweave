@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.country
--- Comment: 国家信息表，存储全球国家名称及其更新时间
--- Generated: 2026-01-06 12:15:36
+-- Comment: 国家信息表，存储世界各国名称及最后更新时间
+-- Generated: 2026-02-25 19:44:20
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.country (
@@ -18,7 +18,7 @@ COMMENT ON COLUMN public.country.country IS '国家名称';
 COMMENT ON COLUMN public.country.last_update IS '最后更新时间';
 
 -- Table Comment
-COMMENT ON TABLE public.country IS '国家信息表，存储全球国家名称及其更新时间';
+COMMENT ON TABLE public.country IS '国家信息表，存储世界各国名称及最后更新时间';
 
 /* SAMPLE_RECORDS
 {

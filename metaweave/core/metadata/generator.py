@@ -76,7 +76,7 @@ class MetadataGenerator:
         self.extractor = None
         
         # LLM 服务（如果启用）
-        comment_config = self.config.get("comment_generation", {})
+        comment_config = self.config.get("llm_comment_generation", {})
         self.comment_enabled = comment_config.get("enabled", True)
         
         if self.comment_enabled:
@@ -145,7 +145,7 @@ class MetadataGenerator:
         Returns:
             schema 列表（去重）
         """
-        ddl_dir = self.formatter.output_dir / "ddl"
+        ddl_dir = self.formatter.ddl_dir
         if not ddl_dir.exists():
             logger.warning(f"DDL 目录不存在: {ddl_dir}")
             return []
@@ -266,7 +266,7 @@ class MetadataGenerator:
         Returns:
             表名列表
         """
-        ddl_dir = self.formatter.output_dir / "ddl"
+        ddl_dir = self.formatter.ddl_dir
         if not ddl_dir.exists():
             logger.warning(f"DDL 目录不存在: {ddl_dir}")
             return []
@@ -672,7 +672,7 @@ class MetadataGenerator:
 
     def _get_ddl_loader(self) -> DDLLoader:
         if self.ddl_loader is None:
-            ddl_dir = self.formatter.output_dir / "ddl"
+            ddl_dir = self.formatter.ddl_dir
             self.ddl_loader = DDLLoader(ddl_dir, database_name=self.database_name)
         return self.ddl_loader
 

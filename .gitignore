@@ -2,6 +2,10 @@
 __pycache__/
 *.py[cod]
 
+# Distribution / packaging
+*.egg-info/
+*.egg
+
 # Virtual environments
 .venv/
 .venv-wsl/

@@ -273,8 +273,8 @@ vector_database:
       use_global_config: true   # 复用 database 配置
       schema: vectors             # 向量数据存储的 schema
 
-# 注释生成配置
-comment_generation:
+# 注释生成配置,启用llm
+llm_comment_generation:
   enabled: true                 # 总开关
   language: zh  # 注释语言：zh / en / bilingual
   max_columns_per_call: 120     # 单批处理的缺失字段上限
@@ -300,6 +300,9 @@ logical_key_detection:
 output:
   output_dir: output
 
+  # Step 1: DDL 抽取输出配置
+  ddl_directory: output/ddl
+
   # Step 2: 表/列画像输出配置
   json_directory: output/json      # --step json 和 --step json_llm 统一输出目录 / --step rel & cql 输入
   # json_llm_directory: output/json_llm  # ⚠️ 已废弃，cql_llm 不再读取此配置
@@ -311,6 +314,9 @@ output:
 
   # Step 4: CQL 生成输出配置
   cql_directory: output/cql    # --step cql/cql_llm 输出 / load 输入
+
+  # Step 5: Markdown 生成输出配置
+  markdown_directory: output/md
 
   # 注意：
   # - --step cql 和 --step cql_llm 功能完全等价

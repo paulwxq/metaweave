@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.payment
--- Comment: 支付记录表，存储客户租赁订单的付款金额及时间信息
--- Generated: 2026-01-06 12:15:45
+-- Comment: 支付记录表，存储客户租赁服务的付款信息及交易详情
+-- Generated: 2026-02-25 19:44:31
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.payment (
@@ -20,11 +20,11 @@ CREATE TABLE IF NOT EXISTS public.payment (
 
 -- Column Comments
 COMMENT ON COLUMN public.payment.payment_id IS '支付记录唯一标识ID';
-COMMENT ON COLUMN public.payment.customer_id IS '客户唯一标识ID';
-COMMENT ON COLUMN public.payment.staff_id IS '员工唯一标识ID';
-COMMENT ON COLUMN public.payment.rental_id IS '租赁订单唯一标识ID';
-COMMENT ON COLUMN public.payment.amount IS '支付金额';
-COMMENT ON COLUMN public.payment.payment_date IS '支付发生的时间';
+COMMENT ON COLUMN public.payment.customer_id IS '关联客户ID';
+COMMENT ON COLUMN public.payment.staff_id IS '处理支付的员工ID';
+COMMENT ON COLUMN public.payment.rental_id IS '关联租赁记录ID';
+COMMENT ON COLUMN public.payment.amount IS '支付金额（单位：元）';
+COMMENT ON COLUMN public.payment.payment_date IS '支付发生的时间戳';
 
 -- Indexes
 CREATE INDEX idx_fk_customer_id ON public.payment(customer_id);
@@ -32,7 +32,7 @@ CREATE INDEX idx_fk_rental_id ON public.payment(rental_id);
 CREATE INDEX idx_fk_staff_id ON public.payment(staff_id);
 
 -- Table Comment
-COMMENT ON TABLE public.payment IS '支付记录表，存储客户租赁订单的付款金额及时间信息';
+COMMENT ON TABLE public.payment IS '支付记录表，存储客户租赁服务的付款信息及交易详情';
 
 /* SAMPLE_RECORDS
 {

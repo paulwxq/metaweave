@@ -41,14 +41,14 @@ class JsonLlmEnhancer:
         self.config = config
         self.llm_service = LLMService(config.get("llm", {}))
 
-        # 注释生成配置（沿用现有 configs/metadata_config.yaml 的 comment_generation.*）
-        comment_config = config.get("comment_generation", {})
+        # 注释生成配置（沿用现有 configs/metadata_config.yaml 的 llm_comment_generation.*）
+        comment_config = config.get("llm_comment_generation", {})
         self.comment_generation_enabled = comment_config.get("enabled", True)
         self.comment_language = (comment_config.get("language", "zh") or "zh").strip().lower()
         if self.comment_language in {"zh-cn", "zh_cn"}:
             self.comment_language = "zh"
         if self.comment_language not in {"zh", "en", "bilingual"}:
-            logger.warning("无效的 comment_generation.language=%s，回退到 zh", self.comment_language)
+            logger.warning("无效的 llm_comment_generation.language=%s，回退到 zh", self.comment_language)
             self.comment_language = "zh"
         self.overwrite_existing = comment_config.get("overwrite_existing", False)
         self.max_columns_per_call = comment_config.get("max_columns_per_call", 120)

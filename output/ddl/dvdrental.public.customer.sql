@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.customer
--- Comment: 客户信息表，存储客户的个人资料、联系方式及账户状态
--- Generated: 2026-01-06 12:15:39
+-- Comment: 客户信息表，存储客户的姓名、联系方式、地址及账户状态等基本信息
+-- Generated: 2026-02-25 19:44:22
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.customer (
@@ -22,13 +22,13 @@ CREATE TABLE IF NOT EXISTS public.customer (
 
 -- Column Comments
 COMMENT ON COLUMN public.customer.customer_id IS '客户唯一标识ID';
-COMMENT ON COLUMN public.customer.store_id IS '所属门店的ID';
+COMMENT ON COLUMN public.customer.store_id IS '所属门店ID';
 COMMENT ON COLUMN public.customer.first_name IS '客户名字';
 COMMENT ON COLUMN public.customer.last_name IS '客户姓氏';
 COMMENT ON COLUMN public.customer.email IS '客户电子邮箱地址';
-COMMENT ON COLUMN public.customer.address_id IS '关联地址的ID';
-COMMENT ON COLUMN public.customer.activebool IS '是否激活状态（True-是，False-否）';
-COMMENT ON COLUMN public.customer.create_date IS '客户创建日期';
+COMMENT ON COLUMN public.customer.address_id IS '关联地址ID';
+COMMENT ON COLUMN public.customer.activebool IS '账户激活状态（true-启用，false-禁用）';
+COMMENT ON COLUMN public.customer.create_date IS '客户记录创建日期';
 COMMENT ON COLUMN public.customer.last_update IS '最后更新时间戳';
 COMMENT ON COLUMN public.customer.active IS '活跃状态（1-活跃，0-非活跃）';
 
@@ -38,7 +38,7 @@ CREATE INDEX idx_fk_store_id ON public.customer(store_id);
 CREATE INDEX idx_last_name ON public.customer(last_name);
 
 -- Table Comment
-COMMENT ON TABLE public.customer IS '客户信息表，存储客户的个人资料、联系方式及账户状态';
+COMMENT ON TABLE public.customer IS '客户信息表，存储客户的姓名、联系方式、地址及账户状态等基本信息';
 
 /* SAMPLE_RECORDS
 {
