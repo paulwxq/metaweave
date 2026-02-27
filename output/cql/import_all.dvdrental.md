@@ -7,7 +7,7 @@
 
 ## 生成信息
 
-- **生成时间**: 2026-01-06 12:18:44
+- **生成时间**: 2026-02-26 11:30:22
 - **生成命令**: `metaweave metadata --step cql_llm`
 
 ---
@@ -27,8 +27,8 @@
 | 边类型 | 数量 |
 |-------|------|
 | HAS_COLUMN | 86 |
-| JOIN_ON | 25 |
-| **边总数** | **111** |
+| JOIN_ON | 27 |
+| **边总数** | **113** |
 
 ---
 
@@ -36,9 +36,9 @@
 
 | 类型 | 路径 |
 |-----|------|
-| JSON 元数据 | `C:\Projects\cursor_2025h2\metaweave\output\json` |
-| 关系数据 | `C:\Projects\cursor_2025h2\metaweave\output\rel` |
-| CQL 输出 | `C:\Projects\cursor_2025h2\metaweave\output\cql` |
+| JSON 元数据 | `/mnt/c/Projects/cursor_2025h2/metaweave/output/json` |
+| 关系数据 | `/mnt/c/Projects/cursor_2025h2/metaweave/output/rel` |
+| CQL 输出 | `/mnt/c/Projects/cursor_2025h2/metaweave/output/cql` |
 
 ---
 
@@ -46,7 +46,7 @@
 
 | 文件名 | 行数 |
 |-------|------|
-| import_all.dvdrental.cypher | 2880 |
+| import_all.dvdrental.cypher | 2912 |
 | import_all.dvdrental.md | - |
 
 ---

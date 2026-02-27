@@ -19,6 +19,9 @@ class FakeMilvusClient:
     def ensure_collection(self, collection_name, schema, index_params, clean=False):
         self.collection = collection_name
 
+    def connect(self):
+        return None
+
     def insert_batch(self, collection_name, data):
         self.inserted.extend(data)
         return len(data)
@@ -76,11 +79,14 @@ def test_vector_db_config_missing_raises(tmp_path: Path):
     metadata_path.write_text("embedding: {}\n", encoding="utf-8")
 
     dim_tables = tmp_path / "dim_tables.yaml"
-    dim_tables.write_text("tables: {}\n", encoding="utf-8")
+    dim_tables.write_text("databases: {db: {tables: {}}}\n", encoding="utf-8")
 
     loader = DimValueLoader(
         {
-            "dim_loader": {"config_file": str(dim_tables)},
+            "dim_loader": {
+                "config_file": str(dim_tables),
+                "collection_name": "dim_value_embeddings",
+            },
             "metadata_config_file": str(metadata_path),
         }
     )
@@ -95,7 +101,17 @@ def test_loader_loads_and_cleans_duplicate_values(tmp_path: Path):
 
     dim_tables = tmp_path / "dim_tables.yaml"
     dim_tables.write_text(
-        yaml.safe_dump({"tables": {"public.dim_company": {"embedding_col": "company_name"}}}),
+        yaml.safe_dump(
+            {
+                "databases": {
+                    "db": {
+                        "tables": {
+                            "public.dim_company": {"embedding_col": "company_name"},
+                        }
+                    }
+                }
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -103,6 +119,7 @@ def test_loader_loads_and_cleans_duplicate_values(tmp_path: Path):
         {
             "dim_loader": {
                 "config_file": str(dim_tables),
+                "collection_name": "dim_value_embeddings",
                 "options": {"batch_size": 2},
             },
             "metadata_config_file": str(metadata_path),
@@ -133,3 +150,71 @@ def test_loader_loads_and_cleans_duplicate_values(tmp_path: Path):
     assert isinstance(loader._milvus_client, FakeMilvusClient)
     assert len(loader._milvus_client.inserted) == 2
 
+
+def test_validate_fails_when_collection_name_missing(tmp_path: Path):
+    metadata_path = tmp_path / "metadata_config.yaml"
+    _write_metadata_config(metadata_path)
+
+    dim_tables = tmp_path / "dim_tables.yaml"
+    dim_tables.write_text(
+        yaml.safe_dump(
+            {
+                "databases": {
+                    "db": {
+                        "tables": {
+                            "public.dim_company": {"embedding_col": "company_name"},
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    loader = DimValueLoader(
+        {
+            "dim_loader": {"config_file": str(dim_tables)},
+            "metadata_config_file": str(metadata_path),
+        },
+        milvus_client_cls=FakeMilvusClient,
+        pg_manager_cls=FakePGManager,
+        embedding_service_cls=FakeEmbeddingService,
+    )
+
+    assert loader.validate() is False
+
+
+def test_validate_fails_when_current_database_node_missing(tmp_path: Path):
+    metadata_path = tmp_path / "metadata_config.yaml"
+    _write_metadata_config(metadata_path)
+
+    dim_tables = tmp_path / "dim_tables.yaml"
+    dim_tables.write_text(
+        yaml.safe_dump(
+            {
+                "databases": {
+                    "another_db": {
+                        "tables": {
+                            "public.dim_company": {"embedding_col": "company_name"},
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    loader = DimValueLoader(
+        {
+            "dim_loader": {
+                "config_file": str(dim_tables),
+                "collection_name": "dim_value_embeddings",
+            },
+            "metadata_config_file": str(metadata_path),
+        },
+        milvus_client_cls=FakeMilvusClient,
+        pg_manager_cls=FakePGManager,
+        embedding_service_cls=FakeEmbeddingService,
+    )
+
+    assert loader.validate() is False

@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-06T12:16:18.114182",
+  "generated_timestamp": "2026-02-26T00:19:15.672375",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "country",
     "table_type": "table",
-    "comment": "国家信息表，存储全球国家名称及其更新时间",
+    "comment": "国家信息表，存储世界各国名称及最后更新时间",
     "comment_source": "ddl",
     "total_rows": 109,
     "total_columns": 3
@@ -229,5 +229,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-01-06T12:16:37.496843"
+  "llm_enhanced_at": "2026-02-26T00:19:28.903603"
 }

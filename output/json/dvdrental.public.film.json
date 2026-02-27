@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-06T12:16:18.249020",
+  "generated_timestamp": "2026-02-26T00:19:15.721178",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "film",
     "table_type": "table",
-    "comment": "电影信息表，存储影片的基本信息、租赁属性和播放详情",
+    "comment": "电影信息表，存储影片标题、描述、年份、语言、租借信息、时长、评级等元数据",
     "comment_source": "ddl",
     "total_rows": 1000,
     "total_columns": 13
@@ -133,7 +133,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "电影剧情描述",
+      "comment": "电影剧情简介",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -185,7 +185,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "电影发布年份",
+      "comment": "电影上映年份",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -236,7 +236,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "语言种类ID",
+      "comment": "电影语言ID（关联language表）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -303,7 +303,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": "3",
-      "comment": "租借时长（天）",
+      "comment": "租赁期限（天数）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -361,7 +361,7 @@
       "numeric_scale": 2,
       "is_nullable": false,
       "column_default": "4.99",
-      "comment": "租借费用",
+      "comment": "租赁单价（美元）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -470,7 +470,7 @@
       "numeric_scale": 2,
       "is_nullable": false,
       "column_default": "19.99",
-      "comment": "替换成本（丢失赔偿价）",
+      "comment": "丢失/损坏赔偿金额（美元）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -524,7 +524,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": "'G'::mpaa_rating",
-      "comment": "电影分级（如PG、R等）",
+      "comment": "电影分级（如NC-17、R、PG等）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -576,7 +576,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": "now()",
-      "comment": "记录最后更新时间",
+      "comment": "最后更新时间戳",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -619,7 +619,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "特别收录内容（如花絮、预告片等）",
+      "comment": "特别花絮（数组，如预告片、幕后花絮等）",
       "comment_source": "ddl",
       "statistics": {},
       "semantic_analysis": {
@@ -653,7 +653,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "全文检索向量字段",
+      "comment": "全文检索向量（用于标题和简介的全文搜索）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -784,5 +784,5 @@
     "total_rows": 1000,
     "records": []
   },
-  "llm_enhanced_at": "2026-01-06T12:16:58.629028"
+  "llm_enhanced_at": "2026-02-26T00:19:39.828827"
 }

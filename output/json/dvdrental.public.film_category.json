@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-06T12:16:18.178459",
+  "generated_timestamp": "2026-02-26T00:19:15.722642",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "film_category",
     "table_type": "table",
-    "comment": "电影分类关联表，记录电影与所属分类的对应关系",
+    "comment": "电影与分类的多对多关联表，记录每部电影所属的分类及最后更新时间",
     "comment_source": "ddl",
     "total_rows": 1000,
     "total_columns": 3
@@ -88,7 +88,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "影片分类唯一标识ID",
+      "comment": "电影分类唯一标识ID",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -155,7 +155,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": "now()",
-      "comment": "记录最后更新时间",
+      "comment": "最后更新时间戳",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -284,5 +284,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-01-06T12:16:47.927815"
+  "llm_enhanced_at": "2026-02-26T00:19:36.899097"
 }

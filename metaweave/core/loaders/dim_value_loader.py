@@ -13,7 +13,6 @@ from metaweave.core.dim_value.models import DimTablesConfig, LoaderOptions
 from metaweave.core.loaders.base import BaseLoader
 from metaweave.services.embedding_service import EmbeddingService
 from metaweave.services.vector_db.milvus_client import MilvusClient, _lazy_import_milvus
-from metaweave.services.vector_db.pgvector_client import PgVectorClient
 from metaweave.utils.file_utils import get_project_root, load_yaml
 from metaweave.utils.logger import get_metaweave_logger
 from services.db.pg_connection import PGConnectionManager
@@ -41,8 +40,6 @@ class DimValueLoader(BaseLoader):
     加载到向量数据库（当前仅支持 Milvus）的 dim_value_embeddings Collection。
     """
 
-    COLLECTION_NAME = "dim_value_embeddings"
-
     def __init__(
         self,
         config: Dict[str, Any],
@@ -60,6 +57,7 @@ class DimValueLoader(BaseLoader):
         self.dim_tables_path = self._resolve_path(
             loader_cfg.get("config_file", "configs/dim_tables.yaml")
         )
+        self.collection_name = str(loader_cfg.get("collection_name", "")).strip()
         self.metadata_config_path = self._resolve_path(
             self.config.get("metadata_config_file", "configs/metadata_config.yaml")
         )
@@ -71,6 +69,7 @@ class DimValueLoader(BaseLoader):
         self._milvus_client: MilvusClient | None = None
         self._embedding_service: EmbeddingService | None = None
         self._pg_manager: PGConnectionManager | None = None
+        self._active_database_name: str | None = None
 
     def _retry(
         self,
@@ -154,6 +153,14 @@ class DimValueLoader(BaseLoader):
             raise ConfigurationError("未找到 Milvus 的配置: vector_database.providers.milvus")
         return milvus_cfg
 
+    def _get_active_database_name(self) -> str:
+        metadata_config = self._metadata_config or self._load_metadata_config()
+        db_cfg = metadata_config.get("database") or {}
+        database_name = str(db_cfg.get("database", "")).strip()
+        if not database_name:
+            raise ConfigurationError("metadata_config.yaml 缺少 database.database 配置")
+        return database_name
+
     # ---- lifecycle ----
     def validate(self) -> bool:
         """验证配置与依赖服务。"""
@@ -162,9 +169,15 @@ class DimValueLoader(BaseLoader):
             logger.error("dim_tables.yaml 不存在: %s", self.dim_tables_path)
             return False
 
+        if not self.collection_name:
+            logger.error("dim_loader.collection_name 未配置")
+            return False
+
         try:
             self._metadata_config = self._load_metadata_config()
             self._vector_db_config = self._get_vector_db_config()
+            self._active_database_name = self._get_active_database_name()
+            self._load_dim_tables(self._active_database_name)
         except Exception as exc:  # noqa: BLE001
             logger.error("配置校验失败: %s", exc)
             return False
@@ -208,11 +221,16 @@ class DimValueLoader(BaseLoader):
         }
 
         try:
-            logger.info("开始加载维度值到 Milvus (collection=%s)", self.COLLECTION_NAME)
+            if not self.collection_name:
+                raise ConfigurationError("dim_loader.collection_name 未配置")
+
+            logger.info("开始加载维度值到 Milvus (collection=%s)", self.collection_name)
             if not self._metadata_config:
                 self._metadata_config = self._load_metadata_config()
             if not self._vector_db_config:
                 self._vector_db_config = self._get_vector_db_config()
+            if not self._active_database_name:
+                self._active_database_name = self._get_active_database_name()
             if not self._embedding_service:
                 self._embedding_service = self.embedding_service_cls(self._metadata_config.get("embedding", {}))
             if not self._milvus_client:
@@ -228,9 +246,14 @@ class DimValueLoader(BaseLoader):
                 except Exception:  # noqa: BLE001
                     logger.warning("PostgreSQL 初始化失败，将在首次访问时重试", exc_info=True)
 
-            dim_tables_config = self._load_dim_tables()
+            dim_tables_config = self._load_dim_tables(self._active_database_name)
             total_tables = len(dim_tables_config.tables)
-            logger.info("读取配置: %s (%d 个维表)", self.dim_tables_path, total_tables)
+            logger.info(
+                "读取配置: %s (database=%s, %d 个维表)",
+                self.dim_tables_path,
+                self._active_database_name,
+                total_tables,
+            )
 
             db_cfg = self._metadata_config.get("database", {})
             logger.info(
@@ -249,7 +272,7 @@ class DimValueLoader(BaseLoader):
             )
 
             self._ensure_collection(clean=clean)
-            logger.info("确保 Collection 存在: %s", self.COLLECTION_NAME)
+            logger.info("确保 Collection 存在: %s", self.collection_name)
 
             for idx, dim_cfg in enumerate(dim_tables_config.tables.values(), start=1):
                 # 使用 embedding_cols_list 获取列名列表（支持单列或多列）
@@ -307,9 +330,12 @@ class DimValueLoader(BaseLoader):
         return result
 
     # ---- internal helpers ----
-    def _load_dim_tables(self) -> DimTablesConfig:
+    def _load_dim_tables(self, active_database: str) -> DimTablesConfig:
         dim_tables_yaml = load_yaml(self.dim_tables_path)
-        return DimTablesConfig.from_yaml(dim_tables_yaml)
+        try:
+            return DimTablesConfig.from_yaml(dim_tables_yaml, database=active_database)
+        except ValueError as exc:
+            raise ConfigurationError(str(exc)) from exc
 
     def _ensure_collection(self, clean: bool = False) -> None:
         _, _, FieldSchema, CollectionSchema, _, DataType, _ = _lazy_import_milvus()
@@ -331,7 +357,7 @@ class DimValueLoader(BaseLoader):
 
         assert self._milvus_client is not None
         self._milvus_client.ensure_collection(
-            collection_name=self.COLLECTION_NAME,
+            collection_name=self.collection_name,
             schema=schema,
             index_params=index_params,
             clean=clean,
@@ -480,7 +506,7 @@ class DimValueLoader(BaseLoader):
                     }
                 )
 
-            loaded_total += self._milvus_client.insert_batch(self.COLLECTION_NAME, enriched)
+            loaded_total += self._milvus_client.insert_batch(self.collection_name, enriched)
 
         return {"loaded": loaded_total, "skipped": skipped_total}
 
@@ -491,4 +517,3 @@ class DimValueLoader(BaseLoader):
 
 
 __all__ = ["DimValueLoader", "ConfigurationError", "DataValidationError", "EmbeddingError"]
-

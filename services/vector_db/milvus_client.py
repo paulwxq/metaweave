@@ -156,8 +156,8 @@ class MilvusClient:
             return 0
 
         collection = Collection(collection_name, using=self.alias)
-        # 按 schema 顺序构建列式数据，通用实现
-        field_names = [f.name for f in collection.schema.fields]
+        # 插入时跳过 auto_id 主键字段（Milvus 会自动生成）
+        field_names = self._get_field_names_for_insert(collection)
         columns: Dict[str, List[Any]] = {f: [] for f in field_names}
         for row in data:
             for f in field_names:
@@ -195,6 +195,17 @@ class MilvusClient:
         mr = collection.upsert(entities)
         collection.flush()
         return len(mr.primary_keys) if mr and getattr(mr, "primary_keys", None) else len(data)
+
+    @staticmethod
+    def _get_field_names_for_insert(collection: Any) -> List[str]:
+        field_names: List[str] = []
+        for field in collection.schema.fields:
+            is_primary = bool(getattr(field, "is_primary", False))
+            auto_id = bool(getattr(field, "auto_id", False))
+            if is_primary and auto_id:
+                continue
+            field_names.append(field.name)
+        return field_names
 
     def get_collection_stats(self, collection_name: str) -> Dict[str, Any]:
         *_, Collection, _, _ = _lazy_import_milvus()

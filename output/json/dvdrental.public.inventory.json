@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-06T12:16:18.249020",
+  "generated_timestamp": "2026-02-26T00:19:15.732810",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "inventory",
     "table_type": "table",
-    "comment": "库存信息表，记录影片在各门店的库存情况及更新时间",
+    "comment": "库存记录表，存储影片在各门店的库存数量及最后更新时间",
     "comment_source": "ddl",
     "total_rows": 4581,
     "total_columns": 4
@@ -76,7 +76,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "电影影片的唯一标识ID",
+      "comment": "电影ID，关联films表",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -140,7 +140,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "门店的唯一标识ID",
+      "comment": "门店ID，关联stores表",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -235,8 +235,8 @@
     }
   },
   "table_profile": {
-    "table_category": "bridge",
-    "confidence": 0.9,
+    "table_category": "fact",
+    "confidence": 0.95,
     "inference_basis": [
       "llm_inferred"
     ],
@@ -333,5 +333,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-01-06T12:16:54.595896"
+  "llm_enhanced_at": "2026-02-26T00:19:42.893196"
 }

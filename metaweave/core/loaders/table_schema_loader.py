@@ -26,8 +26,6 @@ logger = get_metaweave_logger("table_schema.loader")
 class TableSchemaLoader(BaseLoader):
     """表结构加载器：读取 MD + JSON_LLM，向量化后写入 Milvus。"""
 
-    COLLECTION_NAME = "table_schema_embeddings"
-
     def __init__(
         self,
         config: Dict[str, Any],
@@ -39,8 +37,9 @@ class TableSchemaLoader(BaseLoader):
 
         self.md_directory = self._resolve_path(loader_cfg.get("md_directory", "output/md"))
         self.json_llm_directory = self._resolve_path(
-            loader_cfg.get("json_llm_directory", "output/json_llm")
+            loader_cfg.get("json_llm_directory", "output/json")
         )
+        self.collection_name = str(loader_cfg.get("collection_name", "")).strip()
         self.metadata_config_path = self._resolve_path(
             self.config.get("metadata_config_file", "configs/metadata_config.yaml")
         )
@@ -111,6 +110,10 @@ class TableSchemaLoader(BaseLoader):
             logger.error("json_llm_directory 不存在: %s", self.json_llm_directory)
             return False
 
+        if not self.collection_name:
+            logger.error("table_schema_loader.collection_name 未配置")
+            return False
+
         try:
             self._metadata_config = self._load_metadata_config()
             self._vector_db_config = self._get_vector_db_config()
@@ -146,6 +149,9 @@ class TableSchemaLoader(BaseLoader):
         }
 
         try:
+            if not self.collection_name:
+                raise ValueError("table_schema_loader.collection_name 未配置")
+
             if not self._metadata_config:
                 self._metadata_config = self._load_metadata_config()
             if not self._vector_db_config:
@@ -159,7 +165,7 @@ class TableSchemaLoader(BaseLoader):
             self._milvus_client.connect()
 
             self._ensure_collection(clean=clean)
-            logger.info("确保 Collection 存在: %s", self.COLLECTION_NAME)
+            logger.info("确保 Collection 存在: %s", self.collection_name)
 
             md_files = sorted(self.md_directory.glob("*.md"))
             max_tables = self.options.max_tables if self.options.max_tables else len(md_files)
@@ -224,7 +230,7 @@ class TableSchemaLoader(BaseLoader):
 
         assert self._milvus_client is not None
         self._milvus_client.ensure_collection(
-            collection_name=self.COLLECTION_NAME,
+            collection_name=self.collection_name,
             schema=schema,
             index_params=index_params,
             clean=clean,
@@ -232,7 +238,8 @@ class TableSchemaLoader(BaseLoader):
 
     def _load_table_objects(self, md_file: Path) -> List[SchemaObject]:
         md_parser = MDParser(md_file)
-        table_name = md_parser.extract_table_name()
+        # JSON 与 MD 采用同名文件（仅扩展名不同），直接使用文件名对齐。
+        table_name = md_file.stem
 
         json_file = self.json_llm_directory / f"{table_name}.json"
         json_extractor = JSONExtractor(json_file)
@@ -331,9 +338,9 @@ class TableSchemaLoader(BaseLoader):
                 continue
 
             if clean:
-                loaded_total += self._milvus_client.insert_batch(self.COLLECTION_NAME, enriched)
+                loaded_total += self._milvus_client.insert_batch(self.collection_name, enriched)
             else:
-                loaded_total += self._milvus_client.upsert_batch(self.COLLECTION_NAME, enriched)
+                loaded_total += self._milvus_client.upsert_batch(self.collection_name, enriched)
 
         return {"loaded": loaded_total, "skipped": skipped_total}
 
@@ -344,4 +351,3 @@ class TableSchemaLoader(BaseLoader):
 
 
 __all__ = ["TableSchemaLoader"]
-

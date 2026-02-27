@@ -6,14 +6,28 @@ from metaweave.core.dim_value.models import DimTablesConfig
 
 
 def test_generate_dim_tables(tmp_path: Path):
-    json_dir = tmp_path / "json_llm"
+    json_dir = tmp_path / "json"
     json_dir.mkdir()
 
     # dim 表
-    (json_dir / "dim_company.json").write_text(
+    (json_dir / "dvdrental.public.dim_company.json").write_text(
         json.dumps(
             {
-                "table_profile": {"table_category": "dim", "schema_name": "public", "table_name": "dim_company"}
+                "table_info": {"database": "dvdrental", "schema_name": "public", "table_name": "dim_company"},
+                "table_profile": {"table_category": "dim"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    # 通过文件名回退解析 database
+    (json_dir / "analytics.public.dim_region.json").write_text(
+        json.dumps(
+            {
+                "table_profile": {
+                    "table_category": "dim",
+                    "schema_name": "public",
+                    "table_name": "dim_region",
+                }
             }
         ),
         encoding="utf-8",
@@ -29,14 +43,16 @@ def test_generate_dim_tables(tmp_path: Path):
     )
 
     output_path = tmp_path / "dim_tables.yaml"
-    generator = DimTableConfigGenerator(json_llm_dir=json_dir, output_path=output_path)
+    generator = DimTableConfigGenerator(json_dir=json_dir, output_path=output_path)
 
     config = generator.generate()
-    assert "public.dim_company" in config["tables"]
-    assert "public.dim_sales" not in config["tables"]
+    assert "dvdrental" in config["databases"]
+    assert "analytics" in config["databases"]
+    assert "public.dim_company" in config["databases"]["dvdrental"]["tables"]
+    assert "public.dim_region" in config["databases"]["analytics"]["tables"]
+    assert "public.fact_sales" not in config["databases"]["dvdrental"]["tables"]
     assert output_path.exists()
 
-    parsed = DimTablesConfig.from_yaml(config)
+    parsed = DimTablesConfig.from_yaml(config, database="dvdrental")
     assert "public.dim_company" in parsed.tables
     assert parsed.tables["public.dim_company"].embedding_col is None
-

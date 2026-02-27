@@ -19,7 +19,7 @@ class LoaderFactory:
         """创建加载器实例
 
         Args:
-            load_type: 加载类型（"cql"/"md"/"dim"/"sql"）
+            load_type: 加载类型（"cql"/"content_md"/"dim"/"sql"）
             config: 配置字典
 
         Returns:
@@ -75,8 +75,8 @@ def _register_builtin_loaders():
     LoaderFactory.register("table_schema", TableSchemaLoader)
 
     # 未来扩展
-    # from metaweave.core.loaders.md_loader import MDLoader
-    # LoaderFactory.register("md", MDLoader)
+    # from metaweave.core.loaders.content_md_loader import ContentMDLoader
+    # LoaderFactory.register("content_md", ContentMDLoader)
     #
     # from metaweave.core.loaders.dim_loader import DimLoader
     # LoaderFactory.register("dim", DimLoader)

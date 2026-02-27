@@ -19,9 +19,9 @@ logger = logging.getLogger("metaweave.cli")
     "--type",
     "-t",
     "load_type",
-    type=click.Choice(["cql", "md", "dim", "dim_value", "sql", "table_schema"], case_sensitive=False),
+    type=click.Choice(["cql", "content_md", "dim", "dim_value", "sql", "table_schema"], case_sensitive=False),
     required=True,
-    help="加载类型：cql(Neo4j) / md(Markdown) / dim_value(维表值) / sql(样例SQL) / table_schema(表结构)"
+    help="加载类型：cql(Neo4j) / content_md(Markdown内容) / dim_value(维表值) / sql(样例SQL) / table_schema(表结构)"
 )
 @click.option(
     "--config",
@@ -48,8 +48,9 @@ def load_command(load_type: str, config: str, clean: bool, debug: bool):
 
     \b
     - cql : 加载 Neo4j Cypher 文件到图数据库（Step 4 生成）
-    - md  : 加载 Markdown 表定义到向量数据库（Step 5 生成，未来支持）
-    - dim : 加载维表数据到向量数据库（未来支持）
+    - content_md : 加载 Markdown 内容到向量数据库（未来支持）
+    - dim / dim_value : 加载维表数据到向量数据库（已实现）
+    - table_schema : 加载表结构语义到向量数据库（已实现）
     - sql : 加载样例 SQL 到向量数据库（Step 6 生成，未来支持）
 
     示例:

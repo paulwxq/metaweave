@@ -5,16 +5,16 @@
   "json_metadata_version": "2.0",
   "json_files_loaded": 0,
   "database_queries_executed": 0,
-  "generated_timestamp": "2026-01-06T12:18:31.770560",
+  "generated_timestamp": "2026-02-26T11:23:06.905104",
   "statistics": {
-    "total_relationships_found": 25,
+    "total_relationships_found": 27,
     "foreign_key_relationships": 18,
     "composite_key_relationships": 0,
-    "single_column_relationships": 25,
+    "single_column_relationships": 27,
     "total_suppressed_single_relations": 0,
     "active_search_discoveries": 0,
     "dynamic_composite_discoveries": 0,
-    "llm_assisted_relationships": 7,
+    "llm_assisted_relationships": 9,
     "rejected_low_confidence": 2
   },
   "relationships": [
@@ -387,6 +387,32 @@
       "cardinality": "M:N"
     },
     {
+      "relationship_id": "rel_a5d7fdf87e76",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "customer"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "staff"
+      },
+      "from_column": "store_id",
+      "to_column": "store_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 1.0,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 1.0,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
       "relationship_id": "rel_2737b76b8d9c",
       "type": "single_column",
       "from_table": {
@@ -437,32 +463,6 @@
         "type_compatibility": 1.0
       },
       "cardinality": "N:1"
-    },
-    {
-      "relationship_id": "rel_312985087335",
-      "type": "single_column",
-      "from_table": {
-        "schema": "public",
-        "table": "film_category"
-      },
-      "to_table": {
-        "schema": "public",
-        "table": "film_actor"
-      },
-      "from_column": "film_id",
-      "to_column": "film_id",
-      "discovery_method": "llm_assisted",
-      "target_source_type": "llm_inferred",
-      "source_constraint": null,
-      "composite_score": 0.7491,
-      "confidence_level": "low",
-      "metrics": {
-        "inclusion_rate": 0.614,
-        "jaccard_index": 0.614,
-        "name_similarity": 1.0,
-        "type_compatibility": 1.0
-      },
-      "cardinality": "1:N"
     },
     {
       "relationship_id": "rel_d270bc9a283d",
@@ -517,6 +517,32 @@
       "cardinality": "N:1"
     },
     {
+      "relationship_id": "rel_143eb0fc92a0",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "payment"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "store"
+      },
+      "from_column": "staff_id",
+      "to_column": "manager_staff_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.9712,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 1.0,
+        "name_similarity": 0.8559,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
       "relationship_id": "rel_b09dbb9244b1",
       "type": "single_column",
       "from_table": {
@@ -541,6 +567,32 @@
         "type_compatibility": 1.0
       },
       "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_dfb66d05e362",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "staff"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "store"
+      },
+      "from_column": "store_id",
+      "to_column": "store_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 1.0,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 1.0,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "1:1"
     }
   ]
 }

@@ -1,15 +1,15 @@
 # 表间关系发现报告
 database: dvdrental
 生成方式: rel_llm
-生成时间: 2026-01-06 12:18:31
-关系总数: 25
+生成时间: 2026-02-26 11:23:06
+关系总数: 27
 
 ## 统计摘要
 - 外键直通: 18
-- 推断关系: 7
+- 推断关系: 9
 - 复合键关系: 0
-- 单列关系: 25
-- 高置信度 (≥0.9): 6
+- 单列关系: 27
+- 高置信度 (≥0.9): 9
 - 中置信度 (0.8-0.9): 0
 
 ## 关系详情
@@ -134,7 +134,7 @@ database: dvdrental
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 20. public.customer.store_id → public.store.store_id
+### 20. public.customer.store_id → public.staff.store_id
 - **类型**: 单列
 - **源列**: `store_id`
 - **目标列**: `store_id`
@@ -147,7 +147,20 @@ database: dvdrental
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 21. public.film_actor.film_id → public.film_category.film_id
+### 21. public.customer.store_id → public.store.store_id
+- **类型**: 单列
+- **源列**: `store_id`
+- **目标列**: `store_id`
+- **关系类型**: inferred
+- **置信度**: 1.000 (高)
+- **评分明细**:
+  - inclusion_rate: 1.000
+  - jaccard_index: 1.000
+  - name_similarity: 1.000
+  - type_compatibility: 1.000
+- **推断方法**: llm_assisted
+
+### 22. public.film_actor.film_id → public.film_category.film_id
 - **类型**: 单列
 - **源列**: `film_id`
 - **目标列**: `film_id`
@@ -155,19 +168,6 @@ database: dvdrental
 - **置信度**: 0.961 (高)
 - **评分明细**:
   - inclusion_rate: 1.000
-  - jaccard_index: 0.614
-  - name_similarity: 1.000
-  - type_compatibility: 1.000
-- **推断方法**: llm_assisted
-
-### 22. public.film_category.film_id → public.film_actor.film_id
-- **类型**: 单列
-- **源列**: `film_id`
-- **目标列**: `film_id`
-- **关系类型**: inferred
-- **置信度**: 0.749 (低)
-- **评分明细**:
-  - inclusion_rate: 0.614
   - jaccard_index: 0.614
   - name_similarity: 1.000
   - type_compatibility: 1.000
@@ -199,7 +199,7 @@ database: dvdrental
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 25. public.rental.staff_id → public.store.manager_staff_id
+### 25. public.payment.staff_id → public.store.manager_staff_id
 - **类型**: 单列
 - **源列**: `staff_id`
 - **目标列**: `manager_staff_id`
@@ -209,5 +209,31 @@ database: dvdrental
   - inclusion_rate: 1.000
   - jaccard_index: 1.000
   - name_similarity: 0.856
+  - type_compatibility: 1.000
+- **推断方法**: llm_assisted
+
+### 26. public.rental.staff_id → public.store.manager_staff_id
+- **类型**: 单列
+- **源列**: `staff_id`
+- **目标列**: `manager_staff_id`
+- **关系类型**: inferred
+- **置信度**: 0.971 (高)
+- **评分明细**:
+  - inclusion_rate: 1.000
+  - jaccard_index: 1.000
+  - name_similarity: 0.856
+  - type_compatibility: 1.000
+- **推断方法**: llm_assisted
+
+### 27. public.staff.store_id → public.store.store_id
+- **类型**: 单列
+- **源列**: `store_id`
+- **目标列**: `store_id`
+- **关系类型**: inferred
+- **置信度**: 1.000 (高)
+- **评分明细**:
+  - inclusion_rate: 1.000
+  - jaccard_index: 1.000
+  - name_similarity: 1.000
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted

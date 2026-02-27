@@ -1,7 +1,7 @@
 // import_all.dvdrental.cypher
 // Neo4j 元数据导入脚本（global 模式，包含所有表和关系）
-// 生成时间: 2026-01-06T12:18:44.539165
-// 统计: 15 张表, 86 个列, 25 个关系
+// 生成时间: 2026-02-26T11:30:22.876176
+// 统计: 15 张表, 86 个列, 27 个关系
 
 // =====================================================================
 // 1. 创建唯一约束
@@ -23,7 +23,7 @@
     "full_name": "public.actor",
     "schema": "public",
     "name": "actor",
-    "comment": "演员信息表，存储电影演员的基本信息及更新时间",
+    "comment": "演员信息表，存储电影演员的姓名及最后更新时间",
     "pk": [
       "actor_id"
     ],
@@ -46,7 +46,7 @@
     "full_name": "public.address",
     "schema": "public",
     "name": "address",
-    "comment": "地址信息表，存储客户的详细地址及联系方式",
+    "comment": "地址信息表，存储客户或实体的详细地址、行政区划及联系方式",
     "pk": [
       "address_id"
     ],
@@ -73,7 +73,7 @@
     "full_name": "public.category",
     "schema": "public",
     "name": "category",
-    "comment": "电影分类表，存储影片类别的名称及更新时间",
+    "comment": "电影分类表，存储影片类别的名称及最后更新时间",
     "pk": [
       "category_id"
     ],
@@ -92,7 +92,7 @@
     "full_name": "public.city",
     "schema": "public",
     "name": "city",
-    "comment": "城市信息表，存储全球城市名称及其所属国家和更新时间",
+    "comment": "城市信息表，存储全球城市的名称、所属国家及更新时间",
     "pk": [
       "city_id"
     ],
@@ -119,7 +119,7 @@
     "full_name": "public.country",
     "schema": "public",
     "name": "country",
-    "comment": "国家信息表，存储全球国家名称及其更新时间",
+    "comment": "国家信息表，存储世界各国名称及最后更新时间",
     "pk": [
       "country_id"
     ],
@@ -138,7 +138,7 @@
     "full_name": "public.customer",
     "schema": "public",
     "name": "customer",
-    "comment": "客户信息表，存储客户的个人资料、联系方式及账户状态",
+    "comment": "客户信息表，存储客户的姓名、联系方式、地址及账户状态等基本信息",
     "pk": [
       "customer_id"
     ],
@@ -171,7 +171,7 @@
     "full_name": "public.film",
     "schema": "public",
     "name": "film",
-    "comment": "电影信息表，存储影片的基本信息、租赁属性和播放详情",
+    "comment": "电影信息表，存储影片标题、描述、年份、语言、租借信息、时长、评级等元数据",
     "pk": [
       "film_id"
     ],
@@ -204,7 +204,7 @@
     "full_name": "public.film_actor",
     "schema": "public",
     "name": "film_actor",
-    "comment": "演员影片关联表，记录演员参演的电影及最后更新时间",
+    "comment": "电影与演员的关联表，记录演员参演电影的关系及更新时间",
     "pk": [
       "actor_id",
       "film_id"
@@ -235,7 +235,7 @@
     "full_name": "public.film_category",
     "schema": "public",
     "name": "film_category",
-    "comment": "电影分类关联表，记录电影与所属分类的对应关系",
+    "comment": "电影与分类的多对多关联表，记录每部电影所属的分类及最后更新时间",
     "pk": [
       "film_id",
       "category_id"
@@ -262,7 +262,7 @@
     "full_name": "public.inventory",
     "schema": "public",
     "name": "inventory",
-    "comment": "库存信息表，记录影片在各门店的库存情况及更新时间",
+    "comment": "库存记录表，存储影片在各门店的库存数量及最后更新时间",
     "pk": [
       "inventory_id"
     ],
@@ -282,7 +282,7 @@
       ]
     ],
     "table_domains": [],
-    "table_category": "bridge"
+    "table_category": "fact"
   },
   {
     "id": "dvdrental.public.language",
@@ -290,7 +290,7 @@
     "full_name": "public.language",
     "schema": "public",
     "name": "language",
-    "comment": "语言信息表，存储电影支持的语言种类及名称",
+    "comment": "语言信息表，存储系统支持的语言名称及更新时间",
     "pk": [
       "language_id"
     ],
@@ -309,7 +309,7 @@
     "full_name": "public.payment",
     "schema": "public",
     "name": "payment",
-    "comment": "支付记录表，存储客户租赁订单的付款金额及时间信息",
+    "comment": "支付记录表，存储客户租赁服务的付款信息及交易详情",
     "pk": [
       "payment_id"
     ],
@@ -348,7 +348,7 @@
     "full_name": "public.rental",
     "schema": "public",
     "name": "rental",
-    "comment": "租赁记录表，存储影片租赁的借还时间、客户及员工信息",
+    "comment": "租赁记录表，存储影片租借、归还时间及关联的库存、客户和员工信息",
     "pk": [
       "rental_id"
     ],
@@ -381,7 +381,7 @@
     "full_name": "public.staff",
     "schema": "public",
     "name": "staff",
-    "comment": "员工信息表，存储门店员工的基本资料、联系方式及账户信息",
+    "comment": "员工信息表，存储门店员工的基本资料、联系方式、账户凭证及头像等信息",
     "pk": [
       "staff_id"
     ],
@@ -404,7 +404,7 @@
     "full_name": "public.store",
     "schema": "public",
     "name": "store",
-    "comment": "门店信息表，存储门店的管理人、地址及最后更新时间",
+    "comment": "门店信息表，存储门店编号、负责人、地址及最后更新时间",
     "pk": [
       "store_id"
     ],
@@ -556,7 +556,7 @@
     "schema": "public",
     "table": "address",
     "name": "address",
-    "comment": "详细街道地址",
+    "comment": "详细地址（街道、门牌号等）",
     "data_type": "character varying",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -575,7 +575,7 @@
     "schema": "public",
     "table": "address",
     "name": "address2",
-    "comment": "额外地址信息（可选）",
+    "comment": "补充地址（如楼层、房间号等）",
     "data_type": "character varying",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -594,7 +594,7 @@
     "schema": "public",
     "table": "address",
     "name": "district",
-    "comment": "所属行政区或地区名称",
+    "comment": "所属行政区（省/州/区）",
     "data_type": "character varying",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -613,7 +613,7 @@
     "schema": "public",
     "table": "address",
     "name": "city_id",
-    "comment": "所属城市唯一标识ID",
+    "comment": "所属城市的外键ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -651,7 +651,7 @@
     "schema": "public",
     "table": "address",
     "name": "phone",
-    "comment": "联系电话号码",
+    "comment": "联系电话",
     "data_type": "character varying",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -670,7 +670,7 @@
     "schema": "public",
     "table": "address",
     "name": "last_update",
-    "comment": "最后更新时间戳",
+    "comment": "最后更新时间",
     "data_type": "timestamp without time zone",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -727,7 +727,7 @@
     "schema": "public",
     "table": "category",
     "name": "last_update",
-    "comment": "最后更新时间",
+    "comment": "最后更新时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -784,7 +784,7 @@
     "schema": "public",
     "table": "city",
     "name": "country_id",
-    "comment": "国家唯一标识ID",
+    "comment": "所属国家唯一标识ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -803,7 +803,7 @@
     "schema": "public",
     "table": "city",
     "name": "last_update",
-    "comment": "最后更新时间",
+    "comment": "最后更新时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -898,7 +898,7 @@
     "schema": "public",
     "table": "customer",
     "name": "store_id",
-    "comment": "所属门店的ID",
+    "comment": "所属门店ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -974,7 +974,7 @@
     "schema": "public",
     "table": "customer",
     "name": "address_id",
-    "comment": "关联地址的ID",
+    "comment": "关联地址ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -993,7 +993,7 @@
     "schema": "public",
     "table": "customer",
     "name": "activebool",
-    "comment": "是否激活状态（True-是，False-否）",
+    "comment": "账户激活状态（true-启用，false-禁用）",
     "data_type": "boolean",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1012,7 +1012,7 @@
     "schema": "public",
     "table": "customer",
     "name": "create_date",
-    "comment": "客户创建日期",
+    "comment": "客户记录创建日期",
     "data_type": "date",
     "semantic_role": "audit",
     "is_pk": false,
@@ -1107,7 +1107,7 @@
     "schema": "public",
     "table": "film",
     "name": "description",
-    "comment": "电影剧情描述",
+    "comment": "电影剧情简介",
     "data_type": "text",
     "semantic_role": "description",
     "is_pk": false,
@@ -1126,7 +1126,7 @@
     "schema": "public",
     "table": "film",
     "name": "release_year",
-    "comment": "电影发布年份",
+    "comment": "电影上映年份",
     "data_type": "integer",
     "semantic_role": "datetime",
     "is_pk": false,
@@ -1145,7 +1145,7 @@
     "schema": "public",
     "table": "film",
     "name": "language_id",
-    "comment": "语言种类ID",
+    "comment": "电影语言ID（关联language表）",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1164,7 +1164,7 @@
     "schema": "public",
     "table": "film",
     "name": "rental_duration",
-    "comment": "租借时长（天）",
+    "comment": "租赁期限（天数）",
     "data_type": "smallint",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1183,7 +1183,7 @@
     "schema": "public",
     "table": "film",
     "name": "rental_rate",
-    "comment": "租借费用",
+    "comment": "租赁单价（美元）",
     "data_type": "numeric",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1221,7 +1221,7 @@
     "schema": "public",
     "table": "film",
     "name": "replacement_cost",
-    "comment": "替换成本（丢失赔偿价）",
+    "comment": "丢失/损坏赔偿金额（美元）",
     "data_type": "numeric",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1240,7 +1240,7 @@
     "schema": "public",
     "table": "film",
     "name": "rating",
-    "comment": "电影分级（如PG、R等）",
+    "comment": "电影分级（如NC-17、R、PG等）",
     "data_type": "user-defined",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1259,7 +1259,7 @@
     "schema": "public",
     "table": "film",
     "name": "last_update",
-    "comment": "记录最后更新时间",
+    "comment": "最后更新时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1278,7 +1278,7 @@
     "schema": "public",
     "table": "film",
     "name": "special_features",
-    "comment": "特别收录内容（如花絮、预告片等）",
+    "comment": "特别花絮（数组，如预告片、幕后花絮等）",
     "data_type": "array",
     "semantic_role": "complex",
     "is_pk": false,
@@ -1297,7 +1297,7 @@
     "schema": "public",
     "table": "film",
     "name": "fulltext",
-    "comment": "全文检索向量字段",
+    "comment": "全文检索向量（用于标题和简介的全文搜索）",
     "data_type": "tsvector",
     "semantic_role": "complex",
     "is_pk": false,
@@ -1392,7 +1392,7 @@
     "schema": "public",
     "table": "film_category",
     "name": "category_id",
-    "comment": "影片分类唯一标识ID",
+    "comment": "电影分类唯一标识ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": true,
@@ -1411,7 +1411,7 @@
     "schema": "public",
     "table": "film_category",
     "name": "last_update",
-    "comment": "记录最后更新时间",
+    "comment": "最后更新时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1449,7 +1449,7 @@
     "schema": "public",
     "table": "inventory",
     "name": "film_id",
-    "comment": "电影影片的唯一标识ID",
+    "comment": "电影ID，关联films表",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1468,7 +1468,7 @@
     "schema": "public",
     "table": "inventory",
     "name": "store_id",
-    "comment": "门店的唯一标识ID",
+    "comment": "门店ID，关联stores表",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1582,7 +1582,7 @@
     "schema": "public",
     "table": "payment",
     "name": "customer_id",
-    "comment": "客户唯一标识ID",
+    "comment": "关联客户ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1601,7 +1601,7 @@
     "schema": "public",
     "table": "payment",
     "name": "staff_id",
-    "comment": "员工唯一标识ID",
+    "comment": "处理支付的员工ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1620,7 +1620,7 @@
     "schema": "public",
     "table": "payment",
     "name": "rental_id",
-    "comment": "租赁订单唯一标识ID",
+    "comment": "关联租赁记录ID",
     "data_type": "integer",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1639,7 +1639,7 @@
     "schema": "public",
     "table": "payment",
     "name": "amount",
-    "comment": "支付金额",
+    "comment": "支付金额（单位：元）",
     "data_type": "numeric",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1658,7 +1658,7 @@
     "schema": "public",
     "table": "payment",
     "name": "payment_date",
-    "comment": "支付发生的时间",
+    "comment": "支付发生的时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -1696,7 +1696,7 @@
     "schema": "public",
     "table": "rental",
     "name": "rental_date",
-    "comment": "租借发生的时间",
+    "comment": "租赁发生时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -1715,7 +1715,7 @@
     "schema": "public",
     "table": "rental",
     "name": "inventory_id",
-    "comment": "库存物品的唯一标识ID",
+    "comment": "被租赁的库存物品ID",
     "data_type": "integer",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1734,7 +1734,7 @@
     "schema": "public",
     "table": "rental",
     "name": "customer_id",
-    "comment": "客户的唯一标识ID",
+    "comment": "租赁客户唯一标识ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1753,7 +1753,7 @@
     "schema": "public",
     "table": "rental",
     "name": "return_date",
-    "comment": "预计或实际归还时间",
+    "comment": "归还时间戳（NULL表示未归还）",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -1772,7 +1772,7 @@
     "schema": "public",
     "table": "rental",
     "name": "staff_id",
-    "comment": "处理租赁的员工ID",
+    "comment": "处理该租赁业务的员工ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1791,7 +1791,7 @@
     "schema": "public",
     "table": "rental",
     "name": "last_update",
-    "comment": "记录最后一次更新时间",
+    "comment": "记录最后更新时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1829,7 +1829,7 @@
     "schema": "public",
     "table": "staff",
     "name": "first_name",
-    "comment": "员工名字",
+    "comment": "员工名字（名）",
     "data_type": "character varying",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1848,7 +1848,7 @@
     "schema": "public",
     "table": "staff",
     "name": "last_name",
-    "comment": "员工姓氏",
+    "comment": "员工姓氏（姓）",
     "data_type": "character varying",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1867,7 +1867,7 @@
     "schema": "public",
     "table": "staff",
     "name": "address_id",
-    "comment": "地址关联ID",
+    "comment": "员工地址信息ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1886,7 +1886,7 @@
     "schema": "public",
     "table": "staff",
     "name": "email",
-    "comment": "员工电子邮箱",
+    "comment": "员工工作邮箱地址",
     "data_type": "character varying",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1924,7 +1924,7 @@
     "schema": "public",
     "table": "staff",
     "name": "active",
-    "comment": "是否在职（True-在职，False-离职）",
+    "comment": "员工启用状态（true-在职，false-离职）",
     "data_type": "boolean",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1943,7 +1943,7 @@
     "schema": "public",
     "table": "staff",
     "name": "username",
-    "comment": "登录用户名",
+    "comment": "员工系统登录用户名",
     "data_type": "character varying",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1962,7 +1962,7 @@
     "schema": "public",
     "table": "staff",
     "name": "password",
-    "comment": "登录密码（加密存储）",
+    "comment": "员工密码（SHA1哈希值）",
     "data_type": "character varying",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1981,7 +1981,7 @@
     "schema": "public",
     "table": "staff",
     "name": "last_update",
-    "comment": "最后更新时间",
+    "comment": "最后更新时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -2000,7 +2000,7 @@
     "schema": "public",
     "table": "staff",
     "name": "picture",
-    "comment": "员工照片（二进制数据）",
+    "comment": "员工照片二进制数据",
     "data_type": "bytea",
     "semantic_role": "complex",
     "is_pk": false,
@@ -2057,7 +2057,7 @@
     "schema": "public",
     "table": "store",
     "name": "address_id",
-    "comment": "门店地址关联ID",
+    "comment": "门店地址信息ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -2772,6 +2772,22 @@ UNWIND [
   },
   {
     "source_table": "public.customer",
+    "target_table": "public.staff",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.store_id = DST.store_id",
+    "source_columns": [
+      "store_id"
+    ],
+    "target_columns": [
+      "store_id"
+    ],
+    "src_full_name": "public.customer",
+    "dst_full_name": "public.staff"
+  },
+  {
+    "source_table": "public.customer",
     "target_table": "public.store",
     "cardinality": "N:1",
     "constraint_name": null,
@@ -2785,22 +2801,6 @@ UNWIND [
     ],
     "src_full_name": "public.customer",
     "dst_full_name": "public.store"
-  },
-  {
-    "source_table": "public.film_actor",
-    "target_table": "public.film_category",
-    "cardinality": "N:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.film_id = DST.film_id",
-    "source_columns": [
-      "film_id"
-    ],
-    "target_columns": [
-      "film_id"
-    ],
-    "src_full_name": "public.film_actor",
-    "dst_full_name": "public.film_category"
   },
   {
     "source_table": "public.film_actor",
@@ -2851,6 +2851,22 @@ UNWIND [
     "dst_full_name": "public.store"
   },
   {
+    "source_table": "public.payment",
+    "target_table": "public.store",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.staff_id = DST.manager_staff_id",
+    "source_columns": [
+      "staff_id"
+    ],
+    "target_columns": [
+      "manager_staff_id"
+    ],
+    "src_full_name": "public.payment",
+    "dst_full_name": "public.store"
+  },
+  {
     "source_table": "public.rental",
     "target_table": "public.store",
     "cardinality": "N:1",
@@ -2864,6 +2880,22 @@ UNWIND [
       "manager_staff_id"
     ],
     "src_full_name": "public.rental",
+    "dst_full_name": "public.store"
+  },
+  {
+    "source_table": "public.staff",
+    "target_table": "public.store",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.store_id = DST.store_id",
+    "source_columns": [
+      "store_id"
+    ],
+    "target_columns": [
+      "store_id"
+    ],
+    "src_full_name": "public.staff",
     "dst_full_name": "public.store"
   }
 ] AS j

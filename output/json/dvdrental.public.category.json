@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-06T12:16:18.057059",
+  "generated_timestamp": "2026-02-26T00:19:15.652101",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "category",
     "table_type": "table",
-    "comment": "电影分类表，存储影片类别的名称及更新时间",
+    "comment": "电影分类表，存储影片类别的名称及最后更新时间",
     "comment_source": "ddl",
     "total_rows": 16,
     "total_columns": 3
@@ -121,7 +121,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": "now()",
-      "comment": "最后更新时间",
+      "comment": "最后更新时间戳",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 16,
@@ -223,5 +223,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-01-06T12:16:21.626473"
+  "llm_enhanced_at": "2026-02-26T00:19:21.094255"
 }

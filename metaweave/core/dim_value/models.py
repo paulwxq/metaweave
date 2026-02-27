@@ -45,22 +45,40 @@ class DimTableConfig:
 class DimTablesConfig:
     """维表配置集合。"""
 
+    database: str
     tables: Dict[str, DimTableConfig]
 
     @classmethod
-    def from_yaml(cls, yaml_data: Dict[str, Any]) -> "DimTablesConfig":
+    def from_yaml(cls, yaml_data: Dict[str, Any], database: str) -> "DimTablesConfig":
+        if not database:
+            raise ValueError("数据库名不能为空")
+
+        databases_cfg = yaml_data.get("databases", {}) if isinstance(yaml_data, dict) else {}
+        if not isinstance(databases_cfg, dict):
+            raise ValueError("dim_tables.yaml 顶层 'databases' 配置格式错误")
+
+        db_cfg = databases_cfg.get(database)
+        if not isinstance(db_cfg, dict):
+            raise ValueError(f"dim_tables.yaml 缺少 databases.{database} 配置")
+
+        db_tables_cfg = db_cfg.get("tables", {})
+        if not isinstance(db_tables_cfg, dict):
+            raise ValueError(f"dim_tables.yaml 缺少 databases.{database}.tables 配置")
+
         tables: Dict[str, DimTableConfig] = {}
-        for full_name, config in yaml_data.get("tables", {}).items():
+        for full_name, config in db_tables_cfg.items():
             if "." not in full_name:
                 # 跳过非法表名
                 continue
             schema, table = full_name.split(".", 1)
+            if not isinstance(config, dict):
+                config = {}
             tables[full_name] = DimTableConfig(
                 schema=schema,
                 table=table,
                 embedding_col=config.get("embedding_col"),
             )
-        return cls(tables=tables)
+        return cls(database=database, tables=tables)
 
 
 @dataclass
@@ -84,4 +102,3 @@ class LoaderOptions:
             truncate_long_text=options.get("truncate_long_text", cls.truncate_long_text),
             max_text_length=options.get("max_text_length", cls.max_text_length),
         )
-

@@ -56,7 +56,7 @@ def _write_metadata_config(tmp_path: Path) -> Path:
 
 def _write_md_and_json(tmp_path: Path) -> None:
     md_dir = tmp_path / "md"
-    json_dir = tmp_path / "json_llm"
+    json_dir = tmp_path / "json"
     md_dir.mkdir()
     json_dir.mkdir()
 
@@ -88,7 +88,8 @@ def test_loader_clean_uses_insert(tmp_path):
         "metadata_config_file": str(meta_cfg),
         "table_schema_loader": {
             "md_directory": str(tmp_path / "md"),
-            "json_llm_directory": str(tmp_path / "json_llm"),
+            "json_llm_directory": str(tmp_path / "json"),
+            "collection_name": "table_schema_embeddings",
             "options": {"batch_size": 2},
         },
     }
@@ -117,7 +118,8 @@ def test_loader_incremental_uses_upsert(tmp_path):
         "metadata_config_file": str(meta_cfg),
         "table_schema_loader": {
             "md_directory": str(tmp_path / "md"),
-            "json_llm_directory": str(tmp_path / "json_llm"),
+            "json_llm_directory": str(tmp_path / "json"),
+            "collection_name": "table_schema_embeddings",
             "options": {"batch_size": 2},
         },
     }
@@ -137,3 +139,71 @@ def test_loader_incremental_uses_upsert(tmp_path):
     assert loader._milvus_client.upsert_calls >= 1  # type: ignore[attr-defined]
     assert loader._milvus_client.insert_calls == 0  # type: ignore[attr-defined]
 
+
+def test_loader_validate_fails_when_collection_name_missing(tmp_path):
+    meta_cfg = _write_metadata_config(tmp_path)
+    _write_md_and_json(tmp_path)
+
+    config = {
+        "metadata_config_file": str(meta_cfg),
+        "table_schema_loader": {
+            "md_directory": str(tmp_path / "md"),
+            "json_llm_directory": str(tmp_path / "json"),
+            "options": {"batch_size": 2},
+        },
+    }
+
+    loader = TableSchemaLoader(
+        config,
+        milvus_client_cls=FakeMilvusClient,
+        embedding_service_cls=FakeEmbeddingService,
+    )
+
+    assert loader.validate() is False
+
+
+def test_loader_matches_json_by_md_filename(tmp_path):
+    meta_cfg = _write_metadata_config(tmp_path)
+    md_dir = tmp_path / "md"
+    json_dir = tmp_path / "json"
+    md_dir.mkdir()
+    json_dir.mkdir()
+
+    md_file = md_dir / "dvdrental.public.actor.md"
+    md_file.write_text(
+        """# public.actor（演员表）
+## 字段列表：
+- actor_id (integer(32)) - 演员ID（主键）
+""",
+        encoding="utf-8",
+    )
+    (json_dir / "dvdrental.public.actor.json").write_text(
+        json.dumps(
+            {
+                "table_profile": {"table_category": "dim"},
+                "column_profiles": {"created_at": {"data_type": "timestamp"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = {
+        "metadata_config_file": str(meta_cfg),
+        "table_schema_loader": {
+            "md_directory": str(md_dir),
+            "json_llm_directory": str(json_dir),
+            "collection_name": "table_schema_embeddings",
+        },
+    }
+    loader = TableSchemaLoader(
+        config,
+        milvus_client_cls=FakeMilvusClient,
+        embedding_service_cls=FakeEmbeddingService,
+    )
+
+    objects = loader._load_table_objects(md_file)
+    table_obj = next(obj for obj in objects if obj.object_type == "table")
+
+    assert table_obj.object_id == "dvdrental.public.actor"
+    assert table_obj.table_category == "dim"
+    assert table_obj.time_col_hint == "created_at"

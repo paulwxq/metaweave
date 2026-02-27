@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-06T12:16:18.297606",
+  "generated_timestamp": "2026-02-26T00:19:15.787072",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "store",
     "table_type": "table",
-    "comment": "门店信息表，存储门店的管理人、地址及最后更新时间",
+    "comment": "门店信息表，存储门店编号、负责人、地址及最后更新时间",
     "comment_source": "ddl",
     "total_rows": 2,
     "total_columns": 4
@@ -142,7 +142,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "门店地址关联ID",
+      "comment": "门店地址信息ID",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 2,
@@ -319,5 +319,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-01-06T12:17:06.610064"
+  "llm_enhanced_at": "2026-02-26T00:19:56.070036"
 }

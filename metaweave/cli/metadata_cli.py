@@ -635,6 +635,17 @@ def metadata_command(
             # 调用增强方法（同步模式保证返回 int）
             enhanced_count = enhancer.enhance_json_files(json_files)
 
+            # 统计 table_category 分布（读取已增强的 JSON 文件）
+            category_counts: Dict[str, int] = {}
+            for jf in json_files:
+                try:
+                    with open(jf, "r", encoding="utf-8") as f:
+                        jd = json.load(f)
+                    cat = (jd.get("table_profile", {}).get("table_category") or "unknown").strip().lower()
+                    category_counts[cat] = category_counts.get(cat, 0) + 1
+                except Exception:
+                    pass
+
             # 显示结果
             click.echo("")
             click.echo("=" * 60)
@@ -643,6 +654,12 @@ def metadata_command(
             click.echo(f"✅ 阶段 A (json): 成功处理 {result_a.processed_tables} 张表")
             click.echo(f"✅ 阶段 B (LLM 增强): 增强 {enhanced_count} 个文件")
             click.echo(f"📁 输出目录: {json_dir}")
+            click.echo("")
+            click.echo("📂 表分类统计（table_category）")
+            click.echo(f"   ├─ fact   (事实表): {category_counts.get('fact', 0)} 个")
+            click.echo(f"   ├─ dim    (维度表): {category_counts.get('dim', 0)} 个")
+            click.echo(f"   ├─ bridge (桥接表): {category_counts.get('bridge', 0)} 个")
+            click.echo(f"   └─ unknown(未分类): {category_counts.get('unknown', 0)} 个")
             click.echo("=" * 60)
             click.echo("✨ json_llm 处理完成！")
 

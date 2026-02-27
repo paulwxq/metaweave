@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-01-06T12:16:18.268031",
+  "generated_timestamp": "2026-02-26T00:19:15.770965",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "payment",
     "table_type": "table",
-    "comment": "支付记录表，存储客户租赁订单的付款金额及时间信息",
+    "comment": "支付记录表，存储客户租赁服务的付款信息及交易详情",
     "comment_source": "ddl",
     "total_rows": 14596,
     "total_columns": 6
@@ -76,7 +76,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "客户唯一标识ID",
+      "comment": "关联客户ID",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -140,7 +140,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "员工唯一标识ID",
+      "comment": "处理支付的员工ID",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -208,7 +208,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "租赁订单唯一标识ID",
+      "comment": "关联租赁记录ID",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -272,7 +272,7 @@
       "numeric_scale": 2,
       "is_nullable": false,
       "column_default": null,
-      "comment": "支付金额",
+      "comment": "支付金额（单位：元）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -326,7 +326,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "支付发生的时间",
+      "comment": "支付发生的时间戳",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -516,5 +516,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-01-06T12:17:02.541580"
+  "llm_enhanced_at": "2026-02-26T00:19:48.652771"
 }
