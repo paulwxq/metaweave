@@ -392,23 +392,19 @@ class LLMRelationshipDiscovery:
         return tables, fk_relation_objects, fk_relationship_ids
 
     def _validate_table_domains(self, tables: Dict) -> None:
-        """校验所有表是否包含 table_domains 属性，缺失则报错退出。"""
+        """校验表是否包含 table_domains 属性，缺失时仅 warn 并默认为空列表。"""
         missing_tables = []
         for full_name, data in tables.items():
             table_profile = data.get("table_profile", {})
             if "table_domains" not in table_profile:
                 missing_tables.append(full_name)
+                table_profile["table_domains"] = []
 
         if missing_tables:
-            logger.error(
-                "以下表的 JSON 文件缺少 table_domains 属性，"
-                "请先执行 --step json --domain 生成："
-            )
-            for table in missing_tables:
-                logger.error(f"  - {table}")
-            raise ValueError(
-                f"发现 {len(missing_tables)} 个表缺少 table_domains 属性，"
-                "无法按 domain 进行关系发现"
+            logger.warning(
+                "%s 个表的 JSON 缺少 table_domains 属性，已默认为空列表。"
+                "建议先执行 --generate-domains 再重新运行 --step json。",
+                len(missing_tables),
             )
 
     def _discover_llm_candidates_sync(

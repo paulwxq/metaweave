@@ -67,10 +67,10 @@ domains:
 但需要配合 2.2 的兜底策略进行**防御性校验的放宽**：取消原本“找不到 Domain 字段即报错阻断”的严格限制。当读取到 `[]` 时，允许模块平滑降级（如退化为不区分 Domain 的全量处理模式），以此实现流程的完美闭环。
 
 ### 2.4 MD 上下文文件数量限制的配置化
-当前通过 CLI 参数 `--md-context-limit`（默认 100）来控制向 LLM 提交的 MD 摘要文件数量（由于每张表对应一个 MD 文件，这也间接限制了参与 Domain 生成的表数量）。为了更好的工程化管理，将此限制提升到配置文件中。
+当前通过 CLI 参数 `--md-limit`（默认 100）来控制向 LLM 提交的 MD 摘要文件数量（由于每张表对应一个 MD 文件，这也间接限制了参与 Domain 生成的表数量）。为了更好的工程化管理，将此限制提升到配置文件中。
 
 **说明**：**保留原有的 CLI 参数**，并确立严格的取值优先级。
-**参数优先级策略**：`CLI 参数 (--md-context-limit)` > `配置文件 (metadata_config.yaml 的 domain_generation.md_context_limit)` > `代码默认值 (100)`。
+**参数优先级策略**：`CLI 参数 (--md-limit)` > `配置文件 (metadata_config.yaml 的 domain_generation.md_context_limit)` > `代码默认值 (100)`。
 
 **`configs/metadata_config.yaml` 新增配置：**
 ```yaml

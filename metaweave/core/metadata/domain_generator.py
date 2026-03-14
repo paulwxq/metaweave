@@ -35,16 +35,33 @@ class DomainGenerator:
         md_context: bool = True,
         md_context_dir: str = None,
         md_context_mode: str = "name_comment",
-        md_context_limit: int = 100,
+        md_context_limit: int = None,
     ):
         self.config = config
         self.yaml_path = Path(yaml_path)
-        self.llm_service = LLMService(config.get("llm", {}))
+
+        # 专属 LLM 配置：domain_generation.llm > 全局 llm
+        domain_gen_config = config.get("domain_generation", {}) or {}
+        dedicated_llm = domain_gen_config.get("llm")
+        if dedicated_llm and isinstance(dedicated_llm, dict) and dedicated_llm:
+            llm_config = {**config.get("llm", {}), **dedicated_llm}
+        else:
+            llm_config = config.get("llm", {})
+        self.llm_service = LLMService(llm_config)
+
         self.db_config = self._load_yaml()
         self.md_context = md_context
         self.md_context_dir = Path(md_context_dir) if md_context_dir else None
         self.md_context_mode = md_context_mode
-        self.md_context_limit = max(1, md_context_limit)
+
+        # md_context_limit 优先级：CLI 参数 > 配置文件 > 默认 100
+        config_limit = domain_gen_config.get("md_context_limit")
+        if md_context_limit is not None:
+            self.md_context_limit = max(1, md_context_limit)
+        elif config_limit is not None:
+            self.md_context_limit = max(1, int(config_limit))
+        else:
+            self.md_context_limit = 100
 
     def _default_config(self) -> Dict[str, Any]:
         return {
@@ -59,6 +76,7 @@ class DomainGenerator:
                 {
                     "name": self.UNCLASSIFIED_DOMAIN,
                     "description": "无法归入其他业务主题的表",
+                    "tables": [],
                 }
             ],
         }
@@ -98,6 +116,30 @@ class DomainGenerator:
 
     def _build_prompt(self, md_summary: str, user_description: Optional[str]) -> str:
         """根据是否传入用户描述，动态构建提示词。"""
+        max_domains_per_table = self.db_config.get("llm_inference", {}).get(
+            "max_domains_per_table", self.DEFAULT_MAX_DOMAINS_PER_TABLE
+        )
+
+        tables_instructions = f"""5. 将【表结构摘要】中每一个表名（保持原始三段式格式不变）分配到最合适的 Domain 中。
+6. 无法归入任何业务主题的表，请分配到名为 "_未分类_" 的特殊主题中。
+7. 一张表最多可以归入 {max_domains_per_table} 个主题。"""
+
+        output_format = """## 输出格式（严格 JSON）
+```json
+{{
+  "database": {{
+    "name": "推断出的系统名称",
+    "description": "详细的数据库整体描述..."
+  }},
+  "domains": [
+    {{"name": "_未分类_", "description": "无法归入其他业务主题的表", "tables": ["db.schema.table_x"]}},
+    {{"name": "主题1", "description": "主题1的职责描述", "tables": ["db.schema.table1", "db.schema.table2"]}},
+    {{"name": "主题2", "description": "主题2的职责描述", "tables": ["db.schema.table3"]}}
+  ]
+}}
+```
+请只返回 JSON，不要包含其他内容。"""
+
         if user_description and user_description.strip():
             return f"""
 你是一个数据库业务分析专家。请根据以下提供的【表结构摘要】（包含表名和首行注释），以及【用户补充说明】，生成该数据库的整体配置信息。
@@ -113,25 +155,14 @@ class DomainGenerator:
 2. 为该数据库起一个合适的名称（database.name）。
 3. 结合用户补充说明和表结构，编写一段详细的数据库范围概述（database.description，不少于50字，这会覆盖用户简述）。
 4. 基于上述分析，划分 3-8 个合理的业务主题类别（domains）。
+{tables_instructions}
 
 ## 注意事项
-- 不要生成名为 "_未分类_" 的主题（这是系统预置的特殊主题，会自动添加）
+- 除 "_未分类_" 外，不要生成其他系统预置主题
 - 只生成有明确业务含义的主题
+- 所有输入的表名必须至少出现在一个 domain 的 tables 列表中
 
-## 输出格式（严格 JSON）
-```json
-{{
-  "database": {{
-    "name": "推断出的系统名称",
-    "description": "详细的数据库整体描述..."
-  }},
-  "domains": [
-    {{"name": "主题1", "description": "主题1的职责描述"}},
-    {{"name": "主题2", "description": "主题2的职责描述"}}
-  ]
-}}
-```
-请只返回 JSON，不要包含其他内容。
+{output_format}
 """
 
         return f"""
@@ -145,25 +176,14 @@ class DomainGenerator:
 2. 为该数据库起一个合适的名称（database.name）。
 3. 编写一段详细的数据库范围概述（database.description，不少于50字，说明包含哪些核心数据模块）。
 4. 基于上述分析，划分 3-8 个合理的业务主题类别（domains）。
+{tables_instructions}
 
 ## 注意事项
-- 不要生成名为 "_未分类_" 的主题（这是系统预置的特殊主题，会自动添加）
+- 除 "_未分类_" 外，不要生成其他系统预置主题
 - 只生成有明确业务含义的主题
+- 所有输入的表名必须至少出现在一个 domain 的 tables 列表中
 
-## 输出格式（严格 JSON）
-```json
-{{
-  "database": {{
-    "name": "推断出的系统名称",
-    "description": "详细的数据库整体描述..."
-  }},
-  "domains": [
-    {{"name": "主题1", "description": "主题1的职责描述"}},
-    {{"name": "主题2", "description": "主题2的职责描述"}}
-  ]
-}}
-```
-请只返回 JSON，不要包含其他内容。
+{output_format}
 """
 
     def _build_md_context(self) -> str:
@@ -273,11 +293,11 @@ class DomainGenerator:
             "domains": domains,
         }
 
-    def _normalize_domains(self, domains_raw: Any) -> List[Dict[str, str]]:
+    def _normalize_domains(self, domains_raw: Any) -> List[Dict[str, Any]]:
         if not isinstance(domains_raw, list):
             return []
 
-        normalized: List[Dict[str, str]] = []
+        normalized: List[Dict[str, Any]] = []
         for item in domains_raw:
             if not isinstance(item, dict):
                 continue
@@ -287,7 +307,11 @@ class DomainGenerator:
                 continue
             if not description:
                 description = f"{name} 相关业务主题"
-            normalized.append({"name": name, "description": description})
+            tables = item.get("tables", [])
+            if not isinstance(tables, list):
+                tables = []
+            tables = [str(t).strip() for t in tables if str(t).strip()]
+            normalized.append({"name": name, "description": description, "tables": tables})
         return normalized
 
     def write_to_yaml(self, generated: Dict[str, Any] | List[Dict[str, str]]) -> List[Dict[str, str]]:
@@ -316,12 +340,20 @@ class DomainGenerator:
             )
 
         incoming_domains = self._normalize_domains(generated.get("domains", []))
-        filtered_domains = [
-            d for d in incoming_domains if d.get("name") != self.UNCLASSIFIED_DOMAIN
-        ]
+
+        # 提取 LLM 返回的 _未分类_ 条目中的 tables，合并到系统预置条目
+        unclassified_tables: List[str] = []
+        filtered_domains = []
+        for d in incoming_domains:
+            if d.get("name") == self.UNCLASSIFIED_DOMAIN:
+                unclassified_tables.extend(d.get("tables", []))
+            else:
+                filtered_domains.append(d)
+
         unclassified = {
             "name": self.UNCLASSIFIED_DOMAIN,
             "description": "无法归入其他业务主题的表",
+            "tables": unclassified_tables,
         }
         final_domains = [unclassified] + filtered_domains
 

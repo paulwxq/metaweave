@@ -417,3 +417,13 @@ weights:
   # 已删除的维度：
   # - uniqueness: 0.10 （逻辑错误：外键关系中应评估源列而非目标列）
   # - semantic_role_bonus: 0.05 （推断不严谨，权重过小，意义不大）
+
+# Domain 生成配置（业务主题推断）
+domain_generation:
+  # 送入 LLM 的 MD 文件数量上限（优先级：CLI --md-limit > 此值 > 默认 100）
+  md_context_limit: 100
+  # 可选：为 Domain 生成指定专属 LLM（未配置时 fallback 到全局 llm）
+  # llm:
+  #   provider: openai
+  #   model_name: gpt-4o
+  #   temperature: 0.1

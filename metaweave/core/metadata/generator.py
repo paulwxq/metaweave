@@ -9,6 +9,8 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
+import yaml
+
 from metaweave.core.metadata.connector import DatabaseConnector
 from metaweave.core.metadata.ddl_loader import DDLLoader, DDLLoaderError
 from metaweave.core.metadata.extractor import MetadataExtractor
@@ -116,7 +118,13 @@ class MetadataGenerator:
         self.active_formats = self.formatter.formats
         self.ddl_loader: Optional[DDLLoader] = None
         self.profiler = MetadataProfiler(self.config)
-        
+
+        # Domain 反向索引（用于 --step json 注入 table_domains）
+        domains_yaml_path = get_project_root() / "configs" / "db_domains.yaml"
+        self._domain_reverse_index = self._build_domain_reverse_index(domains_yaml_path)
+        if self._domain_reverse_index:
+            logger.info("已加载 domain 反向索引，共 %s 个表映射", len(self._domain_reverse_index))
+
         # 采样配置
         self.sampling_config = self.config.get("sampling", {})
         self.sampling_enabled = self.sampling_config.get("enabled", True)
@@ -127,6 +135,36 @@ class MetadataGenerator:
         self.column_stats_enabled = column_stats_config.get("enabled", True)
         self.value_dist_threshold = column_stats_config.get("value_distribution_threshold", 10)
         logger.info(f"列统计配置: enabled={self.column_stats_enabled}, threshold={self.value_dist_threshold}")
+
+    @staticmethod
+    def _build_domain_reverse_index(yaml_path: Path) -> Dict[str, List[str]]:
+        """从 db_domains.yaml 构建 Table -> List[Domain] 反向索引。
+
+        key 统一 casefold() 以实现大小写不敏感匹配。
+        文件不存在或格式异常时返回空字典。
+        """
+        if not yaml_path.exists():
+            return {}
+        try:
+            with open(yaml_path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+        except Exception as exc:
+            logger.warning("加载 db_domains.yaml 失败: %s", exc)
+            return {}
+
+        if not isinstance(data, dict):
+            return {}
+
+        index: Dict[str, List[str]] = {}
+        for domain in data.get("domains", []):
+            if not isinstance(domain, dict):
+                continue
+            domain_name = domain.get("name", "")
+            for table in domain.get("tables", []):
+                key = str(table).strip().casefold()
+                if key:
+                    index.setdefault(key, []).append(domain_name)
+        return index
 
     def _ensure_connector(self):
         """延迟初始化数据库连接器（仅在需要时）"""
@@ -547,6 +585,11 @@ class MetadataGenerator:
         # 步骤3: 生成表画像（依赖列画像+逻辑主键）
         table_profile = self.profiler._profile_table(metadata, column_profiles)
         metadata.table_profile = table_profile
+
+        # 步骤3.5: 注入 table_domains（从 db_domains.yaml 反向索引查询）
+        if table_profile and self._domain_reverse_index:
+            full_name = f"{self.database_name}.{schema}.{table}".casefold()
+            table_profile.table_domains = self._domain_reverse_index.get(full_name, [])
 
         output_files = self.formatter.format_and_save(
             metadata,

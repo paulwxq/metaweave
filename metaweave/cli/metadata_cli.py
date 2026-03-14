@@ -114,11 +114,10 @@ logger = logging.getLogger("metaweave.cli")
     help="md 摘要模式：name 仅表名；name_comment 表名+首行；full 全文"
 )
 @click.option(
-    "--md-context-limit",
+    "--md-limit",
     type=int,
-    default=100,
-    show_default=True,
-    help="md 文件数量上限，超出截断"
+    default=None,
+    help="md 文件数量上限（默认：配置文件 domain_generation.md_context_limit，否则 100）"
 )
 def metadata_command(
     config: str,
@@ -136,7 +135,7 @@ def metadata_command(
     md_context: bool,
     md_context_dir: str,
     md_context_mode: str,
-    md_context_limit: int,
+    md_limit: int,
 ):
     """生成数据库元数据
     
@@ -329,7 +328,7 @@ def metadata_command(
                 md_context=True,
                 md_context_dir=str(md_dir),
                 md_context_mode=md_context_mode,
-                md_context_limit=md_context_limit,
+                md_context_limit=md_limit,
             )
             generated_config = generator.generate_from_context(user_description=description)
             final_domains = generator.write_to_yaml(generated_config)

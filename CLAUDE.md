@@ -134,7 +134,7 @@ MetaWeave uses a multi-step pipeline with two parallel tracks:
 - `comment_generator.py` - LLM-based comment generation with caching
 - `logical_key_detector.py` - Identifies candidate logical primary keys
 - `formatter.py` - Exports to DDL, JSON, Markdown formats
-- `llm_json_generator.py` - LLM-enhanced JSON generation
+- `json_llm_enhancer.py` - LLM-enhanced JSON generation (replaces deprecated llm_json_generator.py)
 - `models.py` - Data structures (TableMetadata, ColumnInfo, etc.)
 
 **`metaweave/core/relationships/`** - Table relationship discovery
