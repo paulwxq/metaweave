@@ -398,7 +398,7 @@ class DimValueLoader(BaseLoader):
 
             cleaned.append(
                 {
-                    "table_name": f"{schema}.{table}",
+                    "table_name": f"{self._active_database_name}.{schema}.{table}",
                     "col_name": embedding_col,
                     "col_value": text,
                 }
