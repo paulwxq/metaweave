@@ -1,0 +1,96 @@
+SQL验证报告
+==================================================
+
+输入文件: output/sql/qs_dvdrental_pair.json
+验证时间: 2026-03-15T13:51:07.105692
+验证耗时: 0.13秒
+
+验证结果摘要:
+  总SQL数量: 73
+  有效SQL: 66
+  无效SQL: 7
+  成功率: 90.41%
+  平均耗时: 0.009秒
+  重试次数: 0
+
+SQL修复统计:
+  尝试修复: 7
+  修复成功: 6
+  修复失败: 1
+  修复成功率: 85.71%
+
+修复结果回写统计:
+  替换的SQL: 6
+  删除的无效项: 1
+  回写失败: 0
+
+错误详情（共1个）:
+==================================================
+
+1. 问题: 找出租赁单价最高和最低的三部电影，返回标题、分级、租赁单价和赔偿成本
+   错误: 语法错误 在 "UNION" 或附近的
+LINE 1: ...ROM public.film ORDER BY rental_rate DESC LIMIT 3 UNION ALL ...
+                                                             ^
+   LLM修复尝试: 失败
+   修复失败原因: 语法错误 在 "UNION" 或附近的
+LINE 1: ...ROM public.film ORDER BY rental_rate DESC LIMIT 3 UNION ALL ...
+                                                             ^
+   完整SQL:
+   SELECT title AS 标题, rating AS 分级, rental_rate AS 租赁单价, replacement_cost AS 赔偿成本 FROM public.film ORDER BY rental_rate DESC LIMIT 3 UNION ALL SELECT title AS 标题, rating AS 分级, rental_rate AS 租赁单价, replacement_cost AS 赔偿成本 FROM public.film ORDER BY rental_rate ASC LIMIT 3;
+----------------------------------------
+
+
+成功修复的SQL（共6个）:
+==================================================
+
+1. 问题: 获取每个客户的完整联系信息：客户ID、姓名、邮箱、关联地址ID，并左连接address表获取对应城市（需关联public.address表的city字段），若无地址则城市显示为‘未知’
+   原始错误: 字段 a.city 不存在
+LINE 1: ... c.email AS 邮箱, c.address_id AS 地址ID, COALESCE(a.city, '...
+                                                              ^
+   修复后SQL:
+   SELECT c.customer_id AS 客户ID, c.first_name AS 名字, c.last_name AS 姓氏, c.email AS 邮箱, c.address_id AS 地址ID, COALESCE(ci.city, '未知') AS 城市 FROM public.customer c LEFT JOIN public.address a ON c.address_id = a.address_id LEFT JOIN public.city ci ON a.city_id = ci.city_id;
+----------------------------------------
+
+2. 问题: 统计每个国家中最新更新的城市数量（以城市表last_update为准），仅显示更新时间在2006年之后的国家
+   原始错误: trailing junk after numeric literal 在 "2006年后更新城市数" 或附近的
+LINE 1: EXPLAIN SELECT co.country AS 国家, COUNT(*) AS 2006年后更新...
+                                                       ^
+   修复后SQL:
+   SELECT co.country AS "国家", COUNT(*) AS "2006年后更新城市数" FROM public.country co JOIN public.city ci ON co.country_id = ci.country_id WHERE ci.last_update > '2006-01-01' GROUP BY co.country ORDER BY "2006年后更新城市数" DESC;
+----------------------------------------
+
+3. 问题: 分析各国城市平均更新频率：计算每个国家所有城市的last_update距离当前时间的天数均值，并按均值升序排序
+   原始错误: 函数 round(interval, integer) 不存在
+LINE 1: EXPLAIN SELECT co.country AS 国家, ROUND(AVG(CURRENT_DATE - ...
+                                           ^
+HINT:  没有匹配指定名称和参数类型的函数. 您也许需要增加明确的类型转换.
+   修复后SQL:
+   SELECT co.country AS 国家, ROUND(AVG(EXTRACT(DAY FROM CURRENT_DATE - ci.last_update)), 2) AS 平均更新距今天数 FROM public.country co JOIN public.city ci ON co.country_id = ci.country_id GROUP BY co.country ORDER BY 平均更新距今天数 ASC;
+----------------------------------------
+
+4. 问题: 分析2005年每月的租赁发起量和平均租赁时长（天），仅包含已归还记录
+   原始错误: 函数 round(interval, integer) 不存在
+LINE 1: ...M r.rental_date) AS 月份, COUNT(*) AS 租赁发起量, ROUND(AVG(...
+                                                             ^
+HINT:  没有匹配指定名称和参数类型的函数. 您也许需要增加明确的类型转换.
+   修复后SQL:
+   SELECT EXTRACT(YEAR FROM r.rental_date) AS 年份, EXTRACT(MONTH FROM r.rental_date) AS 月份, COUNT(*) AS 租赁发起量, ROUND(AVG(EXTRACT(EPOCH FROM (r.return_date - r.rental_date)) / 86400), 1) AS 平均租赁时长_天 FROM public.rental r WHERE r.return_date IS NOT NULL AND EXTRACT(YEAR FROM r.rental_date) = 2005 GROUP BY 年份, 月份 ORDER BY 年份, 月份;
+----------------------------------------
+
+5. 问题: 对比各门店的租赁履约效率：计算每家门店已归还租赁的平均租期（天）和归还率（归还数/总租赁数），仅含至少10条租赁记录的门店
+   原始错误: 函数 round(interval, integer) 不存在
+LINE 1: EXPLAIN SELECT i.store_id AS 门店ID, ROUND(AVG(r.return_date...
+                                             ^
+HINT:  没有匹配指定名称和参数类型的函数. 您也许需要增加明确的类型转换.
+   修复后SQL:
+   SELECT i.store_id AS 门店ID, ROUND(AVG(EXTRACT(EPOCH FROM (r.return_date - r.rental_date)) / 86400), 1) AS 平均租期_天, ROUND(COUNT(r.return_date) * 100.0 / COUNT(*), 2) AS 归还率_百分比 FROM public.rental r JOIN public.inventory i ON r.inventory_id = i.inventory_id GROUP BY i.store_id HAVING COUNT(*) >= 10 ORDER BY 归还率_百分比 DESC;
+----------------------------------------
+
+6. 问题: 识别存在‘租赁后超30天未归还’异常行为的客户：统计每位客户最长未归还天数（基于当前日期），筛选出最长未归还天数超过30天的客户及其客户ID、姓名、最长未归还天数
+   原始错误: 操作符不存在: interval > integer
+LINE 1: ...ast_name HAVING MAX(CURRENT_DATE - r.rental_date) > 30 ORDER...
+                                                             ^
+HINT:  没有匹配指定名称和参数类型的操作符. 您也许需要增加明确的类型转换.
+   修复后SQL:
+   SELECT c.customer_id AS 客户ID, CONCAT(c.first_name, ' ', c.last_name) AS 客户姓名, MAX(CURRENT_DATE - r.rental_date) AS 最长未归还天数 FROM public.rental r JOIN public.customer c ON r.customer_id = c.customer_id WHERE r.return_date IS NULL GROUP BY c.customer_id, c.first_name, c.last_name HAVING MAX(CURRENT_DATE - r.rental_date) > INTERVAL '30 days' ORDER BY 最长未归还天数 DESC;
+----------------------------------------

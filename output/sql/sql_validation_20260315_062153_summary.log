@@ -1,0 +1,43 @@
+SQL验证报告
+==================================================
+
+输入文件: /mnt/c/Projects/cursor_2025h2/metaweave/output/sql/qs_sakila_dvd_rental_pair.json
+验证时间: 2026-03-15T06:21:53.007711
+验证耗时: 0.09秒
+
+验证结果摘要:
+  总SQL数量: 53
+  有效SQL: 50
+  无效SQL: 3
+  成功率: 94.34%
+  平均耗时: 0.009秒
+  重试次数: 0
+
+错误详情（共3个）:
+==================================================
+
+1. 问题: 计算各行政区（district）内活跃客户（active=1）的平均创建年限（按当前日期计算），仅保留平均年限大于5年的行政区
+   错误: 函数 pg_catalog.extract(unknown, integer) 不存在
+LINE 1: EXPLAIN SELECT a.district AS 行政区, ROUND(AVG(EXTRACT(YEAR ...
+                                                       ^
+HINT:  没有匹配指定名称和参数类型的函数. 您也许需要增加明确的类型转换.
+   完整SQL:
+   SELECT a.district AS 行政区, ROUND(AVG(EXTRACT(YEAR FROM CURRENT_DATE - c.create_date)), 1) AS 平均创建年限 FROM public.customer c JOIN public.address a ON c.address_id = a.address_id WHERE c.active = 1 GROUP BY a.district HAVING AVG(EXTRACT(YEAR FROM CURRENT_DATE - c.create_date)) > 5;
+----------------------------------------
+
+2. 问题: 分析各门店在2005年5月的租赁活跃度：统计每家门店当月租赁订单总数及平均租赁时长（天）
+   错误: 函数 round(interval, integer) 不存在
+LINE 1: ...e_id AS 门店ID, COUNT(r.rental_id) AS 当月订单数, ROUND(AVG(...
+                                                             ^
+HINT:  没有匹配指定名称和参数类型的函数. 您也许需要增加明确的类型转换.
+   完整SQL:
+   SELECT s.store_id AS 门店ID, COUNT(r.rental_id) AS 当月订单数, ROUND(AVG(r.return_date - r.rental_date), 1) AS 平均租赁时长_天 FROM public.store s JOIN public.inventory i ON s.store_id = i.store_id JOIN public.rental r ON i.inventory_id = r.inventory_id WHERE EXTRACT(YEAR FROM r.rental_date) = 2005 AND EXTRACT(MONTH FROM r.rental_date) = 5 AND r.return_date IS NOT NULL GROUP BY s.store_id ORDER BY 当月订单数 DESC;
+----------------------------------------
+
+3. 问题: 对比两家指定门店（store_id=1和store_id=2）的库存总量与已租出量，计算各自的库存利用率（已租出/总库存）
+   错误: 字段关联 "inventory_id" 是不明确的
+LINE 1: EXPLAIN SELECT store_id AS 门店ID, COUNT(inventory_id) AS 总...
+                                                 ^
+   完整SQL:
+   SELECT store_id AS 门店ID, COUNT(inventory_id) AS 总库存量, COUNT(r.rental_id) AS 已租出量, ROUND(COUNT(r.rental_id)::DECIMAL / NULLIF(COUNT(inventory_id), 0), 3) AS 库存利用率 FROM public.inventory i LEFT JOIN public.rental r ON i.inventory_id = r.inventory_id WHERE i.store_id IN (1, 2) GROUP BY store_id;
+----------------------------------------

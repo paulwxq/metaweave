@@ -45,9 +45,8 @@ def test_generate_domains_initializes_missing_yaml_and_writes_full_config(tmp_pa
     yaml_path = tmp_path / "configs" / "db_domains.yaml"
 
     generator = DomainGenerator(
-        config={"llm": {}},
+        config={"llm": {}, "database": {"database": "shopdb"}},
         yaml_path=str(yaml_path),
-        md_context=True,
         md_context_dir=str(md_dir),
         md_context_mode="name_comment",
         md_context_limit=100,
@@ -59,7 +58,8 @@ def test_generate_domains_initializes_missing_yaml_and_writes_full_config(tmp_pa
     assert yaml_path.exists()
     written = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
 
-    assert written["database"]["name"] == "电商分析库"
+    # database.name 使用配置中的真实数据库名，而非 LLM 返回值
+    assert written["database"]["name"] == "shopdb"
     assert "订单" in written["database"]["description"]
     assert written["llm_inference"]["max_domains_per_table"] == 3
     assert written["domains"][0]["name"] == "_未分类_"
@@ -75,7 +75,6 @@ def test_generate_domains_requires_md_files(tmp_path, monkeypatch):
     generator = DomainGenerator(
         config={"llm": {}},
         yaml_path=str(tmp_path / "db_domains.yaml"),
-        md_context=True,
         md_context_dir=str(tmp_path / "missing_md"),
     )
 
@@ -93,7 +92,6 @@ def test_prompt_without_description_uses_auto_mode(tmp_path, monkeypatch):
     generator = DomainGenerator(
         config={"llm": {}},
         yaml_path=str(tmp_path / "db_domains.yaml"),
-        md_context=True,
         md_context_dir=str(md_dir),
     )
 

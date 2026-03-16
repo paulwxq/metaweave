@@ -15,12 +15,6 @@ import pytest
 import yaml
 
 from metaweave.core.metadata.domain_generator import DomainGenerator
-from metaweave.core.metadata.models import (
-    ColumnStatisticsSummary,
-    KeyColumnsSummary,
-    TableProfile,
-)
-from metaweave.core.metadata.generator import MetadataGenerator
 
 
 # ---------------------------------------------------------------------------
@@ -227,148 +221,10 @@ class TestDomainGeneratorTables:
 
 
 # ===========================================================================
-# Task 5: TableProfile 增加 table_domains
+# Task 5-6: （已移除）table_domains 和 domain 反向索引已迁移至 DomainResolver
+# 参见 tests/unit/metaweave/domains/test_domain_resolver.py
 # ===========================================================================
 
-class TestTableProfileDomains:
-
-    def _make_profile(self, **kwargs):
-        defaults = dict(
-            table_category="fact",
-            confidence=0.9,
-            column_statistics=ColumnStatisticsSummary(
-                total_columns=1,
-                identifier_count=0,
-                metric_count=0,
-                datetime_count=0,
-                enum_count=0,
-                audit_count=0,
-                attribute_count=0,
-                primary_key_count=0,
-                foreign_key_count=0,
-            ),
-            key_columns=KeyColumnsSummary(
-                primary_keys=[], foreign_keys=[]
-            ),
-        )
-        defaults.update(kwargs)
-        return TableProfile(**defaults)
-
-    def test_table_domains_defaults_to_empty_list(self):
-        profile = self._make_profile()
-        assert profile.table_domains == []
-
-    def test_table_domains_in_to_dict(self):
-        profile = self._make_profile(table_domains=["订单域", "支付域"])
-        result = profile.to_dict()
-        assert result["table_domains"] == ["订单域", "支付域"]
-
-    def test_table_domains_empty_in_to_dict(self):
-        profile = self._make_profile()
-        result = profile.to_dict()
-        assert result["table_domains"] == []
-
-
 # ===========================================================================
-# Task 6: 从 db_domains.yaml 构建反向索引
+# Task 7: （已移除）_validate_table_domains 已迁移至 DomainResolver
 # ===========================================================================
-
-class TestDomainReverseIndex:
-
-    def test_build_domain_reverse_index(self, tmp_path):
-        yaml_content = {
-            "domains": [
-                {"name": "_未分类_", "description": "未分类", "tables": ["db.public.legacy"]},
-                {
-                    "name": "订单域",
-                    "description": "订单",
-                    "tables": ["db.public.orders", "db.public.order_items"],
-                },
-                {
-                    "name": "支付域",
-                    "description": "支付",
-                    "tables": ["db.public.orders", "db.public.payments"],
-                },
-            ]
-        }
-        yaml_path = tmp_path / "db_domains.yaml"
-        yaml_path.write_text(
-            yaml.dump(yaml_content, allow_unicode=True), encoding="utf-8"
-        )
-
-        index = MetadataGenerator._build_domain_reverse_index(yaml_path)
-        assert sorted(index["db.public.orders"]) == ["支付域", "订单域"]
-        assert index["db.public.legacy"] == ["_未分类_"]
-        assert "db.public.unknown" not in index
-
-    def test_build_domain_reverse_index_casefold(self, tmp_path):
-        yaml_content = {
-            "domains": [
-                {"name": "A", "description": "a", "tables": ["DB.Public.Users"]},
-            ]
-        }
-        yaml_path = tmp_path / "db_domains.yaml"
-        yaml_path.write_text(
-            yaml.dump(yaml_content, allow_unicode=True), encoding="utf-8"
-        )
-
-        index = MetadataGenerator._build_domain_reverse_index(yaml_path)
-        assert index["db.public.users"] == ["A"]
-
-    def test_build_domain_reverse_index_missing_file(self, tmp_path):
-        index = MetadataGenerator._build_domain_reverse_index(
-            tmp_path / "nonexistent.yaml"
-        )
-        assert index == {}
-
-    def test_build_domain_reverse_index_empty_yaml(self, tmp_path):
-        yaml_path = tmp_path / "db_domains.yaml"
-        yaml_path.write_text("", encoding="utf-8")
-        index = MetadataGenerator._build_domain_reverse_index(yaml_path)
-        assert index == {}
-
-    def test_lookup_domains_casefold(self, tmp_path):
-        yaml_content = {
-            "domains": [
-                {"name": "用户域", "description": "用户", "tables": ["db.public.users"]},
-            ]
-        }
-        yaml_path = tmp_path / "db_domains.yaml"
-        yaml_path.write_text(
-            yaml.dump(yaml_content, allow_unicode=True), encoding="utf-8"
-        )
-        index = MetadataGenerator._build_domain_reverse_index(yaml_path)
-        assert index.get("DB.Public.Users".casefold(), []) == ["用户域"]
-        assert index.get("db.public.orders".casefold(), []) == []
-
-
-# ===========================================================================
-# Task 7: 放宽 _validate_table_domains 校验
-# ===========================================================================
-
-class TestValidateTableDomains:
-
-    def test_empty_table_domains_does_not_raise(self):
-        from metaweave.core.relationships.llm_relationship_discovery import (
-            LLMRelationshipDiscovery,
-        )
-
-        tables = {
-            "db.public.orders": {"table_profile": {"table_domains": []}},
-            "db.public.users": {"table_profile": {"table_domains": ["用户域"]}},
-        }
-        discovery = object.__new__(LLMRelationshipDiscovery)
-        discovery._validate_table_domains(tables)  # 不应抛出异常
-
-    def test_missing_table_domains_key_does_not_raise(self):
-        from metaweave.core.relationships.llm_relationship_discovery import (
-            LLMRelationshipDiscovery,
-        )
-
-        tables = {
-            "db.public.orders": {"table_profile": {}},
-        }
-        discovery = object.__new__(LLMRelationshipDiscovery)
-        discovery._validate_table_domains(tables)  # 不应抛出异常
-        # 应自动补充空列表
-        assert tables["db.public.orders"]["table_profile"]["table_domains"] == []

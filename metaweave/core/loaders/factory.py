@@ -30,6 +30,10 @@ class LoaderFactory:
         """
         loader_class = cls._loaders.get(load_type)
         if not loader_class:
+            # 延迟注册：避免循环导入的加载器在首次请求时注册
+            cls._register_lazy(load_type)
+            loader_class = cls._loaders.get(load_type)
+        if not loader_class:
             raise ValueError(
                 f"未知的加载类型: {load_type}，"
                 f"支持的类型: {list(cls._loaders.keys())}"
@@ -50,6 +54,21 @@ class LoaderFactory:
         """
         cls._loaders[load_type] = loader_class
 
+    # 延迟注册映射：load_type -> (module_path, class_name)
+    _lazy_loaders: Dict[str, tuple] = {
+        "sql": ("metaweave.core.sql_rag.loader", "SQLExampleLoader"),
+    }
+
+    @classmethod
+    def _register_lazy(cls, load_type: str):
+        """按需导入并注册延迟加载器（用于避免循环导入）"""
+        lazy = cls._lazy_loaders.get(load_type)
+        if lazy:
+            import importlib
+            module = importlib.import_module(lazy[0])
+            loader_class = getattr(module, lazy[1])
+            cls.register(load_type, loader_class)
+
     @classmethod
     def get_supported_types(cls) -> list:
         """获取支持的加载类型列表
@@ -57,7 +76,8 @@ class LoaderFactory:
         Returns:
             list: 支持的加载类型
         """
-        return list(cls._loaders.keys())
+        all_types = set(cls._loaders.keys()) | set(cls._lazy_loaders.keys())
+        return sorted(all_types)
 
 
 # 注册内置加载器
@@ -74,15 +94,9 @@ def _register_builtin_loaders():
     LoaderFactory.register("dim_value", DimValueLoader)
     LoaderFactory.register("table_schema", TableSchemaLoader)
 
-    # 未来扩展
-    # from metaweave.core.loaders.content_md_loader import ContentMDLoader
-    # LoaderFactory.register("content_md", ContentMDLoader)
-    #
-    # from metaweave.core.loaders.dim_loader import DimLoader
-    # LoaderFactory.register("dim", DimLoader)
-    #
-    # from metaweave.core.loaders.sql_loader import SQLLoader
-    # LoaderFactory.register("sql", SQLLoader)
+    # sql loader 延迟注册，避免与 sql_rag.loader → loaders.base 的循环导入
+    # 实际注册在 LoaderFactory.create() 首次请求 "sql" 时触发
+    pass
 
 
 # 自动注册内置加载器

@@ -24,15 +24,17 @@ class JSONReader:
     负责读取 Step 2 和 Step 3 的 JSON 文件，并转换为内部数据模型。
     """
 
-    def __init__(self, json_dir: Path, rel_dir: Path):
+    def __init__(self, json_dir: Path, rel_dir: Path, domain_resolver=None):
         """初始化读取器
 
         Args:
             json_dir: Step 2 JSON 目录（表/列画像）
             rel_dir: Step 3 JSON 目录（表间关系）
+            domain_resolver: DomainResolver 实例，用于从 YAML 获取 table_domains
         """
         self.json_dir = Path(json_dir)
         self.rel_dir = Path(rel_dir)
+        self.domain_resolver = domain_resolver
         self.database_name: str | None = None
 
         if not self.json_dir.exists():
@@ -220,9 +222,17 @@ class JSONReader:
             logic_fk=[],  # 稍后从关系中填充
             logic_uk=[],  # 预留
             indexes=indexes,
-            table_domains=table_profile.get("table_domains", []),
+            table_domains=self._resolve_table_domains(full_name, table_profile),
             table_category=table_profile.get("table_category"),
         )
+
+    def _resolve_table_domains(self, full_name: str, table_profile: dict) -> list:
+        """从 DomainResolver 获取 table_domains"""
+        if self.domain_resolver and self.database_name:
+            return self.domain_resolver.get_domains_for_schema_table(
+                full_name, self.database_name
+            )
+        return []
 
     def _extract_columns(
         self,

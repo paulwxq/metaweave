@@ -122,9 +122,11 @@ table_schema_loader:
 # ---------------------------------------------------------------------
 
 sql_loader:
-  # 输入目录路径（相对于项目根目录）
-  input_dir: "output/sql"
+  # 输入文件路径（固定文件名，与 generate 输出对应）
+  input_file: "output/sql/qs_dvdrental_pair.json"
+  # Milvus Collection 名称（必填）
+  collection_name: "sql_example_embeddings"
 
   # 加载选项
   options:
-    embedding_model: "text-embedding-v3"
+    batch_size: 50              # 每批向量化和写入的数量

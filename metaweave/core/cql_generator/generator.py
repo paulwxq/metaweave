@@ -25,12 +25,14 @@ class CQLGenerator:
     3. 生成 Cypher 脚本文件
     """
 
-    def __init__(self, config_path: Path):
+    def __init__(self, config_path: Path, domain_resolver=None):
         """初始化生成器
 
         Args:
             config_path: 配置文件路径
+            domain_resolver: DomainResolver 实例，用于从 YAML 获取 table_domains
         """
+        self.domain_resolver = domain_resolver
         self.config_path = Path(config_path)
         if not self.config_path.exists():
             raise FileNotFoundError(f"配置文件不存在: {self.config_path}")
@@ -90,7 +92,7 @@ class CQLGenerator:
 
             # 1. 读取 JSON 数据
             logger.info("\n[1/2] 读取 Step 2 和 Step 3 的 JSON 文件...")
-            reader = JSONReader(self.json_dir, self.rel_dir)
+            reader = JSONReader(self.json_dir, self.rel_dir, domain_resolver=self.domain_resolver)
             tables, columns, has_column_rels, join_on_rels = reader.read_all()
 
             logger.info(f"  - 表节点: {len(tables)}")

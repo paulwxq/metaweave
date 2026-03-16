@@ -262,7 +262,7 @@ def validate_sql(self, sql: str) -> ValidationResult:
     timeout = self.config.get("timeout", 30)
     try:
         sql = self._normalize_sql(sql)
-        readonly = self.config.get("readonly_mode", True)
+        readonly = self.config.get("sql_validation_readonly", True)
         with self.connector.get_connection() as conn:
             # 临时关闭 autocommit，开启显式事务
             conn.autocommit = False
@@ -294,7 +294,7 @@ def validate_sql(self, sql: str) -> ValidationResult:
 - 复用 `DatabaseConnector` 的连接池（`get_connection()`），但不使用其 `execute_query()` 方法
 - 不引入 asyncpg 等额外依赖，与 MetaWeave 现有技术栈一致
 
-> **关于只读保护**：`EXPLAIN` 本身不执行查询，但作为纵深防御，当配置 `readonly_mode=true`（默认）时，在事务内追加 `SET LOCAL default_transaction_read_only = on`，防止规范化漏网的异常 SQL 意外写入数据。`SET LOCAL` 同样只在事务内生效，不污染连接池。
+> **关于只读保护**：`EXPLAIN` 本身不执行查询，但作为纵深防御，当配置 `sql_validation_readonly=true`（默认）时，在事务内追加 `SET LOCAL default_transaction_read_only = on`，防止规范化漏网的异常 SQL 意外写入数据。`SET LOCAL` 同样只在事务内生效，不污染连接池。
 
 #### 4.2.3 并发控制
 
@@ -303,7 +303,7 @@ def validate_sql(self, sql: str) -> ValidationResult:
 ```python
 def validate_batch(self, sqls: List[str]) -> List[ValidationResult]:
     """并发批量校验"""
-    max_concurrent = self.config.get("max_concurrent", 5)
+    max_concurrent = self.config.get("sql_validation_max_concurrent", 5)
     # 实际并发数不超过连接池上限，避免线程空等连接
     pool_max = self.connector.pool.max_size if self.connector.pool else max_concurrent
     max_workers = min(max_concurrent, pool_max)
@@ -315,7 +315,7 @@ def validate_batch(self, sqls: List[str]) -> List[ValidationResult]:
     return results
 ```
 
-> **并发数与连接池的约束**：每个并发校验线程需要独占一个数据库连接。若 `validation.max_concurrent` > `database.pool_max_size`，多出的线程会阻塞等待连接池分配，造成无意义的线程空等。实现时自动取 `min(max_concurrent, pool_max_size)` 作为实际 worker 数，无需用户手动对齐两个配置。
+> **并发数与连接池的约束**：每个并发校验线程需要独占一个数据库连接。若 `validation.sql_validation_max_concurrent` > `database.pool_max_size`，多出的线程会阻塞等待连接池分配，造成无意义的线程空等。实现时自动取 `min(max_concurrent, pool_max_size)` 作为实际 worker 数，无需用户手动对齐两个配置。
 >
 > **与 data_pipeline 的差异说明**：data_pipeline 使用 asyncpg + asyncio.Semaphore 做异步并发校验。MetaWeave 项目全局使用同步 psycopg3，为保持技术栈一致性，此处改用 ThreadPoolExecutor。EXPLAIN 是轻量 IO 操作（通常 < 100ms），同步线程池完全满足性能需求。
 
@@ -331,7 +331,7 @@ def validate_batch(self, sqls: List[str]) -> List[ValidationResult]:
 
 #### 4.2.5 LLM SQL 修复
 
-默认关闭（`enable_sql_repair = false`）。启用方式：配置文件设为 `true` 或 CLI 传 `--apply-fixes`。
+默认关闭（`enable_sql_repair = false`）。启用方式：配置文件设为 `true`，或在 `validate` 命令中用 `--enable_sql_repair true/false` 临时覆盖配置文件。
 
 启用后，对每条校验失败的 SQL：
 
@@ -343,11 +343,9 @@ def validate_batch(self, sqls: List[str]) -> List[ValidationResult]:
 
 修复按 `repair_batch_size`（默认 2）分批进行，每批构建一个包含多条待修复 SQL 的提示词，一次 LLM 调用返回多条修复结果。
 
-> **与 data_pipeline 一致**：data_pipeline 的 `config.py` 也默认 `enable_sql_repair = False`、`modify_original_file = False`，只在工作流任务参数中按需开启。
+#### 4.2.6 修复结果回写
 
-#### 4.2.6 原文件修改
-
-默认关闭（`modify_original_file = false`）。启用方式：配置文件设为 `true` 或 CLI 传 `--apply-fixes`（`--apply-fixes` 同时开启修复和回写）。处理流程：
+当 `enable_sql_repair = true` 时，修复流程结束后会自动回写原文件；当 `enable_sql_repair = false` 时，只进行 SQL 校验和日志输出，不修改原 JSON 文件。回写处理流程：
 
 1. 创建原文件的 `.backup` 备份（如 `qs_dvdrental_pair.json.backup`）
 2. 遍历校验结果：
@@ -592,17 +590,15 @@ generation:
 # SQL 校验配置
 validation:
   # 并发校验数（ThreadPoolExecutor 的 max_workers）
-  max_concurrent: 5
+  sql_validation_max_concurrent: 5
   # 单条 SQL 超时（秒）
   timeout: 30
   # 只读模式：开启时在事务内追加 SET LOCAL default_transaction_read_only = on
-  readonly_mode: true
+  sql_validation_readonly: true
   # 最大重试次数
-  max_retries: 2
-  # 是否启用 LLM SQL 修复（默认关闭，需配合 --apply-fixes 使用）
+  sql_validation_max_retries: 2
+  # 是否启用 LLM SQL 修复并回写原 JSON 文件（关闭时只校验并生成日志）
   enable_sql_repair: false
-  # 是否修改原 JSON 文件（默认关闭，需配合 --apply-fixes 使用）
-  modify_original_file: false
   # 修复批大小（每次 LLM 调用修复几条 SQL）
   repair_batch_size: 2
 ```
@@ -633,10 +629,10 @@ uv run metaweave sql-rag generate \
 uv run metaweave sql-rag validate \
   --config configs/sql_rag.yaml
 
-# 校验 + 修复（启用 LLM 修复并回写原文件）
+# 校验 + 修复（命令行参数优先于 YAML 配置）
 uv run metaweave sql-rag validate \
   --config configs/sql_rag.yaml \
-  --apply-fixes
+  --enable_sql_repair true
 
 # 校验指定文件（--input 可选，覆盖默认路径）
 uv run metaweave sql-rag validate \
@@ -658,12 +654,20 @@ uv run metaweave sql-rag run-all \
   --loader-config configs/loader_config.yaml \
   --domains-config configs/db_domains.yaml \
   --md-dir output/md
+
+# 一键执行全部并清理旧数据
+uv run metaweave sql-rag run-all \
+  --config configs/sql_rag.yaml \
+  --loader-config configs/loader_config.yaml \
+  --domains-config configs/db_domains.yaml \
+  --md-dir output/md \
+  --clean
 ```
 
 > **`--clean` 语义区分**：
 > - `generate --clean`：删除当前数据库对应的 `qs_{db_name}_pair.json`，然后重新生成
 > - `load --clean`：清空目标 Milvus Collection（drop + recreate），然后全量写入
-> - `run-all` 不单独提供 `--clean`，各阶段是否清理由其独立配置决定
+> - `run-all --clean`：同时执行上述两步，先清理当前库旧样例文件，再清空目标 Milvus Collection
 >
 > **`run-all` 的双配置文件说明**：`--config`（`sql_rag.yaml`）驱动生成和校验阶段，`--loader-config`（`loader_config.yaml`）驱动加载阶段（Milvus collection、embedding 配置等）。固定文件名使得各阶段天然衔接，用户无需指定 `--input`。
 

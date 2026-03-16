@@ -13,7 +13,6 @@ class _DummyDomainGenerator:
         self,
         config,
         yaml_path,
-        md_context=True,
         md_context_dir=None,
         md_context_mode="name_comment",
         md_context_limit=100,
@@ -21,7 +20,6 @@ class _DummyDomainGenerator:
         type(self).init_kwargs = {
             "config": config,
             "yaml_path": yaml_path,
-            "md_context": md_context,
             "md_context_dir": md_context_dir,
             "md_context_mode": md_context_mode,
             "md_context_limit": md_context_limit,
@@ -71,7 +69,6 @@ def test_generate_domains_uses_config_markdown_directory_by_default(tmp_path, mo
     )
 
     assert result.exit_code == 0, result.output
-    assert _DummyDomainGenerator.init_kwargs["md_context"] is True
     assert _DummyDomainGenerator.user_description == "测试数据库说明"
     expected_md_dir = str((tmp_path / "configured" / "md").resolve())
     assert _DummyDomainGenerator.init_kwargs["md_context_dir"] == expected_md_dir

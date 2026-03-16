@@ -116,7 +116,7 @@ def load_command(load_type: str, config: str, clean: bool, debug: bool):
         click.echo("")
 
         # 特殊处理支持 clean 参数的加载器
-        if load_type in {"cql", "dim", "dim_value", "table_schema"}:
+        if load_type in {"cql", "dim", "dim_value", "table_schema", "sql"}:
             if not loader.validate():
                 click.echo("❌ 验证失败", err=True)
                 raise click.Abort()

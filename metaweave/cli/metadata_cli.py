@@ -95,12 +95,6 @@ logger = logging.getLogger("metaweave.cli")
     help="是否包含跨域关系。可与 --domain 一起使用，也可单独使用（只生成跨域关系）"
 )
 @click.option(
-    "--md-context",
-    is_flag=True,
-    default=False,
-    help="生成 domains 时附加 md 目录摘要（兼容参数，内部默认启用）"
-)
-@click.option(
     "--md-context-dir",
     type=click.Path(exists=False),
     default="output/md",
@@ -132,7 +126,6 @@ def metadata_command(
     generate_domains: bool,
     description: Optional[str],
     cross_domain: bool,
-    md_context: bool,
     md_context_dir: str,
     md_context_mode: str,
     md_limit: int,
@@ -166,6 +159,12 @@ def metadata_command(
             if lower == "all":
                 return ["all"]
             return [d.strip() for d in domain_value.split(",") if d.strip()]
+
+        def _get_default_domain_resolver():
+            """为 cql/cql_llm 步骤加载默认的 DomainResolver"""
+            from metaweave.core.domains import DomainResolver as _DR
+            default_path = get_project_root() / "configs" / "db_domains.yaml"
+            return _DR(default_path) if default_path.exists() else None
 
         # 解析配置文件路径
         config_path = Path(config)
@@ -261,14 +260,15 @@ def metadata_command(
         domains_config_path = Path(domains_config)
         if not domains_config_path.is_absolute():
             domains_config_path = get_project_root() / domains_config_path
-        db_domains_config: Optional[Dict] = None
 
+        from metaweave.core.domains import DomainResolver
+
+        domain_resolver: Optional[DomainResolver] = None
         if domain or cross_domain:
             if not domains_config_path.exists():
                 raise click.UsageError(f"错误：{domains_config} 文件不存在，无法使用 --domain/--cross-domain")
-            db_domains_config = _load_yaml(domains_config_path)
-            domains_list = db_domains_config.get("domains", [])
-            if not domains_list:
+            domain_resolver = DomainResolver(domains_config_path)
+            if not domain_resolver.get_all_domains():
                 raise click.UsageError(f"错误：{domains_config} 中 domains 列表为空，请先执行 --generate-domains")
 
         def _resolve_md_context_dir(loaded_config: Dict, cli_md_context_dir: str) -> Path:
@@ -324,8 +324,6 @@ def metadata_command(
             generator = DomainGenerator(
                 config=config,
                 yaml_path=str(domains_config_path),
-                # 兼容保留 --md-context 参数，但内部强制启用 MD 上下文。
-                md_context=True,
                 md_context_dir=str(md_dir),
                 md_context_mode=md_context_mode,
                 md_context_limit=md_limit,
@@ -486,7 +484,7 @@ def metadata_command(
                                     connector=connector,
                                     domain_filter=domain,
                                     cross_domain=cross_domain,
-                                    db_domains_config=db_domains_config,
+                                    domain_resolver=domain_resolver,
                                 )
 
                                 if not discovery.json_dir.exists():
@@ -512,7 +510,8 @@ def metadata_command(
                         elif child_step == "cql":
                             from metaweave.core.cql_generator.generator import CQLGenerator
 
-                            generator = CQLGenerator(config_path)
+                            _cql_resolver = _get_default_domain_resolver()
+                            generator = CQLGenerator(config_path, domain_resolver=_cql_resolver)
                             result = generator.generate(step_name="cql")
                             if not result.success:
                                 step_error_msg = "CQL 生成失败"
@@ -690,7 +689,7 @@ def metadata_command(
                     connector=connector,
                     domain_filter=domain,
                     cross_domain=cross_domain,
-                    db_domains_config=db_domains_config
+                    domain_resolver=domain_resolver,
                 )
 
                 # 检查 json 目录
@@ -746,7 +745,8 @@ def metadata_command(
             click.echo("🔧 开始生成 Neo4j CQL...")
             click.echo("")
 
-            generator = CQLGenerator(config_path)
+            _cql_resolver = _get_default_domain_resolver()
+            generator = CQLGenerator(config_path, domain_resolver=_cql_resolver)
 
             if clean:
                 _clean_step_output_dir("cql_llm", generator.config)
@@ -805,7 +805,8 @@ def metadata_command(
             click.echo("🔧 开始生成 Neo4j CQL...")
             click.echo("")
 
-            generator = CQLGenerator(config_path)
+            _cql_resolver = _get_default_domain_resolver()
+            generator = CQLGenerator(config_path, domain_resolver=_cql_resolver)
 
             if clean:
                 _clean_step_output_dir("cql", generator.config)

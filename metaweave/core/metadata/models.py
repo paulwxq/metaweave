@@ -488,14 +488,12 @@ class TableProfile:
     # - bridge_table_info: Optional[BridgeTableInfo]
     inference_basis: List[str] = field(default_factory=list)
     candidate_logical_primary_keys: List["LogicalKey"] = field(default_factory=list)
-    table_domains: List[str] = field(default_factory=list)
 
     def to_dict(self, metadata: Optional['TableMetadata'] = None) -> Dict[str, Any]:
         result = {
             "table_category": self.table_category,
             "confidence": self.confidence,
             "inference_basis": self.inference_basis,
-            "table_domains": self.table_domains,
         }
         
         # 添加 physical_constraints（从 metadata 获取，不包含 indexes）

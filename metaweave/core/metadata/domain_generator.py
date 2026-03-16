@@ -32,7 +32,6 @@ class DomainGenerator:
         self,
         config: Dict,
         yaml_path: str,
-        md_context: bool = True,
         md_context_dir: str = None,
         md_context_mode: str = "name_comment",
         md_context_limit: int = None,
@@ -50,7 +49,8 @@ class DomainGenerator:
         self.llm_service = LLMService(llm_config)
 
         self.db_config = self._load_yaml()
-        self.md_context = md_context
+        # 真实数据库名：从 metadata_config.database.database 读取
+        self._real_db_name = config.get("database", {}).get("database", "")
         self.md_context_dir = Path(md_context_dir) if md_context_dir else None
         self.md_context_mode = md_context_mode
 
@@ -95,9 +95,6 @@ class DomainGenerator:
 
     def generate_from_context(self, user_description: Optional[str] = None) -> Dict[str, Any]:
         """基于 MD 摘要（和可选用户补充说明）生成 database + domains。"""
-        if not self.md_context:
-            raise ValueError("generate-domains 必须启用 md_context")
-
         md_summary = self._build_md_context()
         prompt = self._build_prompt(md_summary=md_summary, user_description=user_description)
         logger.debug("Domain generation prompt:\n%s", prompt)
@@ -124,11 +121,12 @@ class DomainGenerator:
 6. 无法归入任何业务主题的表，请分配到名为 "_未分类_" 的特殊主题中。
 7. 一张表最多可以归入 {max_domains_per_table} 个主题。"""
 
+        db_name_display = self._real_db_name or "unknown"
+
         output_format = """## 输出格式（严格 JSON）
 ```json
 {{
   "database": {{
-    "name": "推断出的系统名称",
     "description": "详细的数据库整体描述..."
   }},
   "domains": [
@@ -144,6 +142,8 @@ class DomainGenerator:
             return f"""
 你是一个数据库业务分析专家。请根据以下提供的【表结构摘要】（包含表名和首行注释），以及【用户补充说明】，生成该数据库的整体配置信息。
 
+【数据库名称】{db_name_display}
+
 【用户补充说明】
 {user_description.strip()}
 
@@ -152,9 +152,8 @@ class DomainGenerator:
 
 ## 任务
 1. 分析这些表的业务范围，并结合用户的补充说明，推断该数据库系统的整体用途。
-2. 为该数据库起一个合适的名称（database.name）。
-3. 结合用户补充说明和表结构，编写一段详细的数据库范围概述（database.description，不少于50字，这会覆盖用户简述）。
-4. 基于上述分析，划分 3-8 个合理的业务主题类别（domains）。
+2. 结合用户补充说明和表结构，编写一段详细的数据库范围概述（database.description，不少于50字，这会覆盖用户简述）。
+3. 基于上述分析，划分 3-8 个合理的业务主题类别（domains）。
 {tables_instructions}
 
 ## 注意事项
@@ -168,14 +167,15 @@ class DomainGenerator:
         return f"""
 你是一个数据库业务分析专家。请根据以下提供的【表结构摘要】（包含表名和首行注释），生成该数据库的整体配置信息。
 
+【数据库名称】{db_name_display}
+
 【表结构摘要】（最多 {self.md_context_limit} 个）
 {md_summary}
 
 ## 任务
 1. 分析这些表的业务范围，推断该数据库系统的整体用途。
-2. 为该数据库起一个合适的名称（database.name）。
-3. 编写一段详细的数据库范围概述（database.description，不少于50字，说明包含哪些核心数据模块）。
-4. 基于上述分析，划分 3-8 个合理的业务主题类别（domains）。
+2. 编写一段详细的数据库范围概述（database.description，不少于50字，说明包含哪些核心数据模块）。
+3. 基于上述分析，划分 3-8 个合理的业务主题类别（domains）。
 {tables_instructions}
 
 ## 注意事项
@@ -274,10 +274,9 @@ class DomainGenerator:
         database = data.get("database", {}) or {}
         if not isinstance(database, dict):
             database = {}
-        name = str(database.get("name", "")).strip()
+        # database.name 使用真实数据库名，不采纳 LLM 返回值
+        name = self._real_db_name or "unknown"
         description = str(database.get("description", "")).strip()
-        if not name:
-            name = "未命名数据库"
         if not description:
             description = "数据库整体描述由系统自动生成。"
 
@@ -325,14 +324,13 @@ class DomainGenerator:
         if not isinstance(database, dict):
             database = {}
 
-        database_name = str(database.get("name", "")).strip()
+        # database.name 始终使用真实数据库名
+        database_name = self._real_db_name or "unknown"
         database_description = str(database.get("description", "")).strip()
 
         existing_database = self.db_config.get("database", {}) or {}
         if not isinstance(existing_database, dict):
             existing_database = {}
-        if not database_name:
-            database_name = str(existing_database.get("name", "")).strip() or "未命名数据库"
         if not database_description:
             database_description = (
                 str(existing_database.get("description", "")).strip()

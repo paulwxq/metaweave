@@ -1,7 +1,7 @@
 # 数据库业务主题配置
 database:
-  name: sakila_dvd_rental
-  description: 这是一个面向全球DVD影片租赁连锁店的全业务运营数据库，完整支撑门店管理、客户租赁服务、影片资产与库存管理、员工协作、多级地理区域（国家/城市/地址）建模、影片元数据（含分类、演员、语言、评级、时长、租金与赔偿）、租赁交易生命周期（租借、归还、支付）以及账户与权限管理等核心场景。系统采用规范化设计，支持高并发租赁操作、全文检索、多对多关联查询及精细化财务核算。
+  name: dvdrental
+  description: dvdrental 是一个面向DVD影片租赁连锁店的全业务关系型数据库系统，完整支撑门店运营、客户管理、影片资产管控、租借交易处理、员工协同及地理信息管理等核心场景。它涵盖从全球国家/城市/地址的层级化地理数据、多语言电影元数据与分类体系、演员参演关系，到客户账户、门店库存、租赁履约、支付结算、员工权限及门店组织架构的端到端业务闭环，支持实时租赁状态追踪、库存分布查询、客户消费分析及内容运营决策。
 llm_inference:
   max_domains_per_table: 3
 domains:
@@ -9,35 +9,38 @@ domains:
   description: 无法归入其他业务主题的表
   tables: []
 - name: 客户与账户管理
-  description: 管理租赁业务的终端客户信息、账户状态、联系方式及归属门店，支撑会员服务、通知触达与活跃度分析
+  description: 管理租赁业务中终端客户的身份信息、联系方式、地址关联、账户激活状态及生命周期（创建/更新/停用）
   tables:
   - dvdrental.public.customer
-  - dvdrental.public.address
-  - dvdrental.public.city
-  - dvdrental.public.country
 - name: 门店与组织架构
-  description: 定义物理经营单元（门店）、其地理位置、负责人（经理）及员工组织关系，支撑区域运营、人力分配与门店绩效分析
+  description: 定义物理经营单元（门店）及其组织关系，包括门店基本信息、负责人（经理）指派、所属地址及员工归属关系
   tables:
   - dvdrental.public.store
   - dvdrental.public.staff
-  - dvdrental.public.address
-  - dvdrental.public.city
+- name: 地理信息管理
+  description: 维护全球国家、城市、行政区划及详细地址的层级化地理参考数据，支撑客户、员工、门店的地理位置建模与区域分析
+  tables:
   - dvdrental.public.country
-- name: 影片资产与内容管理
-  description: 存储影片核心元数据（标题、描述、年份、时长、评级、语言、租金、赔偿成本）、分类体系、演员阵容及特别属性，构成数字资产目录基础
+  - dvdrental.public.city
+  - dvdrental.public.address
+- name: 影片内容资产
+  description: 存储DVD影片的核心元数据，包括标题、描述、年份、时长、评级、语言、租赁定价、赔偿成本及全文检索能力，构成内容库基础
   tables:
   - dvdrental.public.film
+  - dvdrental.public.language
+- name: 内容分类与演职人员
+  description: 管理影片的内容维度（如动作、动画等分类）及创作主体（演员），并通过关联表实现多对多关系建模，支撑内容标签化与艺人画像
+  tables:
   - dvdrental.public.category
   - dvdrental.public.actor
-  - dvdrental.public.language
-  - dvdrental.public.film_actor
   - dvdrental.public.film_category
-- name: 库存与租赁运营
-  description: 跟踪每部影片在各门店的实物库存分布，记录完整的租赁行为（时间、客户、员工、归还状态）及库存状态变更，是业务执行的核心事务链
+  - dvdrental.public.film_actor
+- name: 租赁交易与履约
+  description: 记录客户租借行为的全生命周期事件，包括租赁发起、库存扣减、归还确认，并关联客户、员工、库存项及时间戳，是业务核心操作日志
   tables:
-  - dvdrental.public.inventory
   - dvdrental.public.rental
-- name: 财务与交易管理
-  description: 记录所有租赁产生的支付行为，包括金额、时间、客户、员工、关联租赁单，支撑营收统计、对账与财务合规
+  - dvdrental.public.inventory
+- name: 财务结算
+  description: 跟踪每笔租赁服务产生的应收款项，存储支付金额、时间、客户、员工、对应租赁单据等关键财务事实，支撑营收对账与分析
   tables:
   - dvdrental.public.payment
