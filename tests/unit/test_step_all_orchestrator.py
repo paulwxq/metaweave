@@ -81,7 +81,7 @@ class _DummyRelPipeline:
 
 
 class _DummyCQLGenerator:
-    def __init__(self, _config_path: Path):
+    def __init__(self, _config_path: Path, domain_resolver=None):
         pass
 
     def generate(self, step_name: str = "cql") -> CQLGenerationResult:
@@ -105,7 +105,7 @@ class _DummyDbConnector:
 
 
 class _DummyRelDiscovery:
-    def __init__(self, config: dict, connector, domain_filter=None, cross_domain=False, db_domains_config=None):
+    def __init__(self, config: dict, connector, domain_filter=None, cross_domain=False, domain_resolver=None):
         out_dir = Path(config.get("output", {}).get("output_dir", "output"))
         self.json_dir = out_dir / "json"
         self.tables = {}
@@ -145,11 +145,11 @@ def test_step_all_orchestrates_in_order(tmp_path: Path, monkeypatch):
     )
 
     runner = CliRunner()
-    result = runner.invoke(metadata_cli.metadata_command, ["--config", str(cfg), "--step", "all"])
+    result = runner.invoke(metadata_cli.metadata_command, ["--config", str(cfg), "--step", "standard"])
 
     assert result.exit_code == 0, result.output
     # 过滤掉 parent_step，只看子步骤顺序
-    sub_steps = [s for s in steps if s != "all"]
+    sub_steps = [s for s in steps if s != "standard"]
     assert sub_steps == ["ddl", "md", "json", "rel", "cql"]
     assert "开始步骤: ddl" in result.output
     assert "开始步骤: cql" in result.output
@@ -188,7 +188,7 @@ def test_step_all_with_clean_flag(tmp_path: Path, monkeypatch):
     try:
         result = runner.invoke(
             metadata_cli.metadata_command,
-            ["--config", str(cfg), "--step", "all", "--clean"],
+            ["--config", str(cfg), "--step", "standard", "--clean"],
         )
         assert result.exit_code == 0, result.output
 
@@ -246,11 +246,11 @@ def test_step_all_fails_on_ddl_error(tmp_path: Path, monkeypatch):
     )
 
     runner = CliRunner()
-    result = runner.invoke(metadata_cli.metadata_command, ["--config", str(cfg), "--step", "all"])
+    result = runner.invoke(metadata_cli.metadata_command, ["--config", str(cfg), "--step", "standard"])
 
     assert result.exit_code != 0
     # 过滤掉 parent_step，只看子步骤顺序
-    sub_steps = [s for s in steps if s != "all"]
+    sub_steps = [s for s in steps if s != "standard"]
     assert sub_steps == ["ddl"]
     assert "❌ ddl 失败" in result.output
 
@@ -295,56 +295,12 @@ def test_step_all_stops_after_first_failure(tmp_path: Path, monkeypatch):
     )
 
     runner = CliRunner()
-    result = runner.invoke(metadata_cli.metadata_command, ["--config", str(cfg), "--step", "all"])
+    result = runner.invoke(metadata_cli.metadata_command, ["--config", str(cfg), "--step", "standard"])
 
     assert result.exit_code != 0
     # ddl/md/json 执行后在 json 失败，后续 rel/cql 不应出现
-    sub_steps = [s for s in steps if s != "all"]
+    sub_steps = [s for s in steps if s != "standard"]
     assert sub_steps == ["ddl", "md", "json"]
     assert "❌ json 失败" in result.output
 
 
-def test_step_all_llm_orchestrates_in_order(tmp_path: Path, monkeypatch):
-    cfg = _write_config(tmp_path)
-
-    steps = []
-
-    def _record_step(s):
-        steps.append((s or "").lower())
-
-    monkeypatch.setattr(metadata_cli, "MetadataGenerator", _DummyMetadataGenerator)
-    monkeypatch.setattr(metadata_cli, "set_current_step", _record_step)
-
-    monkeypatch.setattr(
-        "metaweave.core.metadata.json_llm_enhancer.JsonLlmEnhancer",
-        _DummyJsonLlmEnhancer,
-        raising=False,
-    )
-    monkeypatch.setattr(
-        "metaweave.core.metadata.connector.DatabaseConnector",
-        _DummyDbConnector,
-        raising=False,
-    )
-    monkeypatch.setattr(
-        "metaweave.core.relationships.llm_relationship_discovery.LLMRelationshipDiscovery",
-        _DummyRelDiscovery,
-        raising=False,
-    )
-    monkeypatch.setattr(
-        "metaweave.core.relationships.writer.RelationshipWriter",
-        _DummyRelWriter,
-        raising=False,
-    )
-    monkeypatch.setattr(
-        "metaweave.core.cql_generator.generator.CQLGenerator",
-        _DummyCQLGenerator,
-        raising=False,
-    )
-
-    runner = CliRunner()
-    result = runner.invoke(metadata_cli.metadata_command, ["--config", str(cfg), "--step", "all_llm"])
-
-    assert result.exit_code == 0, result.output
-    # 过滤掉 parent_step，只看子步骤顺序
-    sub_steps = [s for s in steps if s != "all_llm"]
-    assert sub_steps == ["ddl", "md", "json_llm", "rel_llm", "cql"]

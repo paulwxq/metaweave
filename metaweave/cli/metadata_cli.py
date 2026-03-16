@@ -58,10 +58,10 @@ logger = logging.getLogger("metaweave.cli")
 )
 @click.option(
     "--step",
-    type=click.Choice(["ddl", "json", "json_llm", "cql", "cql_llm", "md", "rel", "rel_llm", "all", "all_llm"], case_sensitive=False),
-    default="all",
+    type=click.Choice(["ddl", "json", "json_llm", "cql", "cql_llm", "md", "rel", "rel_llm", "standard"], case_sensitive=False),
+    default="standard",
     show_default=True,
-    help="指定要执行的步骤：ddl/json/json_llm/cql/cql_llm/md/rel/rel_llm/all/all_llm"
+    help="指定要执行的步骤：ddl/json/json_llm/cql/cql_llm/md/rel/rel_llm/standard"
 )
 @click.option(
     "--domain",
@@ -144,7 +144,7 @@ def metadata_command(
         metaweave metadata -c config.yaml --tables users,orders --max-workers 8
     """
     try:
-        set_current_step((step or "all").lower())
+        set_current_step((step or "standard").lower())
 
         def _load_yaml(path: Path) -> Dict:
             if not path.exists():
@@ -173,7 +173,7 @@ def metadata_command(
 
         click.echo(f"📋 加载配置: {config_path}")
 
-        step_lower = (step or "all").lower()
+        step_lower = (step or "standard").lower()
 
         def _ensure_in_project_root(path: Path) -> Path:
             project_root = get_project_root().resolve()
@@ -337,8 +337,8 @@ def metadata_command(
 
         domain_filter = _parse_domain_filter(domain)
 
-        # Step: all / all_llm - 串行调度多个步骤（fail-fast）
-        if step_lower in {"all", "all_llm"}:
+        # Step: standard - 串行调度多个步骤（fail-fast）
+        if step_lower == "standard":
             from services.config_loader import load_config
 
             loaded_config = load_config(config_path)
@@ -346,10 +346,7 @@ def metadata_command(
             schemas_list = [s.strip() for s in (schemas or "").split(",") if s.strip()] or None
             tables_list = [t.strip() for t in (tables or "").split(",") if t.strip()] or None
 
-            if step_lower == "all":
-                steps = ["ddl", "md", "json", "rel", "cql"]
-            else:
-                steps = ["ddl", "md", "json_llm", "rel_llm", "cql"]
+            steps = ["ddl", "md", "json", "rel", "cql"]
 
             # 明确设置主上下文并记录启动日志
             parent_step = step_lower

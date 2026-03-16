@@ -12,6 +12,7 @@ from metaweave.cli.metadata_cli import metadata_command
 from metaweave.cli.loader_cli import load_command
 from metaweave.cli.dim_config_cli import dim_config_command
 from metaweave.cli.sql_rag_cli import sql_rag_command
+from metaweave.cli.pipeline_cli import pipeline_command
 from metaweave.utils.logger import setup_metaweave_logging
 
 
@@ -56,6 +57,7 @@ cli.add_command(metadata_command)
 cli.add_command(load_command)
 cli.add_command(dim_config_command)
 cli.add_command(sql_rag_command)
+cli.add_command(pipeline_command)
 
 
 if __name__ == "__main__":
