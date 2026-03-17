@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.payment
--- Comment: 支付记录表，存储客户租赁服务的付款明细及交易时间
--- Generated: 2026-03-17 08:19:58
+-- Comment: 支付记录表，存储客户租赁服务的付款信息及交易详情
+-- Generated: 2026-03-17 16:29:37
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.payment (
@@ -32,7 +32,7 @@ CREATE INDEX idx_fk_rental_id ON public.payment(rental_id);
 CREATE INDEX idx_fk_staff_id ON public.payment(staff_id);
 
 -- Table Comment
-COMMENT ON TABLE public.payment IS '支付记录表，存储客户租赁服务的付款明细及交易时间';
+COMMENT ON TABLE public.payment IS '支付记录表，存储客户租赁服务的付款信息及交易详情';
 
 /* SAMPLE_RECORDS
 {

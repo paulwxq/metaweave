@@ -8,19 +8,18 @@ from pathlib import Path
 from typing import Optional
 
 import click
-import yaml
 
 from metaweave.utils.file_utils import get_project_root
+from metaweave.utils.logger import set_current_step
 from services.config_loader import ConfigLoader
 
 logger = logging.getLogger("metaweave.cli")
 
 
-def _load_metadata_config(metadata_config_file: str, project_root: Path) -> dict:
-    """用 ConfigLoader 加载 metadata_config.yaml，支持 ${ENV_VAR} 展开"""
-    path = _resolve_path(metadata_config_file, project_root)
-    loader = ConfigLoader(str(path))
-    return loader.load()
+def _load_main_config(config_path: str, project_root: Path) -> dict:
+    """用 ConfigLoader 加载主配置文件（metadata_config.yaml），支持 ${ENV_VAR} 展开"""
+    path = _resolve_path(config_path, project_root)
+    return ConfigLoader(str(path)).load()
 
 
 @click.group(name="sql-rag")
@@ -37,9 +36,9 @@ def sql_rag_command():
 @click.option(
     "--config", "-c",
     type=click.Path(exists=True),
-    default="configs/sql_rag.yaml",
+    default="configs/metadata_config.yaml",
     show_default=True,
-    help="sql_rag.yaml 配置文件路径",
+    help="主配置文件路径（metadata_config.yaml）",
 )
 @click.option(
     "--domains-config",
@@ -65,22 +64,18 @@ def generate(config: str, domains_config: str, md_dir: str, clean: bool, debug: 
     if debug:
         logging.getLogger("metaweave").setLevel(logging.DEBUG)
 
+    set_current_step("sql-rag-generate")
     project_root = get_project_root()
 
-    # 加载配置
-    config_path = _resolve_path(config, project_root)
-    with open(config_path, "r", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
-
-    metadata_config_file = cfg.get("metadata_config_file", "configs/metadata_config.yaml")
-    metadata_config = _load_metadata_config(metadata_config_file, project_root)
-
-    generation_config = cfg.get("generation", {})
+    # 加载主配置
+    main_config = _load_main_config(config, project_root)
+    sql_rag_cfg = main_config.get("sql_rag", {})
+    generation_config = sql_rag_cfg.get("generation", {})
 
     # 初始化 LLMService
     from metaweave.services.llm_service import LLMService
 
-    llm_config = metadata_config.get("llm", {})
+    llm_config = main_config.get("llm", {})
     llm_service = LLMService(llm_config)
 
     # 创建生成器
@@ -90,6 +85,7 @@ def generate(config: str, domains_config: str, md_dir: str, clean: bool, debug: 
 
     # clean: 删除当前库的样例文件
     if clean:
+        import yaml
         domains_path = _resolve_path(domains_config, project_root)
         with open(domains_path, "r", encoding="utf-8") as f:
             domains_cfg = yaml.safe_load(f)
@@ -121,9 +117,9 @@ def generate(config: str, domains_config: str, md_dir: str, clean: bool, debug: 
 @click.option(
     "--config", "-c",
     type=click.Path(exists=True),
-    default="configs/sql_rag.yaml",
+    default="configs/metadata_config.yaml",
     show_default=True,
-    help="sql_rag.yaml 配置文件路径",
+    help="主配置文件路径（metadata_config.yaml）",
 )
 @click.option(
     "--input", "-i", "input_file",
@@ -148,21 +144,17 @@ def validate(
     if debug:
         logging.getLogger("metaweave").setLevel(logging.DEBUG)
 
+    set_current_step("sql-rag-validate")
     project_root = get_project_root()
 
-    # 加载配置
-    config_path = _resolve_path(config, project_root)
-    with open(config_path, "r", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
-
-    metadata_config_file = cfg.get("metadata_config_file", "configs/metadata_config.yaml")
-    metadata_config = _load_metadata_config(metadata_config_file, project_root)
-
-    validation_config = cfg.get("validation", {})
+    # 加载主配置
+    main_config = _load_main_config(config, project_root)
+    sql_rag_cfg = main_config.get("sql_rag", {})
+    validation_config = sql_rag_cfg.get("validation", {})
 
     # 确定输入文件
     if not input_file:
-        generation_config = cfg.get("generation", {})
+        generation_config = sql_rag_cfg.get("generation", {})
         output_dir = generation_config.get("output_dir", "output/sql")
         # 需要从 db_domains 获取 db_name 来拼路径，这里直接扫描 output_dir
         output_path = _resolve_path(output_dir, project_root)
@@ -182,7 +174,7 @@ def validate(
     # 初始化 DatabaseConnector
     from metaweave.core.metadata.connector import DatabaseConnector
 
-    db_config = metadata_config.get("database", {})
+    db_config = main_config.get("database", {})
     connector = DatabaseConnector(db_config)
 
     # 可选：初始化 LLM 修复
@@ -195,11 +187,11 @@ def validate(
     if enable_repair:
         from metaweave.services.llm_service import LLMService
 
-        llm_config = metadata_config.get("llm", {})
+        llm_config = main_config.get("llm", {})
         llm_service = LLMService(llm_config)
 
     # 解析 MD 和 REL 目录（修复时提供上下文）
-    output_config = metadata_config.get("output", {})
+    output_config = main_config.get("output", {})
     md_dir = str(_resolve_path(
         output_config.get("markdown_directory", "output/md"), project_root
     ))
@@ -250,9 +242,9 @@ def validate(
 @click.option(
     "--config", "-c",
     type=click.Path(exists=True),
-    default="configs/loader_config.yaml",
+    default="configs/metadata_config.yaml",
     show_default=True,
-    help="loader_config.yaml 配置文件路径",
+    help="主配置文件路径（metadata_config.yaml）",
 )
 @click.option(
     "--input", "-i", "input_file",
@@ -270,18 +262,34 @@ def load(config: str, input_file: Optional[str], clean: bool, debug: bool):
     if debug:
         logging.getLogger("metaweave").setLevel(logging.DEBUG)
 
+    set_current_step("sql")
     project_root = get_project_root()
 
-    # 加载配置
-    config_path = _resolve_path(config, project_root)
-    with open(config_path, "r", encoding="utf-8") as f:
-        loader_config = yaml.safe_load(f)
+    # 加载主配置
+    main_config = _load_main_config(config, project_root)
+    loader_config = main_config.get("loaders", {})
+    # 保留 metadata_config_file 引用
+    loader_config["metadata_config_file"] = str(_resolve_path(config, project_root))
 
-    # 如果指定了 input_file，覆盖配置
+    # CLI --input 优先；否则动态推断
     if input_file:
         if "sql_loader" not in loader_config:
             loader_config["sql_loader"] = {}
         loader_config["sql_loader"]["input_file"] = input_file
+    elif not loader_config.get("sql_loader", {}).get("input_file"):
+        # 从 database.database 动态拼出路径
+        db_name = main_config.get("database", {}).get("database", "")
+        if db_name:
+            sql_output_dir = main_config.get("sql_rag", {}).get(
+                "generation", {}
+            ).get("output_dir", "output/sql")
+            inferred_path = str(
+                _resolve_path(sql_output_dir, project_root) / f"qs_{db_name}_pair.json"
+            )
+            if "sql_loader" not in loader_config:
+                loader_config["sql_loader"] = {}
+            loader_config["sql_loader"]["input_file"] = inferred_path
+            click.echo(f"自动推断输入文件: {inferred_path}")
 
     # 创建加载器
     from metaweave.core.loaders.factory import LoaderFactory
@@ -310,16 +318,9 @@ def load(config: str, input_file: Optional[str], clean: bool, debug: bool):
 @click.option(
     "--config", "-c",
     type=click.Path(exists=True),
-    default="configs/sql_rag.yaml",
+    default="configs/metadata_config.yaml",
     show_default=True,
-    help="sql_rag.yaml 配置文件路径",
-)
-@click.option(
-    "--loader-config",
-    type=click.Path(exists=True),
-    default="configs/loader_config.yaml",
-    show_default=True,
-    help="loader_config.yaml 配置文件路径",
+    help="主配置文件路径（metadata_config.yaml）",
 )
 @click.option(
     "--domains-config",
@@ -342,7 +343,6 @@ def load(config: str, input_file: Optional[str], clean: bool, debug: bool):
 @click.option("--debug", is_flag=True, help="启用调试模式")
 def run_all(
     config: str,
-    loader_config: str,
     domains_config: str,
     md_dir: str,
     clean: bool,
@@ -354,33 +354,31 @@ def run_all(
 
     project_root = get_project_root()
 
-    # 加载 sql_rag 配置
-    config_path = _resolve_path(config, project_root)
-    with open(config_path, "r", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
-
-    metadata_config_file = cfg.get("metadata_config_file", "configs/metadata_config.yaml")
-    metadata_config = _load_metadata_config(metadata_config_file, project_root)
+    # 加载主配置
+    main_config = _load_main_config(config, project_root)
+    sql_rag_cfg = main_config.get("sql_rag", {})
 
     # === 阶段 1: 生成 ===
+    set_current_step("sql-rag-generate")
     click.echo("=" * 50)
     click.echo("阶段 1: 生成 Question-SQL")
     click.echo("=" * 50)
 
     from metaweave.services.llm_service import LLMService
 
-    llm_config = metadata_config.get("llm", {})
+    llm_config = main_config.get("llm", {})
     llm_service = LLMService(llm_config)
 
     from metaweave.core.sql_rag.generator import QuestionSQLGenerator
 
-    generation_config = cfg.get("generation", {})
+    generation_config = sql_rag_cfg.get("generation", {})
     generator = QuestionSQLGenerator(llm_service, generation_config)
 
     domains_path = _resolve_path(domains_config, project_root)
     md_dir_path = _resolve_path(md_dir, project_root)
 
     if clean:
+        import yaml
         with open(domains_path, "r", encoding="utf-8") as f:
             domains_cfg = yaml.safe_load(f)
         db_name = domains_cfg.get("database", {}).get("name", "unknown")
@@ -399,6 +397,7 @@ def run_all(
     click.echo(f"生成完成: {gen_result.total_generated} 条")
 
     # === 阶段 2: 校验 ===
+    set_current_step("sql-rag-validate")
     click.echo("")
     click.echo("=" * 50)
     click.echo("阶段 2: SQL EXPLAIN 校验")
@@ -407,17 +406,17 @@ def run_all(
     from metaweave.core.metadata.connector import DatabaseConnector
     from metaweave.core.sql_rag.validator import SQLValidator
 
-    db_config = metadata_config.get("database", {})
+    db_config = main_config.get("database", {})
     connector = DatabaseConnector(db_config)
 
-    validation_config = cfg.get("validation", {})
+    validation_config = sql_rag_cfg.get("validation", {})
     enable_repair = validation_config.get("enable_sql_repair", False)
 
     # 修复时需要 LLM
     repair_llm = llm_service if enable_repair else None
 
     # 解析 MD 和 REL 目录（修复时提供上下文）
-    output_config = metadata_config.get("output", {})
+    output_config = main_config.get("output", {})
     md_dir_resolved = str(_resolve_path(
         output_config.get("markdown_directory", "output/md"), project_root
     ))
@@ -461,23 +460,23 @@ def run_all(
         )
 
     # === 阶段 3: 加载 ===
+    set_current_step("sql")
     click.echo("")
     click.echo("=" * 50)
     click.echo("阶段 3: 加载到 Milvus")
     click.echo("=" * 50)
 
-    loader_config_path = _resolve_path(loader_config, project_root)
-    with open(loader_config_path, "r", encoding="utf-8") as f:
-        ldr_cfg = yaml.safe_load(f)
+    loader_config = main_config.get("loaders", {})
+    loader_config["metadata_config_file"] = str(_resolve_path(config, project_root))
 
     # 将生成的文件路径注入 loader 配置
-    if "sql_loader" not in ldr_cfg:
-        ldr_cfg["sql_loader"] = {}
-    ldr_cfg["sql_loader"]["input_file"] = gen_result.output_file
+    if "sql_loader" not in loader_config:
+        loader_config["sql_loader"] = {}
+    loader_config["sql_loader"]["input_file"] = gen_result.output_file
 
     from metaweave.core.loaders.factory import LoaderFactory
 
-    loader = LoaderFactory.create("sql", ldr_cfg)
+    loader = LoaderFactory.create("sql", loader_config)
 
     if not loader.validate():
         click.echo("Loader 验证失败", err=True)

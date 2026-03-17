@@ -1,4 +1,4 @@
-# public.film_actor（电影与演员的关联表，记录演员参演电影的关系及更新时间）
+# public.film_actor（电影与演员关联表，记录演员参演电影的关系及最后更新时间）
 ## 字段列表：
 - actor_id (smallint(16)) - 演员唯一标识ID [示例: 1, 1]
 - film_id (smallint(16)) - 电影唯一标识ID [示例: 1, 23]

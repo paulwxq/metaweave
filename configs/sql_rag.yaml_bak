@@ -1,4 +1,10 @@
-# SQL RAG 生成与校验配置
+# ============================================================
+# DEPRECATED - 此文件已废弃，配置已合并至 metadata_config.yaml
+# 请使用 metadata_config.yaml 中的 sql_rag: 段
+# 此文件将在未来版本中删除
+# ============================================================
+#
+# SQL RAG 生成与校验配置（历史文件）
 
 # 基础配置：指向 metadata_config.yaml，从中读取 llm、database 等共享配置
 # 生成阶段依赖 llm 段（LLMService），校验阶段依赖 database 段（DatabaseConnector）

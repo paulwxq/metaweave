@@ -2,7 +2,7 @@
 -- Database: dvdrental
 -- Table: public.country
 -- Comment: 国家信息表，存储世界各国名称及最后更新时间
--- Generated: 2026-03-17 08:19:42
+-- Generated: 2026-03-17 16:29:30
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.country (

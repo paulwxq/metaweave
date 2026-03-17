@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.customer
--- Comment: 客户信息表，存储客户的姓名、联系方式、地址及账户状态等基本信息
--- Generated: 2026-03-17 08:19:44
+-- Comment: 客户信息表，存储顾客基本信息、联系方式、所属门店及状态标识
+-- Generated: 2026-03-17 16:29:33
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.customer (
@@ -38,7 +38,7 @@ CREATE INDEX idx_fk_store_id ON public.customer(store_id);
 CREATE INDEX idx_last_name ON public.customer(last_name);
 
 -- Table Comment
-COMMENT ON TABLE public.customer IS '客户信息表，存储客户的姓名、联系方式、地址及账户状态等基本信息';
+COMMENT ON TABLE public.customer IS '客户信息表，存储顾客基本信息、联系方式、所属门店及状态标识';
 
 /* SAMPLE_RECORDS
 {

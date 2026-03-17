@@ -2,7 +2,7 @@
 -- Database: dvdrental
 -- Table: public.inventory
 -- Comment: 库存记录表，存储影片在各门店的库存数量及最后更新时间
--- Generated: 2026-03-17 08:19:49
+-- Generated: 2026-03-17 16:29:35
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.inventory (

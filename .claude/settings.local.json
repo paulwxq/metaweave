@@ -9,7 +9,8 @@
       "Bash(find:*)",
       "Bash(.venv-wsl/bin/python -m pytest:*)",
       "Bash(/mnt/c/Projects/cursor_2025h2/metaweave/.venv-wsl/bin/python:*)",
-      "Bash(.venv-wsl/bin/python -m metaweave.cli.main:*)"
+      "Bash(.venv-wsl/bin/python -m metaweave.cli.main:*)",
+      "Bash(cd:*)"
     ]
   }
 }

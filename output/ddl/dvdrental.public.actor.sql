@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.actor
--- Comment: 演员信息表，存储电影演员的姓名及最后更新时间
--- Generated: 2026-03-17 08:19:43
+-- Comment: 演员信息表，存储电影演员的姓名、唯一标识及最后更新时间
+-- Generated: 2026-03-17 16:29:29
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.actor (
@@ -23,7 +23,7 @@ COMMENT ON COLUMN public.actor.last_update IS '记录最后更新时间';
 CREATE INDEX idx_actor_last_name ON public.actor(last_name);
 
 -- Table Comment
-COMMENT ON TABLE public.actor IS '演员信息表，存储电影演员的姓名及最后更新时间';
+COMMENT ON TABLE public.actor IS '演员信息表，存储电影演员的姓名、唯一标识及最后更新时间';
 
 /* SAMPLE_RECORDS
 {

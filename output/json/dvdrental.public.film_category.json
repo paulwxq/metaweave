@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-17T08:20:01.394657",
+  "generated_timestamp": "2026-03-17T16:29:40.671280",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "film_category",
     "table_type": "table",
-    "comment": "电影分类关联表，记录电影与分类之间的多对多关系",
+    "comment": "电影分类关联表，记录电影与所属分类的多对多关系",
     "comment_source": "ddl",
     "total_rows": 1000,
     "total_columns": 3
@@ -284,5 +284,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-17T08:20:42.411695"
+  "llm_enhanced_at": "2026-03-17T16:30:05.583554"
 }

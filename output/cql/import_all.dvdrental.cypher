@@ -1,6 +1,6 @@
 // import_all.dvdrental.cypher
 // Neo4j 元数据导入脚本（global 模式，包含所有表和关系）
-// 生成时间: 2026-03-17T08:21:14.661577
+// 生成时间: 2026-03-17T16:30:21.829695
 // 统计: 15 张表, 86 个列, 18 个关系
 
 // =====================================================================
@@ -23,7 +23,7 @@
     "full_name": "public.actor",
     "schema": "public",
     "name": "actor",
-    "comment": "演员信息表，存储电影演员的姓名及最后更新时间",
+    "comment": "演员信息表，存储电影演员的姓名、唯一标识及最后更新时间",
     "pk": [
       "actor_id"
     ],
@@ -48,7 +48,7 @@
     "full_name": "public.address",
     "schema": "public",
     "name": "address",
-    "comment": "地址信息表，存储客户或实体的详细地理位置及联系方式",
+    "comment": "地址信息表，存储客户或实体的详细地址、所属城市及联系方式",
     "pk": [
       "address_id"
     ],
@@ -98,7 +98,7 @@
     "full_name": "public.city",
     "schema": "public",
     "name": "city",
-    "comment": "城市信息表，存储全球城市名称、所属国家及更新时间",
+    "comment": "城市信息表，存储全球城市名称、所属国家及最后更新时间",
     "pk": [
       "city_id"
     ],
@@ -148,7 +148,7 @@
     "full_name": "public.customer",
     "schema": "public",
     "name": "customer",
-    "comment": "客户信息表，存储客户的姓名、联系方式、地址及账户状态等基本信息",
+    "comment": "客户信息表，存储顾客基本信息、联系方式、所属门店及状态标识",
     "pk": [
       "customer_id"
     ],
@@ -218,7 +218,7 @@
     "full_name": "public.film_actor",
     "schema": "public",
     "name": "film_actor",
-    "comment": "电影与演员的关联表，记录演员参演电影的关系及更新时间",
+    "comment": "电影与演员关联表，记录演员参演电影的关系及最后更新时间",
     "pk": [
       "actor_id",
       "film_id"
@@ -251,7 +251,7 @@
     "full_name": "public.film_category",
     "schema": "public",
     "name": "film_category",
-    "comment": "电影分类关联表，记录电影与分类之间的多对多关系",
+    "comment": "电影分类关联表，记录电影与所属分类的多对多关系",
     "pk": [
       "film_id",
       "category_id"
@@ -331,7 +331,7 @@
     "full_name": "public.payment",
     "schema": "public",
     "name": "payment",
-    "comment": "支付记录表，存储客户租赁服务的付款明细及交易时间",
+    "comment": "支付记录表，存储客户租赁服务的付款信息及交易详情",
     "pk": [
       "payment_id"
     ],
@@ -372,7 +372,7 @@
     "full_name": "public.rental",
     "schema": "public",
     "name": "rental",
-    "comment": "租赁记录表，存储影片租借的起止时间、租借人、库存项及经办员工信息",
+    "comment": "租赁记录表，存储影片租借、归还时间及关联的库存、客户和员工信息",
     "pk": [
       "rental_id"
     ],
@@ -407,7 +407,7 @@
     "full_name": "public.staff",
     "schema": "public",
     "name": "staff",
-    "comment": "员工信息表，存储门店员工的基本资料、联系方式、账户凭证及状态",
+    "comment": "员工信息表，存储门店员工的基本资料、联系方式、账户凭证及头像等信息",
     "pk": [
       "staff_id"
     ],
@@ -810,7 +810,7 @@
     "schema": "public",
     "table": "city",
     "name": "country_id",
-    "comment": "所属国家唯一标识ID",
+    "comment": "所属国家ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -829,7 +829,7 @@
     "schema": "public",
     "table": "city",
     "name": "last_update",
-    "comment": "最后更新时间戳",
+    "comment": "最后更新时间",
     "data_type": "timestamp without time zone",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1171,7 +1171,7 @@
     "schema": "public",
     "table": "film",
     "name": "language_id",
-    "comment": "电影语言ID（关联language表）",
+    "comment": "电影语言标识ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1190,7 +1190,7 @@
     "schema": "public",
     "table": "film",
     "name": "rental_duration",
-    "comment": "租赁天数（单位：天）",
+    "comment": "租赁期限（天）",
     "data_type": "smallint",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1209,7 +1209,7 @@
     "schema": "public",
     "table": "film",
     "name": "rental_rate",
-    "comment": "租赁单价（单位：美元）",
+    "comment": "租赁单价（美元）",
     "data_type": "numeric",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1228,7 +1228,7 @@
     "schema": "public",
     "table": "film",
     "name": "length",
-    "comment": "电影时长（单位：分钟）",
+    "comment": "电影时长（分钟）",
     "data_type": "smallint",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1247,7 +1247,7 @@
     "schema": "public",
     "table": "film",
     "name": "replacement_cost",
-    "comment": "丢失/损坏赔偿金额（单位：美元）",
+    "comment": "丢失/损坏赔偿金额（美元）",
     "data_type": "numeric",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1741,7 +1741,7 @@
     "schema": "public",
     "table": "rental",
     "name": "inventory_id",
-    "comment": "影片库存记录ID",
+    "comment": "所租库存物品的唯一标识ID",
     "data_type": "integer",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1779,7 +1779,7 @@
     "schema": "public",
     "table": "rental",
     "name": "return_date",
-    "comment": "影片归还时间戳（可为空）",
+    "comment": "归还时间戳（NULL表示未归还）",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -1798,7 +1798,7 @@
     "schema": "public",
     "table": "rental",
     "name": "staff_id",
-    "comment": "处理租赁业务的员工ID",
+    "comment": "处理该租赁业务的员工ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1893,7 +1893,7 @@
     "schema": "public",
     "table": "staff",
     "name": "address_id",
-    "comment": "员工地址信息ID",
+    "comment": "关联地址表的外键ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1912,7 +1912,7 @@
     "schema": "public",
     "table": "staff",
     "name": "email",
-    "comment": "员工工作邮箱地址",
+    "comment": "员工电子邮箱地址",
     "data_type": "character varying",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1950,7 +1950,7 @@
     "schema": "public",
     "table": "staff",
     "name": "active",
-    "comment": "员工启用状态（true-在职，false-离职）",
+    "comment": "员工启用状态（true-启用，false-停用）",
     "data_type": "boolean",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1988,7 +1988,7 @@
     "schema": "public",
     "table": "staff",
     "name": "password",
-    "comment": "员工密码（SHA1哈希值）",
+    "comment": "员工登录密码（SHA1哈希值）",
     "data_type": "character varying",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -2026,7 +2026,7 @@
     "schema": "public",
     "table": "staff",
     "name": "picture",
-    "comment": "员工照片二进制数据",
+    "comment": "员工头像图片二进制数据",
     "data_type": "bytea",
     "semantic_role": "complex",
     "is_pk": false,

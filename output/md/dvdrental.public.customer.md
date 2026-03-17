@@ -1,4 +1,4 @@
-# public.customer（客户信息表，存储客户的姓名、联系方式、地址及账户状态等基本信息）
+# public.customer（客户信息表，存储顾客基本信息、联系方式、所属门店及状态标识）
 ## 字段列表：
 - customer_id (integer(32)) - 客户唯一标识ID [示例: 524, 1]
 - store_id (smallint(16)) - 所属门店ID [示例: 1, 1]

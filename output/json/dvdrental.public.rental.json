@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-17T08:20:01.456639",
+  "generated_timestamp": "2026-03-17T16:29:40.722755",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "rental",
     "table_type": "table",
-    "comment": "租赁记录表，存储影片租借的起止时间、租借人、库存项及经办员工信息",
+    "comment": "租赁记录表，存储影片租借、归还时间及关联的库存、客户和员工信息",
     "comment_source": "ddl",
     "total_rows": 16044,
     "total_columns": 7
@@ -121,7 +121,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "影片库存记录ID",
+      "comment": "所租库存物品的唯一标识ID",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -243,7 +243,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "影片归还时间戳（可为空）",
+      "comment": "归还时间戳（NULL表示未归还）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -288,7 +288,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "处理租赁业务的员工ID",
+      "comment": "处理该租赁业务的员工ID",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -524,5 +524,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-17T08:21:04.583291"
+  "llm_enhanced_at": "2026-03-17T16:30:17.265275"
 }

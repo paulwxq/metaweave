@@ -1,5 +1,8 @@
 # 59_configs YAML 配置收敛实施方案
 
+> **实施状态**：全部三阶段已完成，并额外完成了 NL2SQL 残留代码清理。
+> 最后更新：2026-03-17
+
 ## 1. 文档定位
 
 本文档是 MetaWeave 配置体系收敛的完整实施方案，包含现状问题、收敛目标、改动清单与验收标准。
@@ -59,40 +62,45 @@
 
 ## 3. 收敛目标
 
-### 3.1 目标结构
+### 3.1 目标结构（已达成）
 
 从当前 7 个 YAML 收敛到 4 个：
 
 ```text
 收敛后：
 configs/
-├── metadata_config.yaml      ← 唯一主配置（合并 loader_config + sql_rag）
+├── metadata_config.yaml      ← 唯一主配置（已合并 loader_config + sql_rag）
 ├── db_domains.yaml            ← 业务配置产物（人工维护）
 ├── dim_tables.yaml            ← 业务配置产物（人工维护）
 └── logging.yaml               ← 独立日志配置
+
+退役文件（已改名为 .yaml_bak）：
+├── config.yaml_bak            ← 原 NL2SQL 主配置（NL2SQL 已从项目拆走）
+├── loader_config.yaml_bak     ← 内容已合并进 metadata_config.yaml
+└── sql_rag.yaml_bak           ← 内容已合并进 metadata_config.yaml
 ```
 
-退役或降级的文件：
+| 文件 | 处置 | 说明 |
+|------|------|------|
+| `config.yaml` | 改名为 `.yaml_bak` | NL2SQL 已从项目拆走，`get_config()` 已删除 |
+| `loader_config.yaml` | 改名为 `.yaml_bak` | 内容合并进 `metadata_config.yaml` 的 `loaders:` 段 |
+| `sql_rag.yaml` | 改名为 `.yaml_bak` | 内容合并进 `metadata_config.yaml` 的 `sql_rag:` 段 |
 
-| 文件 | 处置 |
-|------|------|
-| `config.yaml` | 从 MetaWeave 主链路中完全剥离，仅保留给历史 NL2SQL 模块 |
-| `loader_config.yaml` | 内容合并进 `metadata_config.yaml` 的 `loaders:` 段后废弃 |
-| `sql_rag.yaml` | 内容合并进 `metadata_config.yaml` 的 `sql_rag:` 段后废弃 |
+### 3.2 统一加载方式（已达成）
 
-### 3.2 统一加载方式
-
-收敛完成后（第三阶段结束），活跃配置文件只保留两种加载方式：
+收敛完成后，活跃配置文件只保留两种加载方式：
 
 | 加载方式 | 适用文件 | 说明 |
 |---------|---------|------|
 | `ConfigLoader(path).load()` | `metadata_config.yaml` | 支持环境变量替换 |
 | `yaml.safe_load()` | `logging.yaml` | 日志路径通常不需要环境变量，可保持直读 |
 
-达成路径：
+已消除的路径：
 
-- 第二阶段消除 `get_config()` 全局单例路径，并将 `loader_config.yaml` 的直读改为 `ConfigLoader`
-- 第三阶段将 `loader_config.yaml` 和 `sql_rag.yaml` 合并进 `metadata_config.yaml` 后，这两个文件的 `yaml.safe_load()` 路径随废弃而自然消除
+- `get_config()` 全局单例：**已删除**（不是 deprecated，是物理删除）
+- `ConfigLoader(None)` 默认路径：**已改为 raise ValueError**
+- `PGConnectionManager(config=None)` 回退路径：**已改为 raise ValueError**
+- `Neo4jConnectionManager(config=None)` 回退路径：**已改为 raise ValueError**
 
 `db_domains.yaml` 和 `dim_tables.yaml` 不在本次收敛范围内，其加载方式和相关代码保持不变。
 
@@ -106,11 +114,10 @@ configs/
 
 ```text
 CLI 参数（如 --config xxx.yaml）
-> 引用型配置中的 metadata_config_file 字段（收敛后将消除）
-> 代码默认路径（如 configs/metadata_config.yaml）
+> 代码默认路径（configs/metadata_config.yaml）
 ```
 
-典型场景：`pipeline load --config xxx.yaml` 会在运行时用 CLI 参数覆盖 `loader_cfg["metadata_config_file"]`，再去加载目标主配置。环境变量不参与此阶段。
+收敛后不再存在"引用型配置中的 metadata_config_file 字段"这一中间层。
 
 #### 阶段二：文件内占位符解析优先级
 
@@ -128,12 +135,12 @@ CLI 参数（如 --config xxx.yaml）
 2. `load_dotenv(override=False)` 意味着 `.env` 不会覆盖进程中已存在的同名变量
 3. `logging.yaml` 不经过 `ConfigLoader`，不参与占位符解析
 
-#### 禁止出现的模式
+#### 已消除的模式
 
 ```text
-× 任何模块通过 get_config() 隐式回退到 config.yaml
-× 同一配置项在多个文件中定义
-× 对同一文件使用不同加载方式（一处走 ConfigLoader，另一处走 yaml.safe_load）
+✅ 已消除：任何模块通过 get_config() 隐式回退到 config.yaml（函数已删除）
+✅ 已消除：同一配置项在多个文件中定义（引用型配置已合并）
+✅ 已消除：对同一文件使用不同加载方式（CQLGenerator 已改用 ConfigLoader）
 ```
 
 ---
@@ -144,7 +151,7 @@ CLI 参数（如 --config xxx.yaml）
 
 ```yaml
 # ============================================================
-# 新增段：数据加载配置（原 loader_config.yaml）
+# 数据加载配置（原 loader_config.yaml）
 # ============================================================
 loaders:
   cql_loader:
@@ -154,6 +161,9 @@ loaders:
       user: "${NEO4J_USER:neo4j}"
       password: "${NEO4J_PASSWORD:}"
       database: "${NEO4J_DATABASE:neo4j}"
+    options:
+      transaction_mode: "by_section"
+      validate_after_load: true
 
   dim_loader:
     config_file: "configs/dim_tables.yaml"
@@ -163,32 +173,37 @@ loaders:
 
   table_schema_loader:
     md_directory: "output/md"
-    json_llm_directory: "output/json"
+    json_llm_directory: "output/json"   # 字段名保持原名，实际指向 json 目录
     collection_name: "table_schema_embeddings"
     options:
       batch_size: 50
 
   sql_loader:
+    # input_file 留空：运行时自动从 database.database + sql_rag.generation.output_dir
+    # 拼出 output/sql/qs_{db_name}_pair.json；也可通过 CLI --input 显式指定
+    input_file: ""
     collection_name: "sql_example_embeddings"
     options:
       batch_size: 50
 
 # ============================================================
-# 新增段：SQL RAG 配置（原 sql_rag.yaml）
+# SQL RAG 配置（原 sql_rag.yaml）
 # ============================================================
 sql_rag:
   generation:
     questions_per_domain: 10
+    uncategorized_questions: 3
+    skip_uncategorized: false
+    output_dir: "output/sql"
     llm_timeout: 120
-    db_domains_file: "configs/db_domains.yaml"
-    md_directory: "output/md"
 
   validation:
     sql_validation_max_concurrent: 5
     timeout: 30
     sql_validation_readonly: true
-    enable_sql_repair: true
     sql_validation_max_retries: 2
+    enable_sql_repair: true
+    repair_batch_size: 1
 ```
 
 关键变化：
@@ -196,7 +211,8 @@ sql_rag:
 1. `loader_config.yaml` 的 `metadata_config_file` 字段不再需要——因为已在同一文件中
 2. `sql_rag.yaml` 的 `metadata_config_file` 字段同理消除
 3. `cql_loader.neo4j` 的配置从 `config.yaml` 迁移到此处，使用环境变量占位符
-4. `sql_loader.input_file` 不再硬编码，由 CLI 运行时注入
+4. `sql_loader.input_file` 留空，由 CLI 运行时从 `database.database` 动态拼出路径 `output/sql/qs_{db_name}_pair.json`
+5. `sql_rag.generation` 中不再包含 `db_domains_file` 和 `md_directory`——这些由 CLI 参数或 pipeline 上下文传入
 
 ### 4.1 配置字段迁移表
 
@@ -209,12 +225,28 @@ sql_rag:
 | `loader_config.cql_loader.*` | `loaders.cql_loader.*` | 否 | 仅移动层级 |
 | `loader_config.dim_loader.*` | `loaders.dim_loader.*` | 否 | 仅移动层级 |
 | `loader_config.table_schema_loader.*` | `loaders.table_schema_loader.*` | 否 | 仅移动层级，`json_llm_directory` 保持原名 |
-| `loader_config.sql_loader.*` | `loaders.sql_loader.*` | 否 | 仅移动层级 |
+| `loader_config.sql_loader.*` | `loaders.sql_loader.*` | 否 | 仅移动层级，`input_file` 改为运行时动态推断 |
 | `sql_rag.generation.*` | `sql_rag.generation.*` | 否 | 仅移动文件 |
 | `sql_rag.validation.*` | `sql_rag.validation.*` | 否 | 仅移动文件，`sql_validation_max_concurrent` 等保持原名 |
 | `config.yaml` → Neo4j 配置 | `loaders.cql_loader.neo4j` | 是（结构变化） | 从 `get_config()` 隐式读取改为显式配置段 |
 
 注意：部分字段名存在历史遗留问题（如 `json_llm_directory` 实际指向 `output/json`、`sql_validation_max_retries` 语义上更接近 `max_repair_attempts`），但这些重命名不在本次改造范围内，应作为后续独立清理任务处理。
+
+### 4.2 sql_loader.input_file 动态推断机制
+
+`sql_loader.input_file` 在配置中留空，由以下三个 CLI 入口在运行时自动推断：
+
+| 入口 | 推断逻辑 |
+|------|---------|
+| `pipeline load` | 从 `database.database` + `sql_rag.generation.output_dir` 拼出路径 |
+| `metaweave load --type sql` | 同上 |
+| `sql-rag load` | 同上；也支持 `--input` 显式指定 |
+
+推断公式：`{output_dir}/qs_{database.database}_pair.json`
+
+示例：当 `database.database=dvdrental`、`sql_rag.generation.output_dir=output/sql` 时，推断为 `output/sql/qs_dvdrental_pair.json`。
+
+`sql-rag run-all` 不需要推断——它直接注入上一步生成的 `gen_result.output_file`。
 
 ---
 
@@ -222,50 +254,36 @@ sql_rag:
 
 > **实施提醒**：各阶段验收中的 `pytest tests/` 是全量回归门槛。实际推进时建议先跑一组不依赖数据库/LLM 的 smoke case（如 unit tests），避免环境波动拖慢阶段推进。
 
-### 5.1 第一阶段：低风险清理
+### 5.1 第一阶段：低风险清理 ✅ 已完成
 
 **目标**：消除 `metadata_config.yaml` 内部冗余，不改变文件数量和加载逻辑。
 
 **改动清单**：
 
-| 编号 | 改动 | 涉及文件 | 风险 |
-|------|------|---------|------|
-| 1.1 | 删除 `metadata_config.yaml` 顶层 `weights` | `metadata_config.yaml` | 低 |
-| 1.2 | 删除 `metadata_config.yaml` 中的 `logging` 段 | `metadata_config.yaml` | 低 |
-| 1.3 | 修正 `loader_config.yaml` 中 `json_llm_directory` 命名 | `loader_config.yaml` | 低 |
-| 1.4 | 清理过时注释（"未来实现"等） | 多个 YAML | 低 |
-| 1.5 | 将 `loader_config.yaml` 中 `sql_loader.input_file` 默认值改为空 | `loader_config.yaml` | 低 |
+| 编号 | 改动 | 涉及文件 | 风险 | 状态 |
+|------|------|---------|------|------|
+| 1.1 | 删除 `metadata_config.yaml` 顶层 `weights` | `metadata_config.yaml` | 低 | ✅ |
+| 1.2 | 删除 `metadata_config.yaml` 中的 `logging` 段 | `metadata_config.yaml` | 低 | ✅ |
+| 1.3 | 修正 `loader_config.yaml` 中 `json_llm_directory` 命名 | `loader_config.yaml` | 低 | ✅ |
+| 1.4 | 清理过时注释（"未来实现"等） | 多个 YAML | 低 | ✅ |
+| 1.5 | 将 `loader_config.yaml` 中 `sql_loader.input_file` 默认值改为空 | `loader_config.yaml` | 低 | ✅ |
 
-**验收**：
-
-- 运行 `metaweave metadata --config configs/metadata_config.yaml --step ddl` 正常完成
-- 运行 `metaweave metadata --config configs/metadata_config.yaml --step rel` 关系权重与改动前一致
-- `pytest tests/` 全部通过
-
-### 5.2 第二阶段：消除部分隐式主配置依赖
+### 5.2 第二阶段：消除隐式主配置依赖 ✅ 已完成
 
 **目标**：
 
 1. 消除 `PGConnectionManager` 和 `CQLGenerator` 对 `config.yaml` 的隐式依赖
 2. 将 `loader_config.yaml` 的直读改为 `ConfigLoader`
 
-说明：`CQLLoader` 对 `config.yaml` 的依赖需要 Neo4j 配置迁移到新位置后才能消除，延后到第三阶段与 `loaders:` 段合并一起完成。
-
 **改动清单**：
 
-| 编号 | 改动 | 涉及文件 | 风险 |
-|------|------|---------|------|
-| 2.1 | `PGConnectionManager.initialize()` 不再调用 `get_config()`，vector_database 配置从传入参数获取 | `pg_connection.py` | 中 |
-| 2.2 | `CQLGenerator` 改用 `ConfigLoader` 加载配置 | `cql_generator/generator.py` | 低 |
-| 2.3 | loader 链路入口改用 `ConfigLoader` 加载 `loader_config.yaml` | `loader_cli.py` / `pipeline_cli.py` | 低 |
+| 编号 | 改动 | 涉及文件 | 风险 | 状态 |
+|------|------|---------|------|------|
+| 2.1 | `PGConnectionManager` 不再允许 `config=None`，改为 raise ValueError | `pg_connection.py` | 中 | ✅ |
+| 2.2 | `CQLGenerator` 改用 `ConfigLoader` 加载配置 | `cql_generator/generator.py` | 低 | ✅ |
+| 2.3 | loader 链路入口改用 `ConfigLoader` 加载 `loader_config.yaml` | `loader_cli.py` / `pipeline_cli.py` | 低 | ✅ |
 
-**验收**：
-
-- 在 `config.yaml` 中故意修改 `vector_database.active` 为错误值，`PGConnectionManager` 初始化行为不受影响
-- 在 `loader_config.yaml` 中添加一个 `${TEST_VAR:fallback}` 占位符，设置环境变量 `TEST_VAR=overridden`，分别通过 `metaweave load` 和 `metaweave pipeline load` 两个入口验证读取到的是 `overridden` 而非 `fallback`（证明 `loader_cli.py` 和 `pipeline_cli.py` 均已走 ConfigLoader）
-- `pytest tests/` 全部通过
-
-### 5.3 第三阶段：合并引用型配置
+### 5.3 第三阶段：合并引用型配置 ✅ 已完成
 
 **目标**：
 
@@ -285,24 +303,33 @@ sql_rag:
 
 **改动清单**：
 
-| 编号 | 改动 | 涉及文件 | 风险 |
+| 编号 | 改动 | 涉及文件 | 风险 | 状态 |
+|------|------|---------|------|------|
+| 3.1 | 在 `metadata_config.yaml` 中新增 `loaders:` 段（含 Neo4j 显式配置） | `metadata_config.yaml` | 中 | ✅ |
+| 3.2 | 在 `metadata_config.yaml` 中新增 `sql_rag:` 段 | `metadata_config.yaml` | 中 | ✅ |
+| 3.3 | `CQLLoader` 改为从传入的 config dict 读取 Neo4j 配置，不再调用 `get_config()` | `cql_loader.py` | 中 | ✅ |
+| 3.4 | 修改 loader CLI：默认配置改为 `metadata_config.yaml`，从主配置切出 `loaders` 段 | `loader_cli.py`、`pipeline_cli.py` | 中 | ✅ |
+| 3.5 | 修改 sql-rag CLI：从主配置切出 `sql_rag` 段；删除 `--loader-config`、`--sql-rag-config` 参数 | `sql_rag_cli.py`、`pipeline_cli.py` | 中 | ✅ |
+| 3.6 | 各 Loader 类构造函数保持只接收 config dict，不感知主配置结构 | `table_schema_loader.py`、`dim_value_loader.py`、`sql_rag/loader.py` | 低 | ✅ |
+| 3.7 | `loader_config.yaml` 改名为 `.yaml_bak` | - | 低 | ✅ |
+| 3.8 | `sql_rag.yaml` 改名为 `.yaml_bak` | - | 低 | ✅ |
+| 3.9 | `config.yaml` 改名为 `.yaml_bak` | - | 低 | ✅ |
+
+### 5.4 额外清理：NL2SQL 残留代码 ✅ 已完成
+
+NL2SQL 模块已从 MetaWeave 项目拆走，以下残留代码一并清理：
+
+| 编号 | 改动 | 涉及文件 | 说明 |
 |------|------|---------|------|
-| 3.1 | 在 `metadata_config.yaml` 中新增 `loaders:` 段（含 Neo4j 显式配置） | `metadata_config.yaml` | 中 |
-| 3.2 | 在 `metadata_config.yaml` 中新增 `sql_rag:` 段 | `metadata_config.yaml` | 中 |
-| 3.3 | `CQLLoader` 改为从传入的 config dict 读取 Neo4j 配置，不再调用 `get_config()` | `cql_loader.py` | 中 |
-| 3.4 | 修改 loader CLI：从主配置切出 `loaders.<type>` 子段后传给 `LoaderFactory.create()` | `loader_cli.py`、`pipeline_cli.py` | 中 |
-| 3.5 | 修改 sql-rag CLI：从主配置切出 `sql_rag` 子段传给相关模块 | `sql_rag_cli.py`、`pipeline_cli.py` | 中 |
-| 3.6 | 各 Loader 类构造函数保持只接收 config dict，不感知主配置结构 | `table_schema_loader.py`、`dim_value_loader.py`、`sql_rag/loader.py` | 低 |
-| 3.7 | 废弃 `loader_config.yaml`（标记 deprecated，保留文件但不再使用） | - | 低 |
-| 3.8 | 废弃 `sql_rag.yaml`（标记 deprecated，保留文件但不再使用） | - | 低 |
-
-**验收**：
-
-- `metaweave metadata` 全流程（ddl → json → rel → cql → md）正常
-- `metaweave pipeline generate` + `pipeline load` 正常
-- `metaweave sql-rag run-all` 正常
-- 在 `config.yaml` 中故意修改 Neo4j URI 为错误值，`pipeline load` 仍能正常连接 Neo4j（证明 CQLLoader 不再读取 `config.yaml`）
-- `pytest tests/` 全部通过
+| 4.1 | 删除 `get_config()` 函数 | `services/config_loader.py` | NL2SQL 全局配置单例，无引用 |
+| 4.2 | 删除 `load_subgraph_config()` 函数 | `services/config_loader.py` | NL2SQL 子图配置加载，无引用 |
+| 4.3 | 删除 `pg_client.py` | `services/db/pg_client.py` | NL2SQL 向量检索客户端，零引用 |
+| 4.4 | 删除 `neo4j_client.py` | `services/db/neo4j_client.py` | NL2SQL 图查询客户端，零引用 |
+| 4.5 | `ConfigLoader(None)` 改为 raise ValueError | `services/config_loader.py` | 旧默认路径 `config.yaml` 已不存在 |
+| 4.6 | `Neo4jConnectionManager(None)` 改为 raise ValueError | `services/db/neo4j_connection.py` | 不再允许无参回退 |
+| 4.7 | `ConfigLoader._get_project_root()` 去掉 `config.yaml` 查找 | `services/config_loader.py` | 仅通过 `pyproject.toml` 定位项目根 |
+| 4.8 | `sql_loader.input_file` 动态推断 | `pipeline_cli.py`、`loader_cli.py`、`sql_rag_cli.py` | 三个 CLI 入口补全推断逻辑 |
+| 4.9 | 修正旧提示词 `sql_rag.yaml` → `metadata_config.yaml` | `pipeline_cli.py:458` | 错误信息指路修正 |
 
 ---
 
@@ -323,15 +350,17 @@ sql_rag:
 [config] 维表配置: configs/dim_tables.yaml
 ```
 
-### 6.2 一致性检查
+> 注意：此为规划中的可观测性增强，尚未实现。当前 `--debug` 仅控制日志级别。
 
-检查规则的严格程度随阶段推进逐步升级：
+### 6.2 硬失败保护
 
-| 检查项 | 触发条件 | 第一、二阶段 | 第三阶段完成后 |
-|-------|---------|------------|-------------|
-| `config.yaml` 被主链路读取 | 任何主链路模块调用 `get_config()` | WARN | ERROR 并终止 |
-| 必需环境变量缺失 | `${VAR}` 无默认值且环境中不存在 | ERROR 并终止 | ERROR 并终止 |
-| 已废弃的配置文件仍被引用 | CLI 参数指向 `loader_config.yaml` 或 `sql_rag.yaml` | 不适用（文件尚未废弃） | WARN：提示使用 `metadata_config.yaml` |
+收敛完成后，旧路径的触发方式为立即报错（不是 warning）：
+
+| 触发点 | 错误类型 | 报错信息要点 |
+|-------|---------|------------|
+| `ConfigLoader(None)` | `ValueError` | config_path 必须显式指定 |
+| `PGConnectionManager(config=None)` | `ValueError` | 必须显式传入 database 配置字典 |
+| `Neo4jConnectionManager(config=None)` | `ValueError` | 必须显式传入 neo4j 配置字典 |
 
 ---
 
@@ -339,23 +368,32 @@ sql_rag:
 
 ### 7.1 文件数量
 
-| | 收敛前 | 过渡期（废弃文件保留兼容读取） | 目标态（废弃文件物理删除后） |
-|--|-------|------|------|
-| 主配置 | 2 个（`metadata_config.yaml` + `config.yaml`） | 1 个（`metadata_config.yaml`） | 1 个 |
-| 引用型配置 | 2 个（`loader_config.yaml` + `sql_rag.yaml`） | 0 个活跃，2 个标记 deprecated 仍在仓库中 | 0 个 |
-| 业务产物 | 2 个 | 2 个（不变） | 2 个 |
-| 技术配置 | 1 个（`logging.yaml`） | 1 个 | 1 个 |
-| **活跃文件总数** | **7** | **4**（+ 2 个 deprecated） | **4** |
+| | 收敛前 | 收敛后（当前状态） |
+|--|-------|-----------------|
+| 主配置 | 2 个（`metadata_config.yaml` + `config.yaml`） | 1 个（`metadata_config.yaml`） |
+| 引用型配置 | 2 个（`loader_config.yaml` + `sql_rag.yaml`） | 0 个（已合并并改名 `.yaml_bak`） |
+| 业务产物 | 2 个 | 2 个（不变） |
+| 技术配置 | 1 个（`logging.yaml`） | 1 个 |
+| **活跃文件总数** | **7** | **4** |
 
 ### 7.2 加载方式
 
-| | 收敛前 | 过渡期（废弃文件保留兼容读取） | 目标态（废弃文件物理删除后） |
-|--|-------|------|------|
-| ConfigLoader + 环境变量 | 1 个文件 | 1 个文件（主配置） | 1 个文件 |
-| yaml.safe_load 直读 | 3 个文件 | 3 个文件（logging、db_domains、dim_tables）+ 用户显式传入旧文件时仍可能触发 | 3 个文件（logging、db_domains、dim_tables，后两者不在本次改造范围） |
-| get_config() 全局单例 | 1 个文件 | 0 个文件 | 0 个文件 |
+| | 收敛前 | 收敛后（当前状态） |
+|--|-------|-----------------|
+| ConfigLoader + 环境变量 | 1 个文件 | 1 个文件（主配置） |
+| yaml.safe_load 直读 | 3 个文件 | 3 个文件（logging、db_domains、dim_tables） |
+| get_config() 全局单例 | 1 个文件 | **已删除** |
 
-### 7.3 配置优先级
+### 7.3 NL2SQL 残留
+
+| | 收敛前 | 收敛后（当前状态） |
+|--|-------|-----------------|
+| `services/db/pg_client.py` | 存在（NL2SQL 向量检索） | **已删除** |
+| `services/db/neo4j_client.py` | 存在（NL2SQL 图查询） | **已删除** |
+| `get_config()` / `load_subgraph_config()` | 存在（NL2SQL 配置入口） | **已删除** |
+| `config=None` 回退路径 | DeprecationWarning → 尝试读取 | **raise ValueError**（硬失败） |
+
+### 7.4 配置优先级
 
 收敛前：文件选择和值解析混在一起，且存在 `config.yaml` 隐式回退，实际生效配置取决于调用链而非用户预期。
 
@@ -372,43 +410,18 @@ sql_rag:
 | 第一阶段 | **低** | 仅删除冗余，不改变运行逻辑 |
 | 第二阶段 | **中** | 改变 PGConnectionManager 的配置来源，loader 链路切换 ConfigLoader |
 | 第三阶段 | **中** | 合并配置文件、CQLLoader 切换 Neo4j 配置源、CLI 参数解析入口变更 |
+| NL2SQL 清理 | **低** | NL2SQL 已拆走，删除的代码在 MetaWeave 中零引用 |
 
 ### 8.2 回退策略
 
-每个阶段完成后应创建 git tag：
-
-```bash
-git tag config-consolidation-phase-1
-git tag config-consolidation-phase-2
-git tag config-consolidation-phase-3
-```
-
-第二、三阶段的回退方式：
-
-1. 通过 git tag 回退到对应阶段起点
-2. `loader_config.yaml` 和 `sql_rag.yaml` 废弃后仍保留在仓库中（标记 `# DEPRECATED`），短期内可作为兼容读取的 fallback
-
-### 8.3 兼容性考虑
-
-对于可能使用旧配置文件的外部脚本或文档：
-
-1. 废弃的文件保留 6 个月后再物理删除
-2. 在废弃文件头部添加明确说明：
-
-```yaml
-# ============================================================
-# DEPRECATED - 此文件已废弃，配置已合并至 metadata_config.yaml
-# 请使用 metadata_config.yaml 中的 loaders: 段
-# 此文件将在未来版本中删除
-# ============================================================
-```
+废弃的配置文件已改名为 `.yaml_bak`（未物理删除），如需回退可直接改回原名。
 
 ---
 
 ## 9. 实施顺序与依赖关系
 
 ```text
-第一阶段（低风险清理）
+第一阶段（低风险清理）                              ✅ 已完成
 │   不依赖其他改动，可立即开始
 │
 ├── 1.1 删除顶层 weights
@@ -418,25 +431,35 @@ git tag config-consolidation-phase-3
 └── 1.5 清空 sql_loader.input_file 默认值
     │
     ▼
-第二阶段（消除部分隐式主配置依赖）
+第二阶段（消除隐式主配置依赖）                      ✅ 已完成
 │   依赖第一阶段完成
 │
-├── 2.1 PGConnectionManager 显式配置
+├── 2.1 PGConnectionManager 显式配置（改为 raise）
 ├── 2.2 CQLGenerator 走 ConfigLoader
-└── 2.3 loader 链路入口走 ConfigLoader  ← 阻塞 3.4
+└── 2.3 loader 链路入口走 ConfigLoader
     │
     ▼
-第三阶段（合并引用型配置）
+第三阶段（合并引用型配置）                          ✅ 已完成
 │   依赖第二阶段完成
 │
 ├── 3.1 新增 loaders: 段（含 Neo4j 配置）
 ├── 3.2 新增 sql_rag: 段
-├── 3.3 CQLLoader 显式 Neo4j 配置     依赖 3.1
-├── 3.4 修改 loader CLI               依赖 2.3
+├── 3.3 CQLLoader 显式 Neo4j 配置
+├── 3.4 修改 loader CLI
 ├── 3.5 修改 sql-rag CLI
 ├── 3.6 其他 Loader 类调整
-├── 3.7 废弃 loader_config.yaml
-└── 3.8 废弃 sql_rag.yaml
+├── 3.7 ~ 3.9 废弃文件改名 .yaml_bak
+    │
+    ▼
+额外清理（NL2SQL 残留代码）                         ✅ 已完成
+│   NL2SQL 已从项目拆走
+│
+├── 4.1 ~ 4.2 删除 get_config() / load_subgraph_config()
+├── 4.3 ~ 4.4 删除 pg_client.py / neo4j_client.py
+├── 4.5 ~ 4.6 ConfigLoader/连接管理器 None 参数改为 raise
+├── 4.7 _get_project_root() 去掉 config.yaml 查找
+├── 4.8 sql_loader.input_file 动态推断
+└── 4.9 旧提示词修正
 ```
 
 ---
@@ -446,7 +469,7 @@ git tag config-consolidation-phase-3
 ### 第一阶段
 
 - `configs/metadata_config.yaml`
-- `configs/loader_config.yaml`
+- `configs/loader_config.yaml`（已改名 `.yaml_bak`）
 
 ### 第二阶段
 
@@ -466,13 +489,17 @@ git tag config-consolidation-phase-3
 - `metaweave/core/loaders/dim_value_loader.py`
 - `metaweave/core/sql_rag/loader.py`
 
-### 第三阶段附带：文档与脚本更新
+### NL2SQL 清理
 
-以下文件可能引用旧的 `loader_config.yaml` 或 `sql_rag.yaml`，需同步检查更新：
+- `services/config_loader.py`（删除 `get_config`、`load_subgraph_config`；`ConfigLoader(None)` 改为 raise）
+- `services/db/pg_connection.py`（`config=None` 改为 raise）
+- `services/db/neo4j_connection.py`（`config=None` 改为 raise）
+- `services/db/pg_client.py`（已删除）
+- `services/db/neo4j_client.py`（已删除）
+- `metaweave/cli/pipeline_cli.py`（sql_loader.input_file 动态推断 + 提示词修正）
+- `metaweave/cli/loader_cli.py`（sql_loader.input_file 动态推断）
+- `metaweave/cli/sql_rag_cli.py`（sql_loader.input_file 动态推断）
 
-- `README.md`（项目根目录）
-- `metaweave/README.md`（包内说明，引用旧路径和旧命令示例）
-- `CLAUDE.md`
-- `docs/100_执行命令完整参考.md`
-- `docs/` 下其他涉及 CLI 用法的文档
-- `scripts/` 下引用旧配置文件的脚本
+### 待更新的文档
+
+- `docs/100_执行命令完整参考.md`（仍引用 `loader_config.yaml`、已删除的 CLI 参数等，需同步更新）

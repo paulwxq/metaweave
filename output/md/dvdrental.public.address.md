@@ -1,4 +1,4 @@
-# public.address（地址信息表，存储客户或实体的详细地理位置及联系方式）
+# public.address（地址信息表，存储客户或实体的详细地址、所属城市及联系方式）
 ## 字段列表：
 - address_id (integer(32)) - 地址唯一标识ID [示例: 1, 2]
 - address (character varying(50)) - 详细街道地址 [示例: 47 MySakila Drive, 28 MySQL Boulevard]

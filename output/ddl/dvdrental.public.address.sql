@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.address
--- Comment: 地址信息表，存储客户或实体的详细地理位置及联系方式
--- Generated: 2026-03-17 08:19:37
+-- Comment: 地址信息表，存储客户或实体的详细地址、所属城市及联系方式
+-- Generated: 2026-03-17 16:29:29
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.address (
@@ -32,7 +32,7 @@ COMMENT ON COLUMN public.address.last_update IS '最后更新时间';
 CREATE INDEX idx_fk_city_id ON public.address(city_id);
 
 -- Table Comment
-COMMENT ON TABLE public.address IS '地址信息表，存储客户或实体的详细地理位置及联系方式';
+COMMENT ON TABLE public.address IS '地址信息表，存储客户或实体的详细地址、所属城市及联系方式';
 
 /* SAMPLE_RECORDS
 {

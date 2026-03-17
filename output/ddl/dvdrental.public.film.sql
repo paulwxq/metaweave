@@ -2,7 +2,7 @@
 -- Database: dvdrental
 -- Table: public.film
 -- Comment: 电影信息表，存储影片标题、描述、年份、语言、租借参数、时长、分级等元数据
--- Generated: 2026-03-17 08:19:51
+-- Generated: 2026-03-17 16:29:35
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.film (
@@ -28,11 +28,11 @@ COMMENT ON COLUMN public.film.film_id IS '电影唯一标识ID';
 COMMENT ON COLUMN public.film.title IS '电影标题';
 COMMENT ON COLUMN public.film.description IS '电影剧情简介';
 COMMENT ON COLUMN public.film.release_year IS '电影上映年份';
-COMMENT ON COLUMN public.film.language_id IS '电影语言ID（关联language表）';
-COMMENT ON COLUMN public.film.rental_duration IS '租赁天数（单位：天）';
-COMMENT ON COLUMN public.film.rental_rate IS '租赁单价（单位：美元）';
-COMMENT ON COLUMN public.film.length IS '电影时长（单位：分钟）';
-COMMENT ON COLUMN public.film.replacement_cost IS '丢失/损坏赔偿金额（单位：美元）';
+COMMENT ON COLUMN public.film.language_id IS '电影语言标识ID';
+COMMENT ON COLUMN public.film.rental_duration IS '租赁期限（天）';
+COMMENT ON COLUMN public.film.rental_rate IS '租赁单价（美元）';
+COMMENT ON COLUMN public.film.length IS '电影时长（分钟）';
+COMMENT ON COLUMN public.film.replacement_cost IS '丢失/损坏赔偿金额（美元）';
 COMMENT ON COLUMN public.film.rating IS '电影分级（如NC-17、R、PG等）';
 COMMENT ON COLUMN public.film.last_update IS '最后更新时间戳';
 COMMENT ON COLUMN public.film.special_features IS '特别花絮（数组，如预告片、幕后花絮等）';

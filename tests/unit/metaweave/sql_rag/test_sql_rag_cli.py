@@ -31,25 +31,27 @@ def setup_configs(tmp_path):
             "active": "milvus",
             "providers": {"milvus": {"host": "localhost", "port": 19530}},
         },
+        "sql_rag": {
+            "generation": {
+                "questions_per_domain": 2,
+                "output_dir": str(tmp_path / "output" / "sql"),
+            },
+            "validation": {
+                "sql_validation_max_concurrent": 2,
+                "timeout": 10,
+                "enable_sql_repair": False,
+            },
+        },
+        "loaders": {
+            "sql_loader": {
+                "input_file": str(tmp_path / "output" / "sql" / "qs_testdb_pair.json"),
+                "collection_name": "test_sql",
+                "options": {"batch_size": 10},
+            }
+        },
     }
     meta_path = tmp_path / "metadata_config.yaml"
     meta_path.write_text(yaml.dump(meta_cfg), encoding="utf-8")
-
-    # sql_rag.yaml
-    sql_rag_cfg = {
-        "metadata_config_file": str(meta_path),
-        "generation": {
-            "questions_per_domain": 2,
-            "output_dir": str(tmp_path / "output" / "sql"),
-        },
-        "validation": {
-            "sql_validation_max_concurrent": 2,
-            "timeout": 10,
-            "enable_sql_repair": False,
-        },
-    }
-    sql_rag_path = tmp_path / "sql_rag.yaml"
-    sql_rag_path.write_text(yaml.dump(sql_rag_cfg), encoding="utf-8")
 
     # db_domains.yaml
     domains_cfg = {
@@ -66,24 +68,10 @@ def setup_configs(tmp_path):
     md_dir.mkdir()
     (md_dir / "t1.md").write_text("# t1\n字段: id", encoding="utf-8")
 
-    # loader_config.yaml
-    loader_cfg = {
-        "metadata_config_file": str(meta_path),
-        "sql_loader": {
-            "input_file": str(tmp_path / "output" / "sql" / "qs_testdb_pair.json"),
-            "collection_name": "test_sql",
-            "options": {"batch_size": 10},
-        },
-    }
-    loader_path = tmp_path / "loader_config.yaml"
-    loader_path.write_text(yaml.dump(loader_cfg), encoding="utf-8")
-
     return {
         "tmp_path": tmp_path,
-        "sql_rag_config": str(sql_rag_path),
         "domains_config": str(domains_path),
         "md_dir": str(md_dir),
-        "loader_config": str(loader_path),
         "meta_config": str(meta_path),
     }
 
@@ -104,7 +92,7 @@ class TestGenerateCommand:
 
             result = runner.invoke(sql_rag_command, [
                 "generate",
-                "--config", setup_configs["sql_rag_config"],
+                "--config", setup_configs["meta_config"],
                 "--domains-config", setup_configs["domains_config"],
                 "--md-dir", setup_configs["md_dir"],
             ])
@@ -145,7 +133,7 @@ class TestValidateCommand:
 
                 result = runner.invoke(sql_rag_command, [
                     "validate",
-                    "--config", setup_configs["sql_rag_config"],
+                    "--config", setup_configs["meta_config"],
                     "--input", str(input_file),
                 ])
 
@@ -184,7 +172,7 @@ class TestValidateCommand:
 
                     result = runner.invoke(sql_rag_command, [
                         "validate",
-                        "--config", setup_configs["sql_rag_config"],
+                        "--config", setup_configs["meta_config"],
                         "--input", str(input_file),
                         "--enable_sql_repair", "true",
                     ])
@@ -202,9 +190,9 @@ class TestValidateCommand:
     ):
         mock_root.return_value = tmp_path
 
-        sql_rag_path = Path(setup_configs["sql_rag_config"])
+        sql_rag_path = Path(setup_configs["meta_config"])
         cfg = yaml.safe_load(sql_rag_path.read_text(encoding="utf-8"))
-        cfg["validation"]["enable_sql_repair"] = True
+        cfg["sql_rag"]["validation"]["enable_sql_repair"] = True
         sql_rag_path.write_text(yaml.dump(cfg), encoding="utf-8")
 
         output_dir = tmp_path / "output" / "sql"
@@ -229,7 +217,7 @@ class TestValidateCommand:
 
                     result = runner.invoke(sql_rag_command, [
                         "validate",
-                        "--config", setup_configs["sql_rag_config"],
+                        "--config", setup_configs["meta_config"],
                         "--input", str(input_file),
                         "--enable_sql_repair", "false",
                     ])
@@ -269,7 +257,7 @@ class TestLoadCommand:
 
             result = runner.invoke(sql_rag_command, [
                 "load",
-                "--config", setup_configs["loader_config"],
+                "--config", setup_configs["meta_config"],
             ])
 
         assert result.exit_code == 0, result.output
@@ -347,8 +335,7 @@ class TestRunAllCommand:
 
                             result = runner.invoke(sql_rag_command, [
                                 "run-all",
-                                "--config", setup_configs["sql_rag_config"],
-                                "--loader-config", setup_configs["loader_config"],
+                                "--config", setup_configs["meta_config"],
                                 "--domains-config", setup_configs["domains_config"],
                                 "--md-dir", setup_configs["md_dir"],
                                 "--clean",
@@ -362,9 +349,9 @@ class TestRunAllCommand:
     def test_run_all_shows_repair_summary(self, mock_root, runner, setup_configs, tmp_path):
         mock_root.return_value = tmp_path
 
-        sql_rag_path = Path(setup_configs["sql_rag_config"])
+        sql_rag_path = Path(setup_configs["meta_config"])
         cfg = yaml.safe_load(sql_rag_path.read_text(encoding="utf-8"))
-        cfg["validation"]["enable_sql_repair"] = True
+        cfg["sql_rag"]["validation"]["enable_sql_repair"] = True
         sql_rag_path.write_text(yaml.dump(cfg), encoding="utf-8")
 
         output_file = tmp_path / "output" / "sql" / "qs_testdb_pair.json"
@@ -430,8 +417,7 @@ class TestRunAllCommand:
 
                             result = runner.invoke(sql_rag_command, [
                                 "run-all",
-                                "--config", setup_configs["sql_rag_config"],
-                                "--loader-config", setup_configs["loader_config"],
+                                "--config", setup_configs["meta_config"],
                                 "--domains-config", setup_configs["domains_config"],
                                 "--md-dir", setup_configs["md_dir"],
                             ])
@@ -470,5 +456,4 @@ class TestSQLRagGroup:
         result = runner.invoke(sql_rag_command, ["run-all", "--help"])
         assert result.exit_code == 0
         assert "--clean" in result.output
-        assert "--loader-config" in result.output
         assert "--domains-config" in result.output

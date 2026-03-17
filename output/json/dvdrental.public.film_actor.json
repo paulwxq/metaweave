@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-17T08:20:01.370680",
+  "generated_timestamp": "2026-03-17T16:29:40.658337",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "film_actor",
     "table_type": "table",
-    "comment": "电影与演员的关联表，记录演员参演电影的关系及更新时间",
+    "comment": "电影与演员关联表，记录演员参演电影的关系及最后更新时间",
     "comment_source": "ddl",
     "total_rows": 5462,
     "total_columns": 3
@@ -301,5 +301,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-17T08:20:32.896757"
+  "llm_enhanced_at": "2026-03-17T16:29:59.843365"
 }

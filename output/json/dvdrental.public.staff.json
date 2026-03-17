@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-17T08:20:01.460574",
+  "generated_timestamp": "2026-03-17T16:29:40.725873",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "staff",
     "table_type": "table",
-    "comment": "员工信息表，存储门店员工的基本资料、联系方式、账户凭证及状态",
+    "comment": "员工信息表，存储门店员工的基本资料、联系方式、账户凭证及头像等信息",
     "comment_source": "ddl",
     "total_rows": 2,
     "total_columns": 11
@@ -178,7 +178,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "员工地址信息ID",
+      "comment": "关联地址表的外键ID",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 2,
@@ -240,7 +240,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "员工工作邮箱地址",
+      "comment": "员工电子邮箱地址",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 2,
@@ -348,7 +348,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": "true",
-      "comment": "员工启用状态（true-在职，false-离职）",
+      "comment": "员工启用状态（true-启用，false-停用）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 2,
@@ -443,7 +443,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "员工密码（SHA1哈希值）",
+      "comment": "员工登录密码（SHA1哈希值）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 2,
@@ -534,7 +534,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "员工照片二进制数据",
+      "comment": "员工头像图片二进制数据",
       "comment_source": "ddl",
       "statistics": {},
       "semantic_analysis": {
@@ -643,5 +643,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-17T08:21:14.241994"
+  "llm_enhanced_at": "2026-03-17T16:30:19.383671"
 }

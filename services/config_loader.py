@@ -17,34 +17,30 @@ class ConfigLoader:
         初始化配置加载器
 
         Args:
-            config_path: 配置文件路径，如果为 None 则使用默认路径
+            config_path: 配置文件路径。必须显式指定。
         """
         if config_path is None:
-            # 使用默认配置路径
-            project_root = self._get_project_root()
-            config_path = project_root / "configs" / "config.yaml"
-        else:
-            config_path = Path(config_path)
+            raise ValueError(
+                "ConfigLoader: config_path 必须显式指定。\n"
+                "旧默认路径 configs/config.yaml 已废弃。\n"
+                "请使用: ConfigLoader('configs/metadata_config.yaml')"
+            )
 
-        self.config_path = config_path
+        self.config_path = Path(config_path)
         self._config: Optional[Dict[str, Any]] = None
 
     @staticmethod
     def _get_project_root() -> Path:
         """获取项目根目录"""
-        # 优先从当前工作目录向上查找（支持从任意子目录运行）
+        # 优先从当前工作目录向上查找 pyproject.toml
         cwd = Path.cwd().resolve()
         for parent in (cwd, *cwd.parents):
-            if (parent / "configs" / "config.yaml").exists():
-                return parent
             if (parent / "pyproject.toml").exists():
                 return parent
 
+        # 其次：从当前文件向上查找 pyproject.toml
         current_file = Path(__file__).resolve()
-        # 其次：从当前文件向上查找 configs/config.yaml 或 pyproject.toml
         for parent in current_file.parents:
-            if (parent / "configs" / "config.yaml").exists():
-                return parent
             if (parent / "pyproject.toml").exists():
                 return parent
 
@@ -227,52 +223,6 @@ class ConfigLoader:
             self.load()
         return key in self._config
 
-
-# 全局配置实例（单例模式）
-_global_config: Optional[ConfigLoader] = None
-
-
-def get_config() -> ConfigLoader:
-    """
-    获取全局配置实例（单例）
-
-    Returns:
-        ConfigLoader 实例
-    """
-    global _global_config
-
-    if _global_config is None:
-        _global_config = ConfigLoader()
-        _global_config.load()
-
-    return _global_config
-
-
-def load_subgraph_config(subgraph_name: str = "sql_generation") -> Dict[str, Any]:
-    """
-    加载子图配置文件
-
-    Args:
-        subgraph_name: 子图名称（默认 "sql_generation"）
-
-    Returns:
-        子图配置字典
-    """
-    main_config = get_config()
-
-    # 从主配置获取子图配置路径
-    subgraph_config_path = main_config.get(
-        f"{subgraph_name}.subgraph_config_path",
-        f"src/modules/{subgraph_name}/config/{subgraph_name}_subgraph.yaml"
-    )
-
-    # 解析为绝对路径
-    project_root = ConfigLoader._get_project_root()
-    absolute_path = project_root / subgraph_config_path
-
-    # 加载子图配置
-    subgraph_loader = ConfigLoader(str(absolute_path))
-    return subgraph_loader.load()
 
 
 def load_config(config_path: str) -> Dict[str, Any]:

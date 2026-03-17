@@ -2,7 +2,7 @@
 -- Database: dvdrental
 -- Table: public.category
 -- Comment: 电影分类表，存储影片类别名称及最后更新时间
--- Generated: 2026-03-17 08:19:38
+-- Generated: 2026-03-17 16:29:28
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.category (

@@ -28,9 +28,6 @@ filters:
   cql_filter:
     (): metaweave.utils.logger.StepFilter
     allowed_steps: ['cql', 'cql_llm']
-  all_filter:
-    (): metaweave.utils.logger.StepFilter
-    allowed_steps: ['all', 'all_llm']
   generate_domains_filter:
     (): metaweave.utils.logger.StepFilter
     allowed_steps: ['generate-domains']
@@ -102,16 +99,6 @@ handlers:
     encoding: utf8
     filters: [cql_filter]
 
-  all_file:
-    class: logging.handlers.RotatingFileHandler
-    level: DEBUG
-    formatter: detailed
-    filename: logs/all.log
-    maxBytes: 10485760
-    backupCount: 5
-    encoding: utf8
-    filters: [all_filter]
-
   generate_domains_file:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
@@ -152,7 +139,7 @@ handlers:
     encoding: utf8
     filters: [sql_rag_validate_filter]
 
-  # loader 日志保持原样（不拆分 step）
+  # loader 日志：不使用 StepFilter，由下方 loggers 段按名称显式路由
   loader_file:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
@@ -169,7 +156,9 @@ loggers:
     handlers: []
     propagate: true
 
-  # loader：彻底隔离，只写 loader.log + console，不向上级传播
+  # loader 隔离：以下 5 个 logger 只写 loader.log + console，不向上级传播
+  # - metaweave.loader / metaweave.core.loaders（通用 loader 工厂）
+  # - metaweave.dim_value.loader / metaweave.table_schema.loader / metaweave.core.sql_rag.loader
   metaweave.loader:
     level: DEBUG
     handlers: [loader_file, console]
@@ -190,7 +179,12 @@ loggers:
     handlers: [loader_file, console]
     propagate: false
 
+  metaweave.core.sql_rag.loader:
+    level: DEBUG
+    handlers: [loader_file, console]
+    propagate: false
+
 root:
   level: INFO
-  handlers: [console, ddl_file, json_file, md_file, rel_file, cql_file, all_file,
+  handlers: [console, ddl_file, json_file, md_file, rel_file, cql_file,
              generate_domains_file, dim_config_file, sql_rag_generate_file, sql_rag_validate_file]

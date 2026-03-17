@@ -12,7 +12,6 @@ import logging
 
 from metaweave.core.loaders.base import BaseLoader
 from services.db.neo4j_connection import Neo4jConnectionManager
-from services.config_loader import get_config
 from neo4j.exceptions import Neo4jError
 
 logger = logging.getLogger(__name__)
@@ -80,25 +79,25 @@ class CQLLoader(BaseLoader):
         return True
 
     def _get_neo4j_config(self) -> Dict[str, Any]:
-        """获取 Neo4j 配置（全局配置或自定义配置）
+        """从传入的 config dict 获取 Neo4j 配置
 
         Returns:
             Dict[str, Any]: Neo4j 配置字典
         """
         neo4j_section = self.config.get("cql_loader", {}).get("neo4j", {})
 
-        if neo4j_section.get("use_global_config", True):
-            # 使用全局配置
-            global_config = get_config()
-            return global_config["neo4j"]
-        else:
-            # 使用自定义配置
-            return {
-                "uri": neo4j_section["uri"],
-                "user": neo4j_section["user"],
-                "password": neo4j_section["password"],
-                "database": neo4j_section.get("database", "neo4j"),
-            }
+        if not neo4j_section:
+            raise ValueError(
+                "CQLLoader 缺少 neo4j 配置段。\n"
+                "请在 metadata_config.yaml 的 loaders.cql_loader.neo4j 中配置 Neo4j 连接信息。"
+            )
+
+        return {
+            "uri": neo4j_section["uri"],
+            "user": neo4j_section["user"],
+            "password": neo4j_section["password"],
+            "database": neo4j_section.get("database", "neo4j"),
+        }
 
     def validate(self) -> bool:
         """验证配置和数据源

@@ -1,4 +1,4 @@
-# public.film_category（电影分类关联表，记录电影与分类之间的多对多关系）
+# public.film_category（电影分类关联表，记录电影与所属分类的多对多关系）
 ## 字段列表：
 - film_id (smallint(16)) - 电影唯一标识ID [示例: 1, 2]
 - category_id (smallint(16)) - 电影分类唯一标识ID [示例: 6, 11]

@@ -1,362 +1,367 @@
 [
   {
-    "question": "统计每个国家的城市数量，并按城市数量降序排列，只显示城市数量超过5个的国家",
-    "sql": "SELECT co.country AS 国家名称, COUNT(ci.city_id) AS 城市数量 FROM public.country co JOIN public.city ci ON co.country_id = ci.country_id GROUP BY co.country_id, co.country HAVING COUNT(ci.city_id) > 5 ORDER BY 城市数量 DESC;",
+    "question": "统计每个电影分类下的影片数量，并按数量降序排列，只显示影片数量超过50部的分类",
+    "sql": "SELECT c.name AS 分类名称, COUNT(fc.film_id) AS 影片数量 FROM public.category c JOIN public.film_category fc ON c.category_id = fc.category_id GROUP BY c.category_id, c.name HAVING COUNT(fc.film_id) > 50 ORDER BY 影片数量 DESC;",
     "domain": "_未分类_"
   },
   {
-    "question": "查询所有活跃客户中姓氏以'Smi'开头的前10位客户姓名、邮箱及注册日期，并按注册日期倒序排列",
-    "sql": "SELECT first_name AS 名字, last_name AS 姓氏, email AS 邮箱, create_date AS 注册日期 FROM public.customer WHERE activebool = true AND last_name LIKE 'Smi%' ORDER BY create_date DESC LIMIT 10;",
+    "question": "查询所有尚未归还的租赁记录，返回客户姓名、电影标题、租赁日期、门店编号及员工姓名，并按租赁日期倒序排列",
+    "sql": "SELECT cu.first_name || ' ' || cu.last_name AS 客户姓名, f.title AS 电影标题, r.rental_date AS 租赁日期, s.store_id AS 门店编号, st.first_name || ' ' || st.last_name AS 员工姓名 FROM public.rental r JOIN public.customer cu ON r.customer_id = cu.customer_id JOIN public.inventory i ON r.inventory_id = i.inventory_id JOIN public.film f ON i.film_id = f.film_id JOIN public.store s ON i.store_id = s.store_id JOIN public.staff st ON r.staff_id = st.staff_id WHERE r.return_date IS NULL ORDER BY r.rental_date DESC;",
     "domain": "_未分类_"
   },
   {
-    "question": "列出每部电影的标题、所属分类名称、演员总数，并按演员数量降序排列，取前5部电影",
-    "sql": "SELECT f.title AS 电影标题, c.name AS 分类名称, COUNT(DISTINCT fa.actor_id) AS 演员总数 FROM public.film f JOIN public.film_category fc ON f.film_id = fc.film_id JOIN public.category c ON fc.category_id = c.category_id JOIN public.film_actor fa ON f.film_id = fa.film_id GROUP BY f.film_id, f.title, c.name ORDER BY 演员总数 DESC LIMIT 5;",
+    "question": "列出所有国家及其下属城市数量，仅包含城市数大于10个的国家，并按城市数量降序排序",
+    "sql": "SELECT co.country AS 国家名称, COUNT(ci.city_id) AS 城市数量 FROM public.country co JOIN public.city ci ON co.country_id = ci.country_id GROUP BY co.country_id, co.country HAVING COUNT(ci.city_id) > 10 ORDER BY 城市数量 DESC;",
     "domain": "_未分类_"
   },
   {
-    "question": "查询所有活跃客户（activebool为true）的姓名、邮箱和创建日期，并按创建日期降序排列，仅显示前10条记录",
-    "sql": "SELECT first_name AS 姓名, last_name AS 姓氏, email AS 邮箱, create_date AS 创建日期 FROM public.customer WHERE activebool = true ORDER BY create_date DESC LIMIT 10;",
+    "question": "查询所有活跃客户（active=1）的姓名、邮箱和创建日期，并按创建日期降序排列",
+    "sql": "SELECT first_name AS 姓名, last_name AS 姓氏, email AS 邮箱, create_date AS 创建日期 FROM public.customer WHERE active = 1 ORDER BY create_date DESC;",
     "domain": "客户与账户管理"
   },
   {
-    "question": "统计每个门店（store_id）下的客户总数及其中已启用账户（activebool=true）的客户数",
-    "sql": "SELECT store_id AS 门店ID, COUNT(*) AS 客户总数, COUNT(*) FILTER (WHERE activebool = true) AS 启用账户数 FROM public.customer GROUP BY store_id ORDER BY store_id;",
+    "question": "统计每个门店（store_id）下的客户总数及其中活跃客户（active=1）数量，并仅显示客户数超过100的门店",
+    "sql": "SELECT store_id AS 门店ID, COUNT(*) AS 客户总数, COUNT(*) FILTER (WHERE active = 1) AS 活跃客户数 FROM public.customer GROUP BY store_id HAVING COUNT(*) > 100;",
     "domain": "客户与账户管理"
   },
   {
-    "question": "找出姓氏以字母'S'开头且账户处于启用状态的客户数量，并按姓氏分组汇总",
-    "sql": "SELECT last_name AS 姓氏, COUNT(*) AS 客户数量 FROM public.customer WHERE last_name LIKE 'S%' AND activebool = true GROUP BY last_name ORDER BY 客户数量 DESC;",
+    "question": "找出姓氏以字母'S'开头且账户处于启用状态（activebool=true）的前10位客户，返回其全名、邮箱和最后更新时间",
+    "sql": "SELECT first_name AS 名字, last_name AS 姓氏, email AS 邮箱, last_update AS 最后更新时间 FROM public.customer WHERE last_name LIKE 'S%' AND activebool = true ORDER BY last_update DESC LIMIT 10;",
     "domain": "客户与账户管理"
   },
   {
-    "question": "对比分析：统计启用账户（activebool=true）与未启用账户（activebool=false）的客户平均创建年份（取create_date年份），并标注状态",
-    "sql": "SELECT CASE WHEN activebool THEN '启用' ELSE '未启用' END AS 账户状态, FLOOR(AVG(EXTRACT(YEAR FROM create_date)))::INTEGER AS 平均创建年份 FROM public.customer GROUP BY activebool;",
+    "question": "对比分析：统计启用账户（activebool=true）与禁用账户（activebool=false）的客户数量及平均活跃状态值（active字段）",
+    "sql": "SELECT activebool AS 账户启用状态, COUNT(*) AS 客户数量, AVG(active::numeric) AS 平均活跃状态值 FROM public.customer GROUP BY activebool;",
     "domain": "客户与账户管理"
   },
   {
-    "question": "查询最近30天内创建的所有客户信息，包括客户ID、姓名、邮箱、所属门店ID及创建日期，按创建时间倒序排列",
-    "sql": "SELECT customer_id AS 客户ID, first_name AS 名字, last_name AS 姓氏, email AS 邮箱, store_id AS 门店ID, create_date AS 创建日期 FROM public.customer WHERE create_date >= CURRENT_DATE - INTERVAL '30 days' ORDER BY create_date DESC;",
+    "question": "查询2006年创建的所有客户中，按姓氏分组的客户数量排行榜（取前5），要求排除姓氏为空的记录",
+    "sql": "SELECT last_name AS 姓氏, COUNT(*) AS 客户数量 FROM public.customer WHERE create_date >= '2006-01-01' AND create_date < '2007-01-01' AND last_name IS NOT NULL AND last_name != '' GROUP BY last_name ORDER BY 客户数量 DESC LIMIT 5;",
     "domain": "客户与账户管理"
   },
   {
-    "question": "列出所有邮箱域名（@后部分）出现频次超过5次的客户邮箱域及其对应客户数，并按频次降序排列",
-    "sql": "SELECT SPLIT_PART(email, '@', 2) AS 邮箱域名, COUNT(*) AS 客户数量 FROM public.customer WHERE email IS NOT NULL GROUP BY SPLIT_PART(email, '@', 2) HAVING COUNT(*) > 5 ORDER BY 客户数量 DESC;",
+    "question": "列出地址ID未关联（address_id为NULL）或关联无效地址的客户信息（需左连接address表验证），返回客户ID、姓名、邮箱及地址ID",
+    "sql": "SELECT c.customer_id AS 客户ID, c.first_name AS 名字, c.last_name AS 姓氏, c.email AS 邮箱, c.address_id AS 地址ID FROM public.customer c LEFT JOIN public.address a ON c.address_id = a.address_id WHERE c.address_id IS NULL OR a.address_id IS NULL;",
     "domain": "客户与账户管理"
   },
   {
-    "question": "查询每个客户最后更新时间距今的天数，并筛选出超过180天未更新的客户姓名、邮箱及最后更新时间",
-    "sql": "SELECT first_name AS 名字, last_name AS 姓氏, email AS 邮箱, last_update AS 最后更新时间, CURRENT_DATE - last_update::date AS 距今未更新天数 FROM public.customer WHERE CURRENT_DATE - last_update::date > 180 ORDER BY 距今未更新天数 DESC;",
+    "question": "计算每月新增客户数（按create_date年月分组），并标注当月活跃客户占比（active=1客户数/当月总客户数）",
+    "sql": "SELECT TO_CHAR(create_date, 'YYYY-MM') AS 年月, COUNT(*) AS 新增客户数, ROUND(COUNT(*) FILTER (WHERE active = 1)::numeric / NULLIF(COUNT(*), 0) * 100, 2) AS 活跃客户占比 FROM public.customer GROUP BY TO_CHAR(create_date, 'YYYY-MM') ORDER BY 年月;",
     "domain": "客户与账户管理"
   },
   {
-    "question": "找出在多个不同门店（store_id）下重复登记的客户姓氏（即同一last_name出现在不同store_id中），并统计其跨门店数量",
-    "sql": "SELECT last_name AS 姓氏, COUNT(DISTINCT store_id) AS 关联门店数 FROM public.customer GROUP BY last_name HAVING COUNT(DISTINCT store_id) > 1 ORDER BY 关联门店数 DESC;",
+    "question": "找出同时满足以下条件的客户：邮箱包含'sakilacustomer.org'、账户启用（activebool=true）、且last_update在2013年之后，返回其全名、邮箱和最后更新时间",
+    "sql": "SELECT first_name AS 名字, last_name AS 姓氏, email AS 邮箱, last_update AS 最后更新时间 FROM public.customer WHERE email LIKE '%sakilacustomer.org' AND activebool = true AND last_update > '2013-12-31' ORDER BY last_update DESC;",
     "domain": "客户与账户管理"
   },
   {
-    "question": "获取客户数量最多的前5个姓氏，以及对应客户总数和其中启用账户的比例（保留两位小数）",
-    "sql": "SELECT last_name AS 姓氏, COUNT(*) AS 客户总数, ROUND(AVG(CASE WHEN activebool THEN 1.0 ELSE 0.0 END), 2) AS 启用账户比例 FROM public.customer GROUP BY last_name ORDER BY 客户总数 DESC LIMIT 5;",
+    "question": "查询每个客户姓氏（last_name）出现频次大于等于5次的姓氏列表，并按频次降序排列",
+    "sql": "SELECT last_name AS 姓氏, COUNT(*) AS 出现次数 FROM public.customer GROUP BY last_name HAVING COUNT(*) >= 5 ORDER BY 出现次数 DESC;",
     "domain": "客户与账户管理"
   },
   {
-    "question": "查询所有客户中名字和姓氏长度之和大于20字符的客户信息，包括客户ID、全名（first_name + last_name）、邮箱及地址ID，并按全名长度降序排列",
-    "sql": "SELECT customer_id AS 客户ID, CONCAT(first_name, ' ', last_name) AS 全名, email AS 邮箱, address_id AS 地址ID FROM public.customer WHERE LENGTH(first_name) + LENGTH(last_name) > 20 ORDER BY LENGTH(first_name) + LENGTH(last_name) DESC;",
+    "question": "获取最近30天内被更新过的客户中，按门店ID分组的客户数量、平均活跃状态（active字段）及最新一次更新时间",
+    "sql": "SELECT store_id AS 门店ID, COUNT(*) AS 客户数量, ROUND(AVG(active::numeric), 2) AS 平均活跃状态, MAX(last_update) AS 最近更新时间 FROM public.customer WHERE last_update >= NOW() - INTERVAL '30 days' GROUP BY store_id ORDER BY 最近更新时间 DESC;",
     "domain": "客户与账户管理"
   },
   {
-    "question": "列出所有门店及其经理的姓名和邮箱，按门店ID升序排列",
-    "sql": "SELECT s.store_id AS 门店编号, st.first_name AS 经理名, st.last_name AS 经理姓氏, st.email AS 经理邮箱 FROM public.store s JOIN public.staff st ON s.manager_staff_id = st.staff_id ORDER BY s.store_id;",
+    "question": "列出所有门店及其经理的姓名、邮箱和启用状态，并按门店ID升序排列",
+    "sql": "SELECT s.store_id AS 门店编号, st.first_name AS 经理名, st.last_name AS 经理姓, st.email AS 经理邮箱, st.active AS 启用状态 FROM public.store s JOIN public.staff st ON s.manager_staff_id = st.staff_id ORDER BY s.store_id;",
     "domain": "门店与组织架构"
   },
   {
-    "question": "统计每个门店的在职员工数量，并仅显示员工数大于1的门店",
-    "sql": "SELECT s.store_id AS 门店编号, COUNT(st.staff_id) AS 在职员工数 FROM public.store s JOIN public.staff st ON s.store_id = st.store_id WHERE st.active = true GROUP BY s.store_id HAVING COUNT(st.staff_id) > 1;",
+    "question": "统计每个门店的员工总数（含经理）及其中启用员工数量，并仅显示员工总数大于1的门店",
+    "sql": "SELECT s.store_id AS 门店编号, COUNT(st.staff_id) AS 员工总数, SUM(CASE WHEN st.active THEN 1 ELSE 0 END) AS 启用员工数 FROM public.store s LEFT JOIN public.staff st ON s.store_id = st.store_id GROUP BY s.store_id HAVING COUNT(st.staff_id) > 1 ORDER BY 员工总数 DESC;",
     "domain": "门店与组织架构"
   },
   {
-    "question": "找出没有分配经理的门店（即manager_staff_id为NULL）及其地址ID",
-    "sql": "SELECT store_id AS 门店编号, address_id AS 地址ID FROM public.store WHERE manager_staff_id IS NULL;",
+    "question": "查询尚未被指派为任何门店经理的员工（即staff_id未出现在store.manager_staff_id中），返回其ID、姓名和邮箱",
+    "sql": "SELECT staff_id AS 员工ID, first_name AS 名, last_name AS 姓, email AS 邮箱 FROM public.staff WHERE staff_id NOT IN (SELECT manager_staff_id FROM public.store WHERE manager_staff_id IS NOT NULL);",
     "domain": "门店与组织架构"
   },
   {
-    "question": "按门店ID汇总各门店员工平均活跃状态（true=1, false=0），保留2位小数",
-    "sql": "SELECT s.store_id AS 门店编号, ROUND(AVG(CASE WHEN st.active THEN 1 ELSE 0 END), 2) AS 员工平均活跃度 FROM public.store s JOIN public.staff st ON s.store_id = st.store_id GROUP BY s.store_id ORDER BY s.store_id;",
+    "question": "找出每位门店经理所负责门店的地址详情（城市、国家），并按国家名称排序",
+    "sql": "SELECT s.store_id AS 门店编号, st.first_name AS 经理名, st.last_name AS 经理姓, c.city AS 城市, co.country AS 国家 FROM public.store s JOIN public.staff st ON s.manager_staff_id = st.staff_id JOIN public.address a ON s.address_id = a.address_id JOIN public.city c ON a.city_id = c.city_id JOIN public.country co ON c.country_id = co.country_id ORDER BY co.country;",
     "domain": "门店与组织架构"
   },
   {
-    "question": "查询所有门店经理的姓名、所属门店ID及最后更新时间，并按更新时间倒序排列取前5条",
-    "sql": "SELECT st.first_name AS 经理名, st.last_name AS 经理姓氏, s.store_id AS 门店编号, s.last_update AS 信息更新时间 FROM public.store s JOIN public.staff st ON s.manager_staff_id = st.staff_id ORDER BY s.last_update DESC LIMIT 5;",
+    "question": "对比两家指定门店（store_id=1和store_id=2）的员工数量、启用员工比例及平均入职更新时间（以last_update近似代表）",
+    "sql": "SELECT store_id AS 门店编号, COUNT(*) AS 员工总数, ROUND(AVG(CASE WHEN active THEN 1.0 ELSE 0.0 END), 3) AS 启用比例, AVG(EXTRACT(EPOCH FROM last_update)) AS 平均时间戳数值 FROM public.staff WHERE store_id IN (1, 2) GROUP BY store_id ORDER BY 门店编号;",
     "domain": "门店与组织架构"
   },
   {
-    "question": "对比两家门店（ID为1和2）的员工总数与在职员工数，结果包含门店ID、总员工数、在职员工数三列",
-    "sql": "SELECT store_id AS 门店编号, COUNT(*) AS 总员工数, COUNT(*) FILTER (WHERE active) AS 在职员工数 FROM public.staff WHERE store_id IN (1, 2) GROUP BY store_id ORDER BY store_id;",
+    "question": "列出所有启用状态的门店经理，按其所属门店的最后更新时间倒序排列，并显示门店ID、经理全名和更新时间",
+    "sql": "SELECT s.store_id AS 门店编号, st.first_name AS 经理名, st.last_name AS 经理姓, s.last_update AS 门店最后更新时间 FROM public.store s JOIN public.staff st ON s.manager_staff_id = st.staff_id WHERE st.active = true ORDER BY s.last_update DESC;",
     "domain": "门店与组织架构"
   },
   {
-    "question": "列出所有门店ID、对应经理用户名及该经理是否为当前门店唯一员工（即该门店仅此1名员工）",
-    "sql": "SELECT s.store_id AS 门店编号, st.username AS 经理用户名, (SELECT COUNT(*) = 1 FROM public.staff st2 WHERE st2.store_id = s.store_id) AS 是否唯一员工 FROM public.store s JOIN public.staff st ON s.manager_staff_id = st.staff_id;",
+    "question": "找出员工数量最多的前3家门店，并显示门店ID、地址简要信息（address字段前30字符）及员工数",
+    "sql": "SELECT s.store_id AS 门店编号, SUBSTRING(a.address FOR 30) AS 地址摘要, COUNT(st.staff_id) AS 员工数 FROM public.store s JOIN public.address a ON s.address_id = a.address_id LEFT JOIN public.staff st ON s.store_id = st.store_id GROUP BY s.store_id, a.address ORDER BY 员工数 DESC LIMIT 3;",
     "domain": "门店与组织架构"
   },
   {
-    "question": "查询每个门店的最新一次员工信息更新时间（取该门店下所有员工last_update的最大值）",
-    "sql": "SELECT s.store_id AS 门店编号, MAX(st.last_update) AS 门店员工最新更新时间 FROM public.store s JOIN public.staff st ON s.store_id = st.store_id GROUP BY s.store_id ORDER BY s.store_id;",
+    "question": "统计每个国家下开设的门店数量，并筛选出门店数超过1家的国家，按数量降序排列",
+    "sql": "SELECT co.country AS 国家, COUNT(s.store_id) AS 门店数量 FROM public.store s JOIN public.address a ON s.address_id = a.address_id JOIN public.city c ON a.city_id = c.city_id JOIN public.country co ON c.country_id = co.country_id GROUP BY co.country HAVING COUNT(s.store_id) > 1 ORDER BY 门店数量 DESC;",
     "domain": "门店与组织架构"
   },
   {
-    "question": "找出所有既是门店经理又在该门店任职的员工（即manager_staff_id等于staff_id且store_id匹配），返回门店ID、经理姓名和邮箱",
-    "sql": "SELECT s.store_id AS 门店编号, st.first_name AS 经理名, st.last_name AS 经理姓氏, st.email AS 经理邮箱 FROM public.store s JOIN public.staff st ON s.manager_staff_id = st.staff_id AND s.store_id = st.store_id;",
+    "question": "查询所有门店经理中姓氏出现频次最高的前5个姓氏及其对应经理人数",
+    "sql": "SELECT st.last_name AS 姓氏, COUNT(*) AS 经理人数 FROM public.store s JOIN public.staff st ON s.manager_staff_id = st.staff_id GROUP BY st.last_name ORDER BY 经理人数 DESC LIMIT 5;",
     "domain": "门店与组织架构"
   },
   {
-    "question": "统计各门店中不同活跃状态（在职/离职）的员工人数分布，结果按门店ID和活跃状态排序",
-    "sql": "SELECT s.store_id AS 门店编号, st.active AS 是否在职, COUNT(*) AS 人数 FROM public.store s JOIN public.staff st ON s.store_id = st.store_id GROUP BY s.store_id, st.active ORDER BY s.store_id, st.active;",
+    "question": "检查是否存在门店地址与经理居住地址相同的异常情况（即store.address_id = staff.address_id），返回门店ID、经理姓名及共同地址ID",
+    "sql": "SELECT s.store_id AS 门店编号, st.first_name AS 经理名, st.last_name AS 经理姓, s.address_id AS 共同地址ID FROM public.store s JOIN public.staff st ON s.manager_staff_id = st.staff_id WHERE s.address_id = st.address_id;",
     "domain": "门店与组织架构"
   },
   {
-    "question": "查询每个国家包含的城市数量，并按城市数量降序排列，只显示前10个国家",
-    "sql": "SELECT c.country AS 国家名称, COUNT(ci.city_id) AS 城市数量 FROM public.country c LEFT JOIN public.city ci ON c.country_id = ci.country_id GROUP BY c.country_id, c.country ORDER BY 城市数量 DESC LIMIT 10;",
+    "question": "列出所有国家及其对应的城市数量，按城市数量降序排列",
+    "sql": "SELECT c.country AS 国家, COUNT(ci.city_id) AS 城市数量 FROM public.country c LEFT JOIN public.city ci ON c.country_id = ci.country_id GROUP BY c.country_id, c.country ORDER BY 城市数量 DESC;",
     "domain": "地理信息管理"
   },
   {
-    "question": "找出地址表中邮政编码为空但联系电话不为空的地址记录，并显示其所在城市名和国家名",
-    "sql": "SELECT a.address AS 街道地址, ci.city AS 城市名称, co.country AS 国家名称 FROM public.address a JOIN public.city ci ON a.city_id = ci.city_id JOIN public.country co ON ci.country_id = co.country_id WHERE a.postal_code IS NULL OR a.postal_code = '' AND a.phone IS NOT NULL AND a.phone != '';",
+    "question": "查询没有关联任何城市的国家名称",
+    "sql": "SELECT country AS 国家 FROM public.country WHERE country_id NOT IN (SELECT DISTINCT country_id FROM public.city WHERE country_id IS NOT NULL);",
     "domain": "地理信息管理"
   },
   {
-    "question": "统计每个行政区（district）下的地址数量，仅保留地址数超过5个的行政区，并按数量降序排列",
-    "sql": "SELECT district AS 行政区, COUNT(*) AS 地址数量 FROM public.address WHERE district IS NOT NULL AND district != '' GROUP BY district HAVING COUNT(*) > 5 ORDER BY 地址数量 DESC;",
+    "question": "统计每个行政区（district）下的地址数量，并只显示地址数超过5个的行政区",
+    "sql": "SELECT district AS 行政区, COUNT(address_id) AS 地址数量 FROM public.address WHERE district IS NOT NULL GROUP BY district HAVING COUNT(address_id) > 5 ORDER BY 地址数量 DESC;",
     "domain": "地理信息管理"
   },
   {
-    "question": "列出更新时间最早的5个城市及其所属国家名称",
-    "sql": "SELECT ci.city AS 城市名称, co.country AS 国家名称, ci.last_update AS 最后更新时间 FROM public.city ci JOIN public.country co ON ci.country_id = co.country_id ORDER BY ci.last_update ASC LIMIT 5;",
+    "question": "找出更新时间最早的5个城市及其所属国家名称",
+    "sql": "SELECT ci.city AS 城市, co.country AS 国家, ci.last_update AS 最后更新时间 FROM public.city ci JOIN public.country co ON ci.country_id = co.country_id ORDER BY ci.last_update ASC LIMIT 5;",
     "domain": "地理信息管理"
   },
   {
-    "question": "对比中国和美国各自拥有的城市数量，并以‘国家’和‘城市数’两列呈现",
-    "sql": "SELECT country AS 国家, COUNT(ci.city_id) AS 城市数 FROM public.country co LEFT JOIN public.city ci ON co.country_id = ci.country_id WHERE co.country IN ('China', 'United States') GROUP BY co.country;",
+    "question": "对比中国和美国各自的城市数量与平均城市名称长度",
+    "sql": "SELECT co.country AS 国家, COUNT(ci.city_id) AS 城市数量, ROUND(AVG(LENGTH(ci.city)), 2) AS 平均城市名长度 FROM public.country co JOIN public.city ci ON co.country_id = ci.country_id WHERE co.country IN ('China', 'United States') GROUP BY co.country;",
     "domain": "地理信息管理"
   },
   {
-    "question": "查询所有位于‘Alberta’行政区的地址，并关联显示其城市名与国家名，按地址ID升序排列",
-    "sql": "SELECT a.address_id AS 地址ID, a.address AS 街道地址, ci.city AS 城市名称, co.country AS 国家名称 FROM public.address a JOIN public.city ci ON a.city_id = ci.city_id JOIN public.country co ON ci.country_id = co.country_id WHERE a.district = 'Alberta' ORDER BY a.address_id ASC;",
+    "question": "查询所有包含‘New’关键字的城市名称及所在国家",
+    "sql": "SELECT ci.city AS 城市, co.country AS 国家 FROM public.city ci JOIN public.country co ON ci.country_id = co.country_id WHERE ci.city ILIKE '%New%';",
     "domain": "地理信息管理"
   },
   {
-    "question": "找出拥有最多地址记录的城市TOP5（需显示城市名、国家名及地址总数）",
-    "sql": "SELECT ci.city AS 城市名称, co.country AS 国家名称, COUNT(a.address_id) AS 地址总数 FROM public.city ci JOIN public.country co ON ci.country_id = co.country_id JOIN public.address a ON ci.city_id = a.city_id GROUP BY ci.city_id, ci.city, co.country ORDER BY 地址总数 DESC LIMIT 5;",
+    "question": "列出每个国家中城市数量最多的前3个城市（按城市ID排序取前3）",
+    "sql": "SELECT co.country AS 国家, ci.city AS 城市, ci.city_id AS 城市ID FROM public.country co JOIN public.city ci ON co.country_id = ci.country_id WHERE ci.city_id IN (SELECT city_id FROM public.city ci2 WHERE ci2.country_id = co.country_id ORDER BY city_id DESC LIMIT 3) ORDER BY co.country, ci.city_id DESC;",
     "domain": "地理信息管理"
   },
   {
-    "question": "统计2006年2月15日当天被更新过的国家、城市和地址记录总数（分别计数并合并为一行结果）",
-    "sql": "SELECT (SELECT COUNT(*) FROM public.country WHERE DATE(last_update) = '2006-02-15') AS 国家更新数, (SELECT COUNT(*) FROM public.city WHERE DATE(last_update) = '2006-02-15') AS 城市更新数, (SELECT COUNT(*) FROM public.address WHERE DATE(last_update) = '2006-02-15') AS 地址更新数;",
+    "question": "统计各国家下地址总数，并筛选出地址数大于100的国家",
+    "sql": "SELECT co.country AS 国家, COUNT(a.address_id) AS 地址总数 FROM public.country co JOIN public.city ci ON co.country_id = ci.country_id JOIN public.address a ON ci.city_id = a.city_id GROUP BY co.country HAVING COUNT(a.address_id) > 100 ORDER BY 地址总数 DESC;",
     "domain": "地理信息管理"
   },
   {
-    "question": "查询所有城市名称中包含括号（如‘(La Corua)’）的城市及其所属国家，按国家名升序、城市名降序排列",
-    "sql": "SELECT ci.city AS 城市名称, co.country AS 国家名称 FROM public.city ci JOIN public.country co ON ci.country_id = co.country_id WHERE ci.city LIKE '%(%)%' ORDER BY co.country ASC, ci.city DESC;",
+    "question": "查询电话号码不为空且邮政编码为空的地址明细，包括街道、行政区、城市和国家",
+    "sql": "SELECT a.address AS 街道地址, a.district AS 行政区, ci.city AS 城市, co.country AS 国家 FROM public.address a JOIN public.city ci ON a.city_id = ci.city_id JOIN public.country co ON ci.country_id = co.country_id WHERE a.phone IS NOT NULL AND a.phone != '' AND (a.postal_code IS NULL OR a.postal_code = '') LIMIT 10;",
     "domain": "地理信息管理"
   },
   {
-    "question": "列出至少有3个不同行政区（district）的城市名称及对应国家名",
-    "sql": "SELECT ci.city AS 城市名称, co.country AS 国家名称 FROM public.city ci JOIN public.country co ON ci.country_id = co.country_id JOIN public.address a ON ci.city_id = a.city_id GROUP BY ci.city_id, ci.city, co.country HAVING COUNT(DISTINCT a.district) >= 3;",
+    "question": "按国家分组，计算其所有城市最后更新时间的最晚值与最早值的时间差（以天为单位）",
+    "sql": "SELECT co.country AS 国家, MAX(ci.last_update) AS 最晚更新时间, MIN(ci.last_update) AS 最早更新时间, CEIL(EXTRACT(EPOCH FROM (MAX(ci.last_update) - MIN(ci.last_update))) / 86400) AS 时间差_天 FROM public.country co JOIN public.city ci ON co.country_id = ci.country_id GROUP BY co.country_id, co.country HAVING COUNT(ci.city_id) > 1 ORDER BY 时间差_天 DESC;",
     "domain": "地理信息管理"
   },
   {
     "question": "查询所有电影的标题、上映年份、时长和租赁单价，并按上映年份降序、时长升序排列",
-    "sql": "SELECT title AS 标题, release_year AS 上映年份, length AS 时长分钟, rental_rate AS 租赁单价 FROM public.film ORDER BY release_year DESC, length ASC;",
+    "sql": "SELECT title AS 标题, release_year AS 上映年份, length AS 时长_分钟, rental_rate AS 租赁单价_美元 FROM public.film ORDER BY release_year DESC, length ASC;",
     "domain": "影片内容资产"
   },
   {
-    "question": "统计每种电影分级（rating）的影片数量，并仅显示影片数超过50部的分级",
+    "question": "统计每种电影分级（rating）的影片数量，并仅显示数量超过50部的分级",
     "sql": "SELECT rating AS 分级, COUNT(*) AS 影片数量 FROM public.film GROUP BY rating HAVING COUNT(*) > 50 ORDER BY 影片数量 DESC;",
     "domain": "影片内容资产"
   },
   {
-    "question": "计算所有电影的平均时长、平均租赁单价、平均赔偿成本，并统计总影片数",
-    "sql": "SELECT ROUND(AVG(length), 2) AS 平均时长分钟, ROUND(AVG(rental_rate), 2) AS 平均租赁单价, ROUND(AVG(replacement_cost), 2) AS 平均赔偿成本, COUNT(*) AS 总影片数 FROM public.film;",
+    "question": "找出租赁单价最高和最低的电影标题及对应价格",
+    "sql": "SELECT title AS 标题, rental_rate AS 租赁单价_美元 FROM public.film WHERE rental_rate = (SELECT MAX(rental_rate) FROM public.film) OR rental_rate = (SELECT MIN(rental_rate) FROM public.film);",
     "domain": "影片内容资产"
   },
   {
-    "question": "列出所有英文原声（language_id = 1）且评级为PG-13的电影，显示标题、描述前100字符、上映年份和租赁天数",
-    "sql": "SELECT title AS 标题, SUBSTRING(description, 1, 100) AS 描述摘要, release_year AS 上映年份, rental_duration AS 租赁天数 FROM public.film WHERE language_id = 1 AND rating = 'PG-13';",
+    "question": "计算所有电影的平均时长、平均租赁单价和平均赔偿成本，并保留两位小数",
+    "sql": "SELECT ROUND(AVG(length), 2) AS 平均时长_分钟, ROUND(AVG(rental_rate), 2) AS 平均租赁单价_美元, ROUND(AVG(replacement_cost), 2) AS 平均赔偿成本_美元 FROM public.film;",
     "domain": "影片内容资产"
   },
   {
-    "question": "按语言名称统计影片数量（需关联language表），并按数量降序排列",
-    "sql": "SELECT l.name AS 语言名称, COUNT(f.film_id) AS 影片数量 FROM public.film f JOIN public.language l ON f.language_id = l.language_id GROUP BY l.name ORDER BY 影片数量 DESC;",
+    "question": "列出语言为英语的电影标题、描述和上映年份（需关联language表）",
+    "sql": "SELECT f.title AS 标题, f.description AS 描述, f.release_year AS 上映年份 FROM public.film f JOIN public.language l ON f.language_id = l.language_id WHERE l.name = 'English ';",
     "domain": "影片内容资产"
   },
   {
-    "question": "查找描述中包含'robot'或'battle'关键词（不区分大小写）的电影，返回标题、分级、时长和语言名称",
-    "sql": "SELECT f.title AS 标题, f.rating AS 分级, f.length AS 时长分钟, l.name AS 语言名称 FROM public.film f JOIN public.language l ON f.language_id = l.language_id WHERE LOWER(f.description) LIKE '%robot%' OR LOWER(f.description) LIKE '%battle%';",
+    "question": "查询2006年上映且分级为PG-13的电影数量，并按标题字母序返回前10部的标题和时长",
+    "sql": "SELECT title AS 标题, length AS 时长_分钟 FROM public.film WHERE release_year = 2006 AND rating = 'PG-13' ORDER BY title LIMIT 10;",
     "domain": "影片内容资产"
   },
   {
-    "question": "分析各上映年份的平均赔偿成本趋势：显示年份、该年影片数、平均赔偿成本（保留两位小数），仅限2000年及以后的影片",
-    "sql": "SELECT release_year AS 上映年份, COUNT(*) AS 影片数, ROUND(AVG(replacement_cost), 2) AS 平均赔偿成本 FROM public.film WHERE release_year >= 2000 GROUP BY release_year ORDER BY 上映年份;",
+    "question": "分析各语言下电影的平均租赁单价和影片总数，结果按平均单价降序排列",
+    "sql": "SELECT l.name AS 语言, COUNT(f.film_id) AS 影片总数, ROUND(AVG(f.rental_rate), 2) AS 平均租赁单价_美元 FROM public.film f JOIN public.language l ON f.language_id = l.language_id GROUP BY l.name ORDER BY 平均租赁单价_美元 DESC;",
     "domain": "影片内容资产"
   },
   {
-    "question": "找出拥有最多特别花絮（special_features数组长度最大）的前5部电影，显示标题、分级、花絮数量及租赁单价",
-    "sql": "SELECT title AS 标题, rating AS 分级, ARRAY_LENGTH(special_features, 1) AS 花絮数量, rental_rate AS 租赁单价 FROM public.film WHERE special_features IS NOT NULL ORDER BY ARRAY_LENGTH(special_features, 1) DESC LIMIT 5;",
+    "question": "找出包含‘Action’特别花絮（special_features数组中包含该元素）且时长超过120分钟的电影标题、分级和赔偿成本",
+    "sql": "SELECT title AS 标题, rating AS 分级, replacement_cost AS 赔偿成本_美元 FROM public.film WHERE 'Action' = ANY(special_features) AND length > 120;",
     "domain": "影片内容资产"
   },
   {
-    "question": "对比PG级与R级电影的租赁单价和赔偿成本差异：分别计算两类影片的平均租赁单价和平均赔偿成本",
-    "sql": "SELECT rating AS 分级, ROUND(AVG(rental_rate), 2) AS 平均租赁单价, ROUND(AVG(replacement_cost), 2) AS 平均赔偿成本 FROM public.film WHERE rating IN ('PG', 'R') GROUP BY rating;",
+    "question": "对比PG级与R级电影的平均时长和平均赔偿成本，要求结果包含分级、平均时长、平均赔偿成本三列",
+    "sql": "SELECT rating AS 分级, ROUND(AVG(length), 2) AS 平均时长_分钟, ROUND(AVG(replacement_cost), 2) AS 平均赔偿成本_美元 FROM public.film WHERE rating IN ('PG', 'R') GROUP BY rating;",
     "domain": "影片内容资产"
   },
   {
-    "question": "列出所有电影分类及其对应的影片数量，按影片数量降序排列",
-    "sql": "SELECT c.name AS 分类名称, COUNT(fc.film_id) AS 影片数量 FROM public.category c LEFT JOIN public.film_category fc ON c.category_id = fc.category_id GROUP BY c.category_id, c.name ORDER BY 影片数量 DESC;",
+    "question": "使用全文检索查找标题或简介中包含‘robot’或‘future’的电影，返回标题、上映年份和评级，并按相关性降序排序",
+    "sql": "SELECT title AS 标题, release_year AS 上映年份, rating AS 分级 FROM public.film WHERE fulltext @@ to_tsquery('robot | future') ORDER BY ts_rank(fulltext, to_tsquery('robot | future')) DESC;",
+    "domain": "影片内容资产"
+  },
+  {
+    "question": "查询每个电影分类下的影片数量，并按数量降序排列",
+    "sql": "SELECT c.name AS 分类名称, COUNT(fc.film_id) AS 影片数量 FROM public.category c JOIN public.film_category fc ON c.category_id = fc.category_id GROUP BY c.category_id, c.name ORDER BY 影片数量 DESC;",
     "domain": "内容分类与演职人员"
   },
   {
-    "question": "查询参演影片最多的前5位演员姓名（全名）及参演影片数",
-    "sql": "SELECT a.first_name || ' ' || a.last_name AS 演员全名, COUNT(fa.film_id) AS 参演影片数 FROM public.actor a INNER JOIN public.film_actor fa ON a.actor_id = fa.actor_id GROUP BY a.actor_id, a.first_name, a.last_name ORDER BY 参演影片数 DESC LIMIT 5;",
+    "question": "找出参演影片最多的前5位演员姓名（全名）及其参演影片数",
+    "sql": "SELECT a.first_name || ' ' || a.last_name AS 演员姓名, COUNT(fa.film_id) AS 参演影片数 FROM public.actor a JOIN public.film_actor fa ON a.actor_id = fa.actor_id GROUP BY a.actor_id, a.first_name, a.last_name ORDER BY 参演影片数 DESC LIMIT 5;",
     "domain": "内容分类与演职人员"
   },
   {
-    "question": "找出同时属于‘Action’和‘Sci-Fi’两个分类的所有影片标题（需关联film表获取title）",
-    "sql": "SELECT f.title AS 影片标题 FROM public.film f INNER JOIN public.film_category fc1 ON f.film_id = fc1.film_id INNER JOIN public.film_category fc2 ON f.film_id = fc2.film_id INNER JOIN public.category c1 ON fc1.category_id = c1.category_id INNER JOIN public.category c2 ON fc2.category_id = c2.category_id WHERE c1.name = 'Action' AND c2.name = 'Sci-Fi';",
+    "question": "列出所有同时属于‘Action’和‘Comedy’分类的电影标题（需关联film表获取标题）",
+    "sql": "SELECT DISTINCT f.title AS 电影标题 FROM public.film f JOIN public.film_category fc1 ON f.film_id = fc1.film_id JOIN public.film_category fc2 ON f.film_id = fc2.film_id JOIN public.category c1 ON fc1.category_id = c1.category_id JOIN public.category c2 ON fc2.category_id = c2.category_id WHERE c1.name = 'Action' AND c2.name = 'Comedy';",
     "domain": "内容分类与演职人员"
   },
   {
-    "question": "统计每个分类下平均影片时长（length字段在film表中），仅显示平均时长超过100分钟的分类",
-    "sql": "SELECT c.name AS 分类名称, ROUND(AVG(f.length), 2) AS 平均时长_分钟 FROM public.category c INNER JOIN public.film_category fc ON c.category_id = fc.category_id INNER JOIN public.film f ON fc.film_id = f.film_id GROUP BY c.category_id, c.name HAVING AVG(f.length) > 100 ORDER BY 平均时长_分钟 DESC;",
+    "question": "统计每个演员姓氏（last_name）出现的频次，仅显示频次大于1的姓氏",
+    "sql": "SELECT last_name AS 演员姓氏, COUNT(*) AS 出现频次 FROM public.actor GROUP BY last_name HAVING COUNT(*) > 1 ORDER BY 出现频次 DESC;",
     "domain": "内容分类与演职人员"
   },
   {
-    "question": "查询姓氏为‘Wahlberg’的演员参演的所有影片名称及所属分类名称",
-    "sql": "SELECT a.first_name AS 演员名, a.last_name AS 演员姓氏, f.title AS 影片名称, c.name AS 分类名称 FROM public.actor a INNER JOIN public.film_actor fa ON a.actor_id = fa.actor_id INNER JOIN public.film f ON fa.film_id = f.film_id INNER JOIN public.film_category fc ON f.film_id = fc.film_id INNER JOIN public.category c ON fc.category_id = c.category_id WHERE a.last_name = 'Wahlberg';",
+    "question": "查询尚未被分配到任何分类的电影ID和标题（需关联film表）",
+    "sql": "SELECT f.film_id AS 电影ID, f.title AS 电影标题 FROM public.film f LEFT JOIN public.film_category fc ON f.film_id = fc.film_id WHERE fc.film_id IS NULL;",
     "domain": "内容分类与演职人员"
   },
   {
-    "question": "对比‘Animation’和‘Children’两个分类的影片数量差异（输出分类名与数量，并标注差异值）",
-    "sql": "WITH cat_counts AS (SELECT c.name, COUNT(fc.film_id) AS cnt FROM public.category c INNER JOIN public.film_category fc ON c.category_id = fc.category_id WHERE c.name IN ('Animation', 'Children') GROUP BY c.name) SELECT name AS 分类名称, cnt AS 影片数量, (SELECT cnt FROM cat_counts WHERE name = 'Animation') - (SELECT cnt FROM cat_counts WHERE name = 'Children') AS 数量差异 FROM cat_counts;",
+    "question": "找出参演了至少3部‘Animation’分类影片的演员全名",
+    "sql": "SELECT a.first_name || ' ' || a.last_name AS 演员姓名 FROM public.actor a JOIN public.film_actor fa ON a.actor_id = fa.actor_id JOIN public.film_category fc ON fa.film_id = fc.film_id JOIN public.category c ON fc.category_id = c.category_id WHERE c.name = 'Animation' GROUP BY a.actor_id, a.first_name, a.last_name HAVING COUNT(DISTINCT fa.film_id) >= 3;",
     "domain": "内容分类与演职人员"
   },
   {
-    "question": "找出从未被归类到任何分类中的影片（即film表中存在但film_category中无记录的film_id）",
-    "sql": "SELECT f.film_id AS 影片ID, f.title AS 影片标题 FROM public.film f LEFT JOIN public.film_category fc ON f.film_id = fc.film_id WHERE fc.film_id IS NULL;",
+    "question": "对比‘Action’与‘Horror’两个分类各自的影片平均时长（需关联film表的length字段）",
+    "sql": "SELECT c.name AS 分类名称, ROUND(AVG(f.length), 2) AS 平均时长_分钟 FROM public.category c JOIN public.film_category fc ON c.category_id = fc.category_id JOIN public.film f ON fc.film_id = f.film_id WHERE c.name IN ('Action', 'Horror') GROUP BY c.name;",
     "domain": "内容分类与演职人员"
   },
   {
-    "question": "列出所有演员及其参演影片数，若未参演任何影片则显示0",
-    "sql": "SELECT a.actor_id AS 演员ID, a.first_name AS 名字, a.last_name AS 姓氏, COALESCE(COUNT(fa.film_id), 0) AS 参演影片数 FROM public.actor a LEFT JOIN public.film_actor fa ON a.actor_id = fa.actor_id GROUP BY a.actor_id, a.first_name, a.last_name ORDER BY 参演影片数 DESC;",
+    "question": "查询所有姓氏以字母‘W’开头的演员及其参演的电影分类名称（去重），按演员姓氏、分类名称排序",
+    "sql": "SELECT DISTINCT a.last_name AS 演员姓氏, a.first_name AS 演员名字, c.name AS 分类名称 FROM public.actor a JOIN public.film_actor fa ON a.actor_id = fa.actor_id JOIN public.film_category fc ON fa.film_id = fc.film_id JOIN public.category c ON fc.category_id = c.category_id WHERE a.last_name LIKE 'W%' ORDER BY 演员姓氏, 分类名称;",
     "domain": "内容分类与演职人员"
   },
   {
-    "question": "查询2006年2月15日当天新增或更新的分类-影片关联记录总数及对应分类名称列表",
-    "sql": "SELECT COUNT(*) AS 关联更新总数, STRING_AGG(DISTINCT c.name, ', ') AS 涉及分类 FROM public.film_category fc INNER JOIN public.category c ON fc.category_id = c.category_id WHERE DATE(fc.last_update) = '2006-02-15';",
+    "question": "找出更新时间最新的5个电影分类及其最后更新时间",
+    "sql": "SELECT name AS 分类名称, last_update AS 最后更新时间 FROM public.category ORDER BY last_update DESC LIMIT 5;",
     "domain": "内容分类与演职人员"
   },
   {
-    "question": "找出至少参演了3部‘Comedy’分类影片的演员全名及对应影片数",
-    "sql": "SELECT a.first_name || ' ' || a.last_name AS 演员全名, COUNT(*) AS 喜剧影片数 FROM public.actor a INNER JOIN public.film_actor fa ON a.actor_id = fa.actor_id INNER JOIN public.film_category fc ON fa.film_id = fc.film_id INNER JOIN public.category c ON fc.category_id = c.category_id WHERE c.name = 'Comedy' GROUP BY a.actor_id, a.first_name, a.last_name HAVING COUNT(*) >= 3 ORDER BY 喜剧影片数 DESC;",
+    "question": "统计每个分类下不同首字母（小写）的演员姓氏数量，并只保留姓氏首字母为a-c的分组",
+    "sql": "SELECT c.name AS 分类名称, LOWER(SUBSTRING(a.last_name, 1, 1)) AS 姓氏首字母, COUNT(DISTINCT a.actor_id) AS 演员人数 FROM public.category c JOIN public.film_category fc ON c.category_id = fc.category_id JOIN public.film_actor fa ON fc.film_id = fa.film_id JOIN public.actor a ON fa.actor_id = a.actor_id GROUP BY c.name, LOWER(SUBSTRING(a.last_name, 1, 1)) HAVING LOWER(SUBSTRING(a.last_name, 1, 1)) BETWEEN 'a' AND 'c' ORDER BY 分类名称, 姓氏首字母;",
     "domain": "内容分类与演职人员"
   },
   {
-    "question": "查询近30天内所有已完成归还的租赁记录，按租赁时间倒序排列，显示租赁ID、客户ID、归还日期和经办员工ID",
-    "sql": "SELECT rental_id AS 租赁ID, customer_id AS 客户ID, return_date AS 归还日期, staff_id AS 经办员工ID FROM public.rental WHERE return_date IS NOT NULL AND rental_date >= CURRENT_DATE - INTERVAL '30 days' ORDER BY rental_date DESC;",
+    "question": "查询最近30天内所有已完成归还的租赁记录，按归还时间倒序排列，显示租赁ID、客户ID、归还时间、员工ID",
+    "sql": "SELECT rental_id AS 租赁ID, customer_id AS 客户ID, return_date AS 归还时间, staff_id AS 员工ID FROM public.rental WHERE return_date IS NOT NULL AND return_date >= CURRENT_DATE - INTERVAL '30 days' ORDER BY return_date DESC;",
     "domain": "租赁交易与履约"
   },
   {
-    "question": "统计每个门店（通过inventory关联）的总租赁次数，并按次数降序排列，显示门店ID和租赁次数",
-    "sql": "SELECT i.store_id AS 门店ID, COUNT(r.rental_id) AS 租赁次数 FROM public.rental r JOIN public.inventory i ON r.inventory_id = i.inventory_id GROUP BY i.store_id ORDER BY 租赁次数 DESC;",
+    "question": "统计每位员工处理的租赁单数（含未归还），按数量降序排列，仅显示前5名员工及对应单数",
+    "sql": "SELECT staff_id AS 员工ID, COUNT(*) AS 租赁单数 FROM public.rental GROUP BY staff_id ORDER BY 租赁单数 DESC LIMIT 5;",
     "domain": "租赁交易与履约"
   },
   {
-    "question": "找出租赁次数最多的前5位客户，显示客户ID、姓名（来自customer表）及租赁总次数",
-    "sql": "SELECT c.customer_id AS 客户ID, CONCAT(c.first_name, ' ', c.last_name) AS 姓名, COUNT(r.rental_id) AS 租赁总次数 FROM public.rental r JOIN public.customer c ON r.customer_id = c.customer_id GROUP BY c.customer_id, c.first_name, c.last_name ORDER BY 租赁总次数 DESC LIMIT 5;",
+    "question": "找出尚未归还的租赁记录总数、平均租赁时长（从租赁日至今的天数）及最久未归还天数",
+    "sql": "SELECT COUNT(*) AS 未归还总数, ROUND(AVG(CURRENT_DATE - rental_date::date), 1) AS 平均租赁天数, MAX(CURRENT_DATE - rental_date::date) AS 最久未归还天数 FROM public.rental WHERE return_date IS NULL;",
     "domain": "租赁交易与履约"
   },
   {
-    "question": "分析各月份的租赁发起量与归还量对比：统计每月租赁数（rental_date）、已归还数（return_date非空），要求月份格式为'YYYY-MM'，结果按月份升序排列",
-    "sql": "SELECT TO_CHAR(rental_date, 'YYYY-MM') AS 年月, COUNT(*) AS 租赁数, COUNT(return_date) AS 归还数 FROM public.rental GROUP BY TO_CHAR(rental_date, 'YYYY-MM') ORDER BY 年月;",
+    "question": "分析各门店（通过inventory关联store_id）的租赁活跃度：统计每家门店库存被租出的总次数，并按次数降序排列",
+    "sql": "SELECT i.store_id AS 门店ID, COUNT(r.rental_id) AS 租出总次数 FROM public.rental r JOIN public.inventory i ON r.inventory_id = i.inventory_id GROUP BY i.store_id ORDER BY 租出总次数 DESC;",
     "domain": "租赁交易与履约"
   },
   {
-    "question": "查询尚未归还（return_date为空）且租赁已超过7天的所有租赁记录，显示租赁ID、客户姓名、影片标题（需联查inventory→film）、租赁日期",
-    "sql": "SELECT r.rental_id AS 租赁ID, CONCAT(c.first_name, ' ', c.last_name) AS 客户姓名, f.title AS 影片标题, r.rental_date AS 租赁日期 FROM public.rental r JOIN public.customer c ON r.customer_id = c.customer_id JOIN public.inventory i ON r.inventory_id = i.inventory_id JOIN public.film f ON i.film_id = f.film_id WHERE r.return_date IS NULL AND r.rental_date <= CURRENT_DATE - INTERVAL '7 days';",
+    "question": "查询2005年6月所有租赁记录中，租期（归还时间减租赁时间）超过7天的明细，显示租赁ID、客户ID、租赁日期、归还日期、租期天数",
+    "sql": "SELECT r.rental_id AS 租赁ID, r.customer_id AS 客户ID, r.rental_date AS 租赁日期, r.return_date AS 归还日期, (r.return_date - r.rental_date) AS 租期天数 FROM public.rental r WHERE r.rental_date >= '2005-06-01' AND r.rental_date < '2005-07-01' AND r.return_date IS NOT NULL AND (r.return_date - r.rental_date) > INTERVAL '7 days';",
     "domain": "租赁交易与履约"
   },
   {
-    "question": "统计每位员工处理的租赁订单总数及平均每日处理量（按rental_date所在日计算），仅包含有至少10单的员工，结果按总数降序",
-    "sql": "SELECT s.staff_id AS 员工ID, COUNT(r.rental_id) AS 订单总数, ROUND(COUNT(r.rental_id)::NUMERIC / COUNT(DISTINCT DATE(r.rental_date)), 2) AS 平均每日处理量 FROM public.rental r JOIN public.staff s ON r.staff_id = s.staff_id GROUP BY s.staff_id HAVING COUNT(r.rental_id) >= 10 ORDER BY 订单总数 DESC;",
+    "question": "对比不同客户等级（按累计租赁次数划分：≥10次为VIP，5-9次为优质，1-4次为普通）的客户数量分布",
+    "sql": "SELECT CASE WHEN cnt >= 10 THEN 'VIP' WHEN cnt >= 5 THEN '优质客户' ELSE '普通客户' END AS 客户等级, COUNT(*) AS 客户数量 FROM (SELECT customer_id, COUNT(*) AS cnt FROM public.rental GROUP BY customer_id) t GROUP BY 客户等级 ORDER BY 客户等级;",
     "domain": "租赁交易与履约"
   },
   {
-    "question": "找出被租赁次数最多的前3部影片（通过inventory和film关联），显示影片ID、标题、租赁总次数",
-    "sql": "SELECT f.film_id AS 影片ID, f.title AS 影片标题, COUNT(r.rental_id) AS 租赁总次数 FROM public.rental r JOIN public.inventory i ON r.inventory_id = i.inventory_id JOIN public.film f ON i.film_id = f.film_id GROUP BY f.film_id, f.title ORDER BY 租赁总次数 DESC LIMIT 3;",
+    "question": "找出租赁频次最高的前3部影片（通过inventory和film关联），显示影片ID、片名、总租赁次数",
+    "sql": "SELECT f.film_id AS 影片ID, f.title AS 片名, COUNT(r.rental_id) AS 总租赁次数 FROM public.rental r JOIN public.inventory i ON r.inventory_id = i.inventory_id JOIN public.film f ON i.film_id = f.film_id GROUP BY f.film_id, f.title ORDER BY 总租赁次数 DESC LIMIT 3;",
     "domain": "租赁交易与履约"
   },
   {
-    "question": "对比两个指定门店（store_id=1和store_id=2）的租赁活跃度：分别统计其租赁总次数、平均单次租赁时长（单位：天，return_date - rental_date），要求结果在同一行展示",
-    "sql": "SELECT SUM(CASE WHEN i.store_id = 1 THEN 1 ELSE 0 END) AS 门店1租赁次数, ROUND(AVG(CASE WHEN i.store_id = 1 THEN EXTRACT(EPOCH FROM (r.return_date - r.rental_date))/86400 END), 2) AS 门店1平均租赁天数, SUM(CASE WHEN i.store_id = 2 THEN 1 ELSE 0 END) AS 门店2租赁次数, ROUND(AVG(CASE WHEN i.store_id = 2 THEN EXTRACT(EPOCH FROM (r.return_date - r.rental_date))/86400 END), 2) AS 门店2平均租赁天数 FROM public.rental r JOIN public.inventory i ON r.inventory_id = i.inventory_id WHERE i.store_id IN (1, 2);",
+    "question": "统计每天的租赁发起量和归还量（分离统计），结果按日期升序排列，仅包含2005年5月的数据",
+    "sql": "SELECT COALESCE(r1.day, r2.day) AS 日期, COALESCE(r1.租赁量, 0) AS 租赁发起量, COALESCE(r2.归还量, 0) AS 归还量 FROM (SELECT DATE(rental_date) AS day, COUNT(*) AS 租赁量 FROM public.rental WHERE rental_date >= '2005-05-01' AND rental_date < '2005-06-01' GROUP BY DATE(rental_date)) r1 FULL OUTER JOIN (SELECT DATE(return_date) AS day, COUNT(*) AS 归还量 FROM public.rental WHERE return_date >= '2005-05-01' AND return_date < '2005-06-01' GROUP BY DATE(return_date)) r2 ON r1.day = r2.day ORDER BY 日期;",
     "domain": "租赁交易与履约"
   },
   {
-    "question": "查询每个客户最近一次租赁的完整信息（含租赁ID、影片标题、门店ID、租赁日期、归还日期），按客户ID升序排列",
-    "sql": "SELECT r.customer_id AS 客户ID, r.rental_id AS 租赁ID, f.title AS 影片标题, i.store_id AS 门店ID, r.rental_date AS 租赁日期, r.return_date AS 归还日期 FROM public.rental r JOIN public.inventory i ON r.inventory_id = i.inventory_id JOIN public.film f ON i.film_id = f.film_id WHERE (r.customer_id, r.rental_date) IN (SELECT customer_id, MAX(rental_date) FROM public.rental GROUP BY customer_id) ORDER BY r.customer_id;",
+    "question": "查询所有由员工ID为2处理、且客户ID为137的租赁记录，要求返回租赁ID、库存ID、租赁时间、归还时间（若未归还则显示'尚未归还'）",
+    "sql": "SELECT rental_id AS 租赁ID, inventory_id AS 库存ID, rental_date AS 租赁时间, COALESCE(return_date::TEXT, '尚未归还') AS 归还时间 FROM public.rental WHERE staff_id = 2 AND customer_id = 137;",
     "domain": "租赁交易与履约"
   },
   {
-    "question": "识别存在异常租赁行为的客户：租赁次数≥5且平均租赁周期（return_date - rental_date）超过30天的客户，显示客户ID、姓名、租赁次数、平均租赁天数",
-    "sql": "SELECT c.customer_id AS 客户ID, CONCAT(c.first_name, ' ', c.last_name) AS 姓名, COUNT(r.rental_id) AS 租赁次数, ROUND(AVG(EXTRACT(EPOCH FROM (r.return_date - r.rental_date))/86400), 2) AS 平均租赁天数 FROM public.rental r JOIN public.customer c ON r.customer_id = c.customer_id WHERE r.return_date IS NOT NULL GROUP BY c.customer_id, c.first_name, c.last_name HAVING COUNT(r.rental_id) >= 5 AND AVG(EXTRACT(EPOCH FROM (r.return_date - r.rental_date))/86400) > 30.0 ORDER BY 平均租赁天数 DESC;",
+    "question": "识别存在异常租赁行为的客户：同一客户在同一天内租赁超过3次，列出客户ID、日期、当日租赁次数",
+    "sql": "SELECT customer_id AS 客户ID, DATE(rental_date) AS 日期, COUNT(*) AS 当日租赁次数 FROM public.rental GROUP BY customer_id, DATE(rental_date) HAVING COUNT(*) > 3 ORDER BY 当日租赁次数 DESC;",
     "domain": "租赁交易与履约"
   },
   {
-    "question": "查询2007年2月的每日总收款金额，并按日期升序排列",
-    "sql": "SELECT DATE(payment_date) AS 日期, SUM(amount) AS 日收款总额 FROM public.payment WHERE payment_date >= '2007-02-01' AND payment_date < '2007-03-01' GROUP BY DATE(payment_date) ORDER BY 日期 ASC;",
+    "question": "查询2007年每月的总收款金额，并按月份升序排列",
+    "sql": "SELECT EXTRACT(YEAR FROM payment_date) AS 年份, EXTRACT(MONTH FROM payment_date) AS 月份, SUM(amount) AS 总收款金额 FROM public.payment WHERE EXTRACT(YEAR FROM payment_date) = 2007 GROUP BY 年份, 月份 ORDER BY 年份, 月份;",
     "domain": "财务结算"
   },
   {
-    "question": "列出收款金额最高的前5位员工姓名及其对应总收款额",
+    "question": "找出收款金额最高的前5位员工（按姓名显示），及其对应总收款额",
     "sql": "SELECT s.first_name || ' ' || s.last_name AS 员工姓名, SUM(p.amount) AS 总收款额 FROM public.payment p JOIN public.staff s ON p.staff_id = s.staff_id GROUP BY s.staff_id, s.first_name, s.last_name ORDER BY 总收款额 DESC LIMIT 5;",
     "domain": "财务结算"
   },
   {
-    "question": "统计每位客户累计支付金额，仅显示总额超过100元的客户及对应金额",
-    "sql": "SELECT c.customer_id AS 客户ID, c.first_name || ' ' || c.last_name AS 客户姓名, SUM(p.amount) AS 累计支付金额 FROM public.payment p JOIN public.customer c ON p.customer_id = c.customer_id GROUP BY c.customer_id, c.first_name, c.last_name HAVING SUM(p.amount) > 100 ORDER BY 累计支付金额 DESC;",
+    "question": "统计每位客户累计支付总额，仅显示总额超过100元的客户，并按金额降序排列",
+    "sql": "SELECT c.customer_id, c.first_name || ' ' || c.last_name AS 客户姓名, SUM(p.amount) AS 累计支付总额 FROM public.payment p JOIN public.customer c ON p.customer_id = c.customer_id GROUP BY c.customer_id, c.first_name, c.last_name HAVING SUM(p.amount) > 100 ORDER BY 累计支付总额 DESC;",
     "domain": "财务结算"
   },
   {
-    "question": "查询所有在周末（周六或周日）发生的支付记录，返回客户姓名、员工姓名、支付金额和支付时间",
-    "sql": "SELECT c.first_name || ' ' || c.last_name AS 客户姓名, s.first_name || ' ' || s.last_name AS 员工姓名, p.amount AS 支付金额, p.payment_date AS 支付时间 FROM public.payment p JOIN public.customer c ON p.customer_id = c.customer_id JOIN public.staff s ON p.staff_id = s.staff_id WHERE EXTRACT(ISODOW FROM p.payment_date) IN (0, 6);",
+    "question": "查询2007年2月15日当天所有支付记录，包含客户姓名、员工姓名、租赁ID和支付金额",
+    "sql": "SELECT c.first_name || ' ' || c.last_name AS 客户姓名, s.first_name || ' ' || s.last_name AS 员工姓名, p.rental_id AS 租赁ID, p.amount AS 支付金额 FROM public.payment p JOIN public.customer c ON p.customer_id = c.customer_id JOIN public.staff s ON p.staff_id = s.staff_id WHERE DATE(p.payment_date) = '2007-02-15' ORDER BY p.payment_date;",
     "domain": "财务结算"
   },
   {
-    "question": "对比2006年与2007年各季度总收款金额，输出年份、季度、总金额",
-    "sql": "SELECT EXTRACT(YEAR FROM payment_date) AS 年份, EXTRACT(QUARTER FROM payment_date) AS 季度, SUM(amount) AS 总收款金额 FROM public.payment WHERE EXTRACT(YEAR FROM payment_date) IN (2006, 2007) GROUP BY EXTRACT(YEAR FROM payment_date), EXTRACT(QUARTER FROM payment_date) ORDER BY 年份, 季度;",
+    "question": "对比2006年与2007年全年总收款金额及交易笔数",
+    "sql": "SELECT EXTRACT(YEAR FROM payment_date) AS 年份, COUNT(*) AS 交易笔数, SUM(amount) AS 总收款金额 FROM public.payment WHERE EXTRACT(YEAR FROM payment_date) IN (2006, 2007) GROUP BY 年份 ORDER BY 年份;",
     "domain": "财务结算"
   },
   {
-    "question": "找出单笔支付金额大于9.99元的所有记录，按金额降序排列并显示客户邮箱、支付金额和时间",
-    "sql": "SELECT c.email AS 客户邮箱, p.amount AS 支付金额, p.payment_date AS 支付时间 FROM public.payment p JOIN public.customer c ON p.customer_id = c.customer_id WHERE p.amount > 9.99 ORDER BY p.amount DESC;",
+    "question": "列出每家门店（通过员工所属门店）的年度收款总额，按2007年降序排列",
+    "sql": "SELECT st.store_id AS 店铺ID, SUM(p.amount) AS \"2007年收款总额\" FROM public.payment p JOIN public.staff st ON p.staff_id = st.staff_id WHERE EXTRACT(YEAR FROM p.payment_date) = 2007 GROUP BY st.store_id ORDER BY \"2007年收款总额\" DESC;",
     "domain": "财务结算"
   },
   {
-    "question": "计算每位员工平均单笔收款金额，并筛选出平均值高于5元的员工及其平均值",
-    "sql": "SELECT s.first_name || ' ' || s.last_name AS 员工姓名, ROUND(AVG(p.amount), 2) AS 平均单笔收款金额 FROM public.payment p JOIN public.staff s ON p.staff_id = s.staff_id GROUP BY s.staff_id, s.first_name, s.last_name HAVING AVG(p.amount) > 5 ORDER BY 平均单笔收款金额 DESC;",
+    "question": "查询支付金额大于平均值的所有记录，返回客户ID、员工ID、支付金额和支付时间",
+    "sql": "SELECT customer_id AS 客户ID, staff_id AS 员工ID, amount AS 支付金额, payment_date AS 支付时间 FROM public.payment WHERE amount > (SELECT AVG(amount) FROM public.payment);",
     "domain": "财务结算"
   },
   {
-    "question": "统计每月支付次数与总金额，并标记是否为当月最高收款月（基于总金额）",
-    "sql": "WITH monthly_stats AS (SELECT EXTRACT(YEAR FROM payment_date) AS 年, EXTRACT(MONTH FROM payment_date) AS 月, COUNT(*) AS 支付次数, SUM(amount) AS 总金额 FROM public.payment GROUP BY EXTRACT(YEAR FROM payment_date), EXTRACT(MONTH FROM payment_date)), max_month AS (SELECT MAX(总金额) AS max_amt FROM monthly_stats) SELECT ms.年, ms.月, ms.支付次数, ms.总金额, CASE WHEN ms.总金额 = mm.max_amt THEN '是' ELSE '否' END AS 是否最高收款月 FROM monthly_stats ms CROSS JOIN max_month mm ORDER BY ms.总金额 DESC;",
+    "question": "统计各小时段（0-23点）的支付笔数与平均金额，仅保留笔数超过50的时段",
+    "sql": "SELECT EXTRACT(HOUR FROM payment_date) AS 小时段, COUNT(*) AS 支付笔数, ROUND(AVG(amount), 2) AS 平均支付金额 FROM public.payment GROUP BY 小时段 HAVING COUNT(*) > 50 ORDER BY 小时段;",
     "domain": "财务结算"
   },
   {
-    "question": "查询客户ID为341的所有支付明细，包括租赁ID、支付金额、支付时间及对应员工姓名",
-    "sql": "SELECT p.rental_id AS 租赁ID, p.amount AS 支付金额, p.payment_date AS 支付时间, s.first_name || ' ' || s.last_name AS 处理员工 FROM public.payment p JOIN public.staff s ON p.staff_id = s.staff_id WHERE p.customer_id = 341 ORDER BY p.payment_date DESC;",
+    "question": "找出在同一天内为同一客户处理超过3笔支付的员工（姓名），及其对应日期和笔数",
+    "sql": "SELECT s.first_name || ' ' || s.last_name AS 员工姓名, DATE(p.payment_date) AS 支付日期, COUNT(*) AS 当日支付笔数 FROM public.payment p JOIN public.staff s ON p.staff_id = s.staff_id GROUP BY s.staff_id, s.first_name, s.last_name, DATE(p.payment_date) HAVING COUNT(*) > 3 ORDER BY 支付日期, 当日支付笔数 DESC;",
     "domain": "财务结算"
   },
   {
-    "question": "分析不同员工处理的支付中，金额分布区间（<3元、3-6元、>6元）的笔数占比",
-    "sql": "SELECT s.first_name || ' ' || s.last_name AS \"员工姓名\", COUNT(*) FILTER (WHERE p.amount < 3) AS \"小于3元笔数\", COUNT(*) FILTER (WHERE p.amount >= 3 AND p.amount <= 6) AS \"3至6元笔数\", COUNT(*) FILTER (WHERE p.amount > 6) AS \"大于6元笔数\", ROUND(100.0 * COUNT(*) FILTER (WHERE p.amount < 3) / NULLIF(COUNT(*), 0), 2) AS \"小于3元占比\", ROUND(100.0 * COUNT(*) FILTER (WHERE p.amount >= 3 AND p.amount <= 6) / NULLIF(COUNT(*), 0), 2) AS \"3至6元占比\", ROUND(100.0 * COUNT(*) FILTER (WHERE p.amount > 6) / NULLIF(COUNT(*), 0), 2) AS \"大于6元占比\" FROM public.payment p JOIN public.staff s ON p.staff_id = s.staff_id GROUP BY s.staff_id, s.first_name, s.last_name ORDER BY \"员工姓名\";",
+    "question": "计算每位客户最近一次支付的时间、金额及对应员工姓名",
+    "sql": "SELECT c.customer_id, c.first_name || ' ' || c.last_name AS 客户姓名, MAX(p.payment_date) AS 最近支付时间, (SELECT amount FROM public.payment p2 WHERE p2.customer_id = c.customer_id ORDER BY payment_date DESC LIMIT 1) AS 最近支付金额, (SELECT s2.first_name || ' ' || s2.last_name FROM public.payment p2 JOIN public.staff s2 ON p2.staff_id = s2.staff_id WHERE p2.customer_id = c.customer_id ORDER BY p2.payment_date DESC LIMIT 1) AS 处理员工姓名 FROM public.payment p JOIN public.customer c ON p.customer_id = c.customer_id GROUP BY c.customer_id, c.first_name, c.last_name;",
     "domain": "财务结算"
   }
 ]

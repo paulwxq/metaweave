@@ -2,7 +2,7 @@
 -- Database: dvdrental
 -- Table: public.language
 -- Comment: 语言信息表，存储系统支持的语言名称及更新时间
--- Generated: 2026-03-17 08:19:53
+-- Generated: 2026-03-17 16:29:35
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.language (

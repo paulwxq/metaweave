@@ -4,7 +4,6 @@
 """
 
 import logging
-import yaml
 from pathlib import Path
 from typing import Dict, Any
 
@@ -12,6 +11,7 @@ from metaweave.core.cql_generator.models import CQLGenerationResult
 from metaweave.core.cql_generator.reader import JSONReader
 from metaweave.core.cql_generator.writer import CypherWriter
 from metaweave.utils.file_utils import get_project_root
+from services.config_loader import ConfigLoader
 
 logger = logging.getLogger("metaweave.cql_generator")
 
@@ -56,10 +56,9 @@ class CQLGenerator:
         logger.info(f"CQL 输出目录: {self.cql_dir}")
 
     def _load_config(self) -> Dict[str, Any]:
-        """加载 YAML 配置文件"""
+        """通过 ConfigLoader 加载 YAML 配置文件（支持环境变量替换）"""
         try:
-            with open(self.config_path, "r", encoding="utf-8") as f:
-                config = yaml.safe_load(f)
+            config = ConfigLoader(str(self.config_path)).load()
             return config
         except Exception as e:
             logger.error(f"加载配置文件失败: {e}")

@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-17T08:20:01.361953",
+  "generated_timestamp": "2026-03-17T16:29:40.638040",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "customer",
     "table_type": "table",
-    "comment": "客户信息表，存储客户的姓名、联系方式、地址及账户状态等基本信息",
+    "comment": "客户信息表，存储顾客基本信息、联系方式、所属门店及状态标识",
     "comment_source": "ddl",
     "total_rows": 599,
     "total_columns": 10
@@ -685,5 +685,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-17T08:20:30.517681"
+  "llm_enhanced_at": "2026-03-17T16:29:57.457354"
 }

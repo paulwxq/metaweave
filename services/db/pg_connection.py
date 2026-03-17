@@ -1,5 +1,6 @@
 """PostgreSQL 连接池管理 - 支持 pgvector 扩展"""
 
+import logging
 import time
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, Optional
@@ -9,24 +10,34 @@ from pgvector.psycopg import register_vector
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from services.config_loader import get_config
+_logger = logging.getLogger("metaweave.pg_connection")
 
 
 class PGConnectionManager:
     """PostgreSQL 连接池管理器"""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        config: Optional[Dict[str, Any]] = None,
+        vector_database_config: Optional[Dict[str, Any]] = None,
+    ):
         """
         初始化连接池管理器
 
         Args:
-            config: 数据库配置，如果为 None 则从全局配置加载
+            config: 数据库配置（database 段）。如果为 None 则回退到 get_config()（仅兼容 NL2SQL）。
+            vector_database_config: 向量数据库配置（vector_database 段），
+                用于判断是否注册 pgvector 扩展。如果为 None 则跳过 pgvector 注册。
         """
         if config is None:
-            main_config = get_config()
-            config = main_config["database"]
+            raise ValueError(
+                "PGConnectionManager: 必须显式传入 database 配置字典。\n"
+                "旧的 get_config() 回退路径已废弃（configs/config.yaml 已删除）。\n"
+                "请从 metadata_config.yaml 加载后传入 config['database'] 段。"
+            )
 
         self.config = config
+        self._vector_database_config = vector_database_config
         self._pool: Optional[ConnectionPool] = None
 
     def _build_connection_string(self) -> str:
@@ -68,24 +79,16 @@ class PGConnectionManager:
         )
 
         # ✅ 条件注册 pgvector 扩展（仅 PgVector 模式需要）
-        main_config = get_config()
-        vector_db_config = main_config.get("vector_database", {})
-        active_vector_db = vector_db_config.get("active")
-
-        # ⚠️ 配置缺失时明确失败（与工厂函数保持一致）
-        if not active_vector_db:
-            raise ValueError(
-                "缺少 vector_database.active 配置。\n"
-                "请在 config.yaml 中设置 vector_database.active 为 'pgvector' 或 'milvus'。\n"
-                "这是必需配置，不提供默认值以避免掩盖配置错误。"
-            )
+        active_vector_db = (self._vector_database_config or {}).get("active")
 
         if active_vector_db == "pgvector":
             with self._pool.connection() as conn:
                 register_vector(conn)
             print(f"✅ PostgreSQL 连接池已初始化（已注册 pgvector 扩展）: {self.config['host']}:{self.config['port']}/{self.config['database']}")
-        else:
+        elif active_vector_db:
             print(f"✅ PostgreSQL 连接池已初始化（{active_vector_db} 模式，跳过 pgvector 注册）: {self.config['host']}:{self.config['port']}/{self.config['database']}")
+        else:
+            print(f"✅ PostgreSQL 连接池已初始化（跳过 pgvector 注册）: {self.config['host']}:{self.config['port']}/{self.config['database']}")
 
     def close(self) -> None:
         """关闭连接池"""
@@ -228,9 +231,16 @@ class PGConnectionManager:
 _global_pg_manager: Optional[PGConnectionManager] = None
 
 
-def get_pg_manager() -> PGConnectionManager:
+def get_pg_manager(
+    config: Optional[Dict[str, Any]] = None,
+    vector_database_config: Optional[Dict[str, Any]] = None,
+) -> PGConnectionManager:
     """
     获取全局 PostgreSQL 连接池管理器（单例）
+
+    Args:
+        config: 数据库配置（database 段）。首次调用时必须提供。
+        vector_database_config: 向量数据库配置（vector_database 段）。
 
     Returns:
         PGConnectionManager 实例
@@ -238,7 +248,10 @@ def get_pg_manager() -> PGConnectionManager:
     global _global_pg_manager
 
     if _global_pg_manager is None:
-        _global_pg_manager = PGConnectionManager()
+        _global_pg_manager = PGConnectionManager(
+            config=config,
+            vector_database_config=vector_database_config,
+        )
         _global_pg_manager.initialize()
 
     return _global_pg_manager

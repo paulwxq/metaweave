@@ -6,8 +6,6 @@ from typing import Any, Dict, Generator, Optional
 from neo4j import GraphDatabase, Session
 from neo4j.exceptions import Neo4jError
 
-from services.config_loader import get_config
-
 
 class Neo4jConnectionManager:
     """Neo4j 连接管理器"""
@@ -17,11 +15,14 @@ class Neo4jConnectionManager:
         初始化连接管理器
 
         Args:
-            config: Neo4j 配置，如果为 None 则从全局配置加载
+            config: Neo4j 配置字典。必须显式传入。
         """
         if config is None:
-            main_config = get_config()
-            config = main_config["neo4j"]
+            raise ValueError(
+                "Neo4jConnectionManager: 必须显式传入 neo4j 配置字典。\n"
+                "旧的 get_config() 回退路径已废弃（configs/config.yaml 已删除）。\n"
+                "请从 metadata_config.yaml 加载后传入 loaders.cql_loader.neo4j 段。"
+            )
 
         self.config = config
         self._driver = None
@@ -251,9 +252,12 @@ class Neo4jConnectionManager:
 _global_neo4j_manager: Optional[Neo4jConnectionManager] = None
 
 
-def get_neo4j_manager() -> Neo4jConnectionManager:
+def get_neo4j_manager(config: Optional[Dict[str, Any]] = None) -> Neo4jConnectionManager:
     """
     获取全局 Neo4j 连接管理器（单例）
+
+    Args:
+        config: Neo4j 配置。首次调用时建议显式提供。
 
     Returns:
         Neo4jConnectionManager 实例
@@ -261,7 +265,7 @@ def get_neo4j_manager() -> Neo4jConnectionManager:
     global _global_neo4j_manager
 
     if _global_neo4j_manager is None:
-        _global_neo4j_manager = Neo4jConnectionManager()
+        _global_neo4j_manager = Neo4jConnectionManager(config=config)
         _global_neo4j_manager.initialize()
 
     return _global_neo4j_manager

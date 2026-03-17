@@ -6,10 +6,10 @@
 import click
 import logging
 from pathlib import Path
-import yaml
 
 from metaweave.core.loaders.factory import LoaderFactory
 from metaweave.utils.file_utils import get_project_root
+from services.config_loader import ConfigLoader
 
 logger = logging.getLogger("metaweave.cli")
 
@@ -27,9 +27,9 @@ logger = logging.getLogger("metaweave.cli")
     "--config",
     "-c",
     type=click.Path(exists=True),
-    default="configs/loader_config.yaml",
+    default="configs/metadata_config.yaml",
     show_default=True,
-    help="配置文件路径"
+    help="主配置文件路径（metadata_config.yaml）"
 )
 @click.option(
     "--clean",
@@ -51,25 +51,25 @@ def load_command(load_type: str, config: str, clean: bool, debug: bool):
     - content_md : 加载 Markdown 内容到向量数据库（未来支持）
     - dim / dim_value : 加载维表数据到向量数据库（已实现）
     - table_schema : 加载表结构语义到向量数据库（已实现）
-    - sql : 加载样例 SQL 到向量数据库（Step 6 生成，未来支持）
+    - sql : 加载样例 SQL 到向量数据库（Step 6 生成）
 
     示例:
 
     \b
         # 加载 CQL 到 Neo4j（使用默认配置）
-        python -m metaweave.cli.main load --type cql
+        metaweave load --type cql
 
     \b
         # 加载前清空数据库（谨慎使用）
-        python -m metaweave.cli.main load --type cql --clean
+        metaweave load --type cql --clean
 
     \b
         # 使用自定义配置文件
-        python -m metaweave.cli.main load --type cql --config my_config.yaml
+        metaweave load --type cql --config my_config.yaml
 
     \b
         # 启用调试模式
-        python -m metaweave.cli.main load --type cql --debug
+        metaweave load --type cql --debug
     """
     try:
         # 设置日志级别
@@ -93,9 +93,29 @@ def load_command(load_type: str, config: str, clean: bool, debug: bool):
             click.echo(f"当前支持的类型: {', '.join(supported_types)}")
             raise click.Abort()
 
-        # 加载配置文件
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f)
+        # 通过 ConfigLoader 加载主配置文件（支持环境变量替换）
+        full_config = ConfigLoader(str(config_path)).load()
+
+        # 从主配置切出 loaders 段，作为 loader 的 config dict
+        loader_config = full_config.get("loaders", {})
+        # 保留 metadata_config_file 引用（dim_loader、table_schema_loader 需要）
+        loader_config["metadata_config_file"] = str(config_path)
+
+        # 动态补全 sql_loader.input_file（如配置中为空则从 database.database 拼出）
+        if load_type == "sql" and not loader_config.get("sql_loader", {}).get("input_file"):
+            db_name = full_config.get("database", {}).get("database", "")
+            if db_name:
+                sql_output_dir = full_config.get("sql_rag", {}).get(
+                    "generation", {}
+                ).get("output_dir", "output/sql")
+                sql_dir = Path(sql_output_dir)
+                if not sql_dir.is_absolute():
+                    sql_dir = get_project_root() / sql_dir
+                inferred = str(sql_dir / f"qs_{db_name}_pair.json")
+                if "sql_loader" not in loader_config:
+                    loader_config["sql_loader"] = {}
+                loader_config["sql_loader"]["input_file"] = inferred
+                click.echo(f"📂 自动推断输入文件: {inferred}")
 
         # 显示警告（如果需要清空数据库）
         if clean:
@@ -106,7 +126,7 @@ def load_command(load_type: str, config: str, clean: bool, debug: bool):
 
         # 创建加载器
         click.echo(f"🔧 创建加载器: {load_type.upper()}Loader")
-        loader = LoaderFactory.create(load_type, config)
+        loader = LoaderFactory.create(load_type, loader_config)
 
         # 执行加载（传递 clean 参数）
         click.echo("")

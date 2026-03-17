@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.staff
--- Comment: 员工信息表，存储门店员工的基本资料、联系方式、账户凭证及状态
--- Generated: 2026-03-17 08:20:01
+-- Comment: 员工信息表，存储门店员工的基本资料、联系方式、账户凭证及头像等信息
+-- Generated: 2026-03-17 16:29:40
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.staff (
@@ -25,17 +25,17 @@ CREATE TABLE IF NOT EXISTS public.staff (
 COMMENT ON COLUMN public.staff.staff_id IS '员工唯一标识ID';
 COMMENT ON COLUMN public.staff.first_name IS '员工名字（名）';
 COMMENT ON COLUMN public.staff.last_name IS '员工姓氏（姓）';
-COMMENT ON COLUMN public.staff.address_id IS '员工地址信息ID';
-COMMENT ON COLUMN public.staff.email IS '员工工作邮箱地址';
+COMMENT ON COLUMN public.staff.address_id IS '关联地址表的外键ID';
+COMMENT ON COLUMN public.staff.email IS '员工电子邮箱地址';
 COMMENT ON COLUMN public.staff.store_id IS '所属门店ID';
-COMMENT ON COLUMN public.staff.active IS '员工启用状态（true-在职，false-离职）';
+COMMENT ON COLUMN public.staff.active IS '员工启用状态（true-启用，false-停用）';
 COMMENT ON COLUMN public.staff.username IS '员工系统登录用户名';
-COMMENT ON COLUMN public.staff.password IS '员工密码（SHA1哈希值）';
+COMMENT ON COLUMN public.staff.password IS '员工登录密码（SHA1哈希值）';
 COMMENT ON COLUMN public.staff.last_update IS '记录最后更新时间戳';
-COMMENT ON COLUMN public.staff.picture IS '员工照片二进制数据';
+COMMENT ON COLUMN public.staff.picture IS '员工头像图片二进制数据';
 
 -- Table Comment
-COMMENT ON TABLE public.staff IS '员工信息表，存储门店员工的基本资料、联系方式、账户凭证及状态';
+COMMENT ON TABLE public.staff IS '员工信息表，存储门店员工的基本资料、联系方式、账户凭证及头像等信息';
 
 /* SAMPLE_RECORDS
 {

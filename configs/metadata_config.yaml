@@ -344,12 +344,6 @@ output:
     sample_rows: 5
     include_statistics: true
 
-# 日志配置
-logging:
-  level: INFO  # DEBUG | INFO | WARNING | ERROR
-  log_file: logs/metadata.log
-  console_output: true
-
 # Step 3: 关系发现配置
 relationships:
   # sample_size: 1000  # 已废弃：关系评分阶段统一使用 sampling.sample_size
@@ -408,22 +402,73 @@ decision:
   medium_confidence_threshold: 0.80
   suppress_single_if_composite: true  # 复合关系存在时抑制单列关系
 
-# 评分权重（优化后：4维度评分体系）
-weights:
-  inclusion_rate: 0.55        # 数据包含率（核心指标，提升权重）
-  name_similarity: 0.20       # 列名相似度（防止假阳性）
-  type_compatibility: 0.15    # 类型兼容性（体现JOIN性能）
-  jaccard_index: 0.10         # Jaccard相似度（辅助判断，降低权重）
-  # 已删除的维度：
-  # - uniqueness: 0.10 （逻辑错误：外键关系中应评估源列而非目标列）
-  # - semantic_role_bonus: 0.05 （推断不严谨，权重过小，意义不大）
-
 # Domain 生成配置（业务主题推断）
 domain_generation:
   # 送入 LLM 的 MD 文件数量上限（优先级：CLI --md-limit > 此值 > 默认 100）
   md_context_limit: 100
-  # 可选：为 Domain 生成指定专属 LLM（未配置时 fallback 到全局 llm）
-  # llm:
-  #   provider: openaiwoca
-  #   model_name: gpt-4o
-  #   temperature: 0.1
+  # 为 Domain 生成指定专属 LLM（仅覆盖需要变更的字段，其余继承全局 llm）
+  llm:
+    model_name: qwen-max
+
+# ============================================================
+# 数据加载配置（原 loader_config.yaml）
+# ============================================================
+loaders:
+  cql_loader:
+    input_file: "output/cql/import_all.*.cypher"
+    neo4j:
+      uri: "${NEO4J_URI:bolt://localhost:7687}"
+      user: "${NEO4J_USER:neo4j}"
+      password: "${NEO4J_PASSWORD:}"
+      database: "${NEO4J_DATABASE:neo4j}"
+    options:
+      transaction_mode: "by_section"
+      validate_after_load: true
+
+  content_md_loader:
+    # 尚未实现
+    input_dir: "output/content_md"
+    options:
+      chunk_size: 512
+      chunk_overlap: 50
+      embedding_model: "text-embedding-v3"
+
+  dim_loader:
+    config_file: "configs/dim_tables.yaml"
+    collection_name: "dim_value_embeddings"
+    options:
+      batch_size: 100
+
+  table_schema_loader:
+    md_directory: "output/md"
+    json_llm_directory: "output/json"  # 字段名保持原名，实际指向 json 或 json_llm 目录
+    collection_name: "table_schema_embeddings"
+    options:
+      batch_size: 50
+
+  sql_loader:
+    # input_file 留空：运行时自动从 database.database + sql_rag.generation.output_dir
+    # 拼出 output/sql/qs_{db_name}_pair.json；也可通过 CLI --input 显式指定
+    input_file: ""
+    collection_name: "sql_example_embeddings"
+    options:
+      batch_size: 50
+
+# ============================================================
+# SQL RAG 配置（原 sql_rag.yaml）
+# ============================================================
+sql_rag:
+  generation:
+    questions_per_domain: 10
+    uncategorized_questions: 3
+    skip_uncategorized: false
+    output_dir: "output/sql"
+    llm_timeout: 120
+
+  validation:
+    sql_validation_max_concurrent: 5
+    timeout: 30
+    sql_validation_readonly: true
+    sql_validation_max_retries: 2
+    enable_sql_repair: true
+    repair_batch_size: 1

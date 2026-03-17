@@ -47,8 +47,6 @@ class _PipelineContext:
     config_path: Path  # metadata_config.yaml 绝对路径
     loaded_config: dict  # metadata_config 解析结果
     domains_path: Path  # db_domains.yaml 绝对路径
-    sql_rag_cfg_path: Path  # sql_rag.yaml 绝对路径
-    loader_cfg_path: Path  # loader_config.yaml 绝对路径
     description: str | None  # --description 参数
     regenerate_configs: bool  # --regenerate-configs 参数
 
@@ -146,13 +144,12 @@ def _backup_config_file(file_path: Path) -> Path:
 
 
 def _clean_all_output_dirs(
-    loaded_config: dict, sql_rag_config_path: Path, project_root: Path
+    loaded_config: dict, project_root: Path
 ) -> None:
     """清空全部 output 子目录。
 
     Args:
         loaded_config: 已加载的 metadata_config 字典
-        sql_rag_config_path: sql_rag.yaml 的绝对路径
         project_root: 项目根目录
     """
     output_cfg = loaded_config.get("output", {})
@@ -180,8 +177,8 @@ def _clean_all_output_dirs(
             clear_dir_contents(d)
             logger.debug("已清空: %s", d)
 
-    # 2. 清理 sql 输出目录（从 sql_rag.yaml 读取）
-    sql_rag_cfg = _load_yaml(sql_rag_config_path)
+    # 2. 清理 sql 输出目录（从 metadata_config 的 sql_rag 段读取）
+    sql_rag_cfg = loaded_config.get("sql_rag", {})
     sql_output_dir = _resolve(
         sql_rag_cfg.get("generation", {}).get("output_dir", "output/sql"),
         project_root,
@@ -290,10 +287,10 @@ def _step_json_llm(ctx: _PipelineContext) -> None:
 def _step_dim_config(ctx: _PipelineContext) -> None:
     from metaweave.core.dim_value.config_generator import DimTableConfigGenerator
 
-    # 从 loader_config 获取 dim_tables.yaml 目标路径
-    loader_cfg = _load_yaml(ctx.loader_cfg_path)
+    # 从 metadata_config 的 loaders 段获取 dim_tables.yaml 目标路径
+    loaders_cfg = ctx.loaded_config.get("loaders", {})
     dim_tables_path = _resolve(
-        loader_cfg.get("dim_loader", {}).get("config_file", "configs/dim_tables.yaml"),
+        loaders_cfg.get("dim_loader", {}).get("config_file", "configs/dim_tables.yaml"),
         ctx.project_root,
     )
 
@@ -375,8 +372,8 @@ def _step_sql_rag_generate(ctx: _PipelineContext) -> None:
     # 提前创建 DB 连接（步骤 9 需要用于 EXPLAIN）
     ctx._sql_connector = DatabaseConnector(ctx.loaded_config.get("database", {}))
 
-    # 加载 sql_rag.yaml
-    sql_rag_cfg = _load_yaml(ctx.sql_rag_cfg_path)
+    # 从 metadata_config 的 sql_rag 段读取配置
+    sql_rag_cfg = ctx.loaded_config.get("sql_rag", {})
 
     generation_config = sql_rag_cfg.get("generation", {})
 
@@ -458,7 +455,7 @@ def _step_sql_rag_validate(ctx: _PipelineContext) -> None:
                     "sql-rag-validate",
                     [
                         f"校验完成但存在 {final_invalid} 条无效 SQL（未启用修复）",
-                        "请启用 sql_rag.yaml -> validation.enable_sql_repair"
+                        "请启用 metadata_config.yaml -> sql_rag.validation.enable_sql_repair"
                         " 或手工修正后重新执行",
                     ],
                 )
@@ -514,21 +511,7 @@ def pipeline_command():
     type=click.Path(exists=True),
     default="configs/metadata_config.yaml",
     show_default=True,
-    help="metadata 配置文件路径",
-)
-@click.option(
-    "--sql-rag-config",
-    type=click.Path(exists=True),
-    default="configs/sql_rag.yaml",
-    show_default=True,
-    help="SQL RAG 配置文件路径",
-)
-@click.option(
-    "--loader-config",
-    type=click.Path(exists=True),
-    default="configs/loader_config.yaml",
-    show_default=True,
-    help="loader 配置文件路径（用于确定 dim_tables.yaml 目标路径）",
+    help="主配置文件路径（metadata_config.yaml）",
 )
 @click.option(
     "--domains-config",
@@ -563,8 +546,6 @@ def pipeline_command():
 )
 def pipeline_generate(
     config,
-    sql_rag_config,
-    loader_config,
     domains_config,
     description,
     regenerate_configs,
@@ -586,8 +567,6 @@ def pipeline_generate(
         config_path=config_path,
         loaded_config=loaded_config,
         domains_path=_resolve(domains_config, project_root),
-        sql_rag_cfg_path=_resolve(sql_rag_config, project_root),
-        loader_cfg_path=_resolve(loader_config, project_root),
         description=description,
         regenerate_configs=regenerate_configs,
     )
@@ -605,7 +584,7 @@ def pipeline_generate(
 
     # --clean 提示
     if clean:
-        _clean_all_output_dirs(ctx.loaded_config, ctx.sql_rag_cfg_path, ctx.project_root)
+        _clean_all_output_dirs(ctx.loaded_config, ctx.project_root)
         click.echo("🧹 已清空全部 output 子目录")
     else:
         logger.info("未启用 --clean，将覆盖同名文件，但不会删除历史产物。")
@@ -665,14 +644,7 @@ def pipeline_generate(
     type=click.Path(exists=True),
     default="configs/metadata_config.yaml",
     show_default=True,
-    help="metadata 配置文件路径",
-)
-@click.option(
-    "--loader-config",
-    type=click.Path(exists=True),
-    default="configs/loader_config.yaml",
-    show_default=True,
-    help="loader 配置文件路径",
+    help="主配置文件路径（metadata_config.yaml）",
 )
 @click.option(
     "--with-dim-values",
@@ -692,19 +664,38 @@ def pipeline_generate(
     default=False,
     help="启用调试模式",
 )
-def pipeline_load(config, loader_config, with_dim_values, clean, debug):
+def pipeline_load(config, with_dim_values, clean, debug):
     """加载产物到目标库（3+1 步串行）"""
     from metaweave.core.loaders.factory import LoaderFactory
+    from services.config_loader import ConfigLoader
 
     if debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
     project_root = get_project_root()
-    loader_cfg_path = _resolve(loader_config, project_root)
-    loader_cfg = _load_yaml(loader_cfg_path)
+    config_path = _resolve(config, project_root)
 
-    # 覆盖 metadata_config_file，确保 CLI --config 参数优先级最高
-    loader_cfg["metadata_config_file"] = str(_resolve(config, project_root))
+    # 通过 ConfigLoader 加载主配置（支持环境变量替换）
+    full_config = ConfigLoader(str(config_path)).load()
+
+    # 从主配置切出 loaders 段，作为 loader 的 config dict
+    loader_cfg = full_config.get("loaders", {})
+    # 保留 metadata_config_file 引用（dim_loader、table_schema_loader 需要）
+    loader_cfg["metadata_config_file"] = str(config_path)
+
+    # 动态补全 sql_loader.input_file（如配置中为空则从 database.database 拼出）
+    sql_loader_cfg = loader_cfg.get("sql_loader", {})
+    if not sql_loader_cfg.get("input_file"):
+        db_name = full_config.get("database", {}).get("database", "")
+        if db_name:
+            sql_output_dir = full_config.get("sql_rag", {}).get(
+                "generation", {}
+            ).get("output_dir", "output/sql")
+            sql_input_path = _resolve(sql_output_dir, project_root) / f"qs_{db_name}_pair.json"
+            if "sql_loader" not in loader_cfg:
+                loader_cfg["sql_loader"] = {}
+            loader_cfg["sql_loader"]["input_file"] = str(sql_input_path)
+            logger.info("sql_loader.input_file 动态解析为: %s", sql_input_path)
 
     steps = list(LOAD_STEPS)
     if with_dim_values:
