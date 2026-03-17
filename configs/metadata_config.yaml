@@ -424,6 +424,6 @@ domain_generation:
   md_context_limit: 100
   # 可选：为 Domain 生成指定专属 LLM（未配置时 fallback 到全局 llm）
   # llm:
-  #   provider: openai
+  #   provider: openaiwoca
   #   model_name: gpt-4o
   #   temperature: 0.1

@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.rental
--- Comment: 租赁记录表，存储影片租借、归还时间及关联的库存、客户和员工信息
--- Generated: 2026-02-25 19:44:31
+-- Comment: 租赁记录表，存储影片租借的起止时间、租借人、库存项及经办员工信息
+-- Generated: 2026-03-17 08:20:01
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.rental (
@@ -22,17 +22,17 @@ CREATE TABLE IF NOT EXISTS public.rental (
 -- Column Comments
 COMMENT ON COLUMN public.rental.rental_id IS '租赁记录唯一标识ID';
 COMMENT ON COLUMN public.rental.rental_date IS '租赁发生时间戳';
-COMMENT ON COLUMN public.rental.inventory_id IS '被租赁的库存物品ID';
+COMMENT ON COLUMN public.rental.inventory_id IS '影片库存记录ID';
 COMMENT ON COLUMN public.rental.customer_id IS '租赁客户唯一标识ID';
-COMMENT ON COLUMN public.rental.return_date IS '归还时间戳（NULL表示未归还）';
-COMMENT ON COLUMN public.rental.staff_id IS '处理该租赁业务的员工ID';
+COMMENT ON COLUMN public.rental.return_date IS '影片归还时间戳（可为空）';
+COMMENT ON COLUMN public.rental.staff_id IS '处理租赁业务的员工ID';
 COMMENT ON COLUMN public.rental.last_update IS '记录最后更新时间戳';
 
 -- Indexes
 CREATE INDEX idx_fk_inventory_id ON public.rental(inventory_id);
 
 -- Table Comment
-COMMENT ON TABLE public.rental IS '租赁记录表，存储影片租借、归还时间及关联的库存、客户和员工信息';
+COMMENT ON TABLE public.rental IS '租赁记录表，存储影片租借的起止时间、租借人、库存项及经办员工信息';
 
 /* SAMPLE_RECORDS
 {

@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.city
--- Comment: 城市信息表，存储全球城市的名称、所属国家及更新时间
--- Generated: 2026-02-25 19:44:14
+-- Comment: 城市信息表，存储全球城市名称、所属国家及更新时间
+-- Generated: 2026-03-17 08:19:37
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.city (
@@ -24,7 +24,7 @@ COMMENT ON COLUMN public.city.last_update IS '最后更新时间戳';
 CREATE INDEX idx_fk_country_id ON public.city(country_id);
 
 -- Table Comment
-COMMENT ON TABLE public.city IS '城市信息表，存储全球城市的名称、所属国家及更新时间';
+COMMENT ON TABLE public.city IS '城市信息表，存储全球城市名称、所属国家及更新时间';
 
 /* SAMPLE_RECORDS
 {

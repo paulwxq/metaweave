@@ -1,14 +1,14 @@
-# public.film（电影信息表，存储影片标题、描述、年份、语言、租借信息、时长、评级等元数据）
+# public.film（电影信息表，存储影片标题、描述、年份、语言、租借参数、时长、分级等元数据）
 ## 字段列表：
 - film_id (integer(32)) - 电影唯一标识ID [示例: null]
 - title (character varying(255)) - 电影标题 [示例: null]
 - description (text) - 电影剧情简介 [示例: null]
 - release_year (integer(32)) - 电影上映年份 [示例: null]
 - language_id (smallint(16)) - 电影语言ID（关联language表） [示例: null]
-- rental_duration (smallint(16)) - 租赁期限（天数） [示例: null]
-- rental_rate (numeric(4,2)) - 租赁单价（美元） [示例: null]
-- length (smallint(16)) - 电影时长（分钟） [示例: null]
-- replacement_cost (numeric(5,2)) - 丢失/损坏赔偿金额（美元） [示例: null]
+- rental_duration (smallint(16)) - 租赁天数（单位：天） [示例: null]
+- rental_rate (numeric(4,2)) - 租赁单价（单位：美元） [示例: null]
+- length (smallint(16)) - 电影时长（单位：分钟） [示例: null]
+- replacement_cost (numeric(5,2)) - 丢失/损坏赔偿金额（单位：美元） [示例: null]
 - rating (user-defined) - 电影分级（如NC-17、R、PG等） [示例: null]
 - last_update (timestamp without time zone) - 最后更新时间戳 [示例: null]
 - special_features (array) - 特别花絮（数组，如预告片、幕后花絮等） [示例: null]

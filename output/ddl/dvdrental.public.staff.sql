@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.staff
--- Comment: 员工信息表，存储门店员工的基本资料、联系方式、账户凭证及头像等信息
--- Generated: 2026-02-25 19:44:37
+-- Comment: 员工信息表，存储门店员工的基本资料、联系方式、账户凭证及状态
+-- Generated: 2026-03-17 08:20:01
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.staff (
@@ -31,11 +31,11 @@ COMMENT ON COLUMN public.staff.store_id IS '所属门店ID';
 COMMENT ON COLUMN public.staff.active IS '员工启用状态（true-在职，false-离职）';
 COMMENT ON COLUMN public.staff.username IS '员工系统登录用户名';
 COMMENT ON COLUMN public.staff.password IS '员工密码（SHA1哈希值）';
-COMMENT ON COLUMN public.staff.last_update IS '最后更新时间戳';
+COMMENT ON COLUMN public.staff.last_update IS '记录最后更新时间戳';
 COMMENT ON COLUMN public.staff.picture IS '员工照片二进制数据';
 
 -- Table Comment
-COMMENT ON TABLE public.staff IS '员工信息表，存储门店员工的基本资料、联系方式、账户凭证及头像等信息';
+COMMENT ON TABLE public.staff IS '员工信息表，存储门店员工的基本资料、联系方式、账户凭证及状态';
 
 /* SAMPLE_RECORDS
 {

@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: dvdrental
 -- Table: public.address
--- Comment: 地址信息表，存储客户或实体的详细地址、行政区划及联系方式
--- Generated: 2026-02-25 19:44:15
+-- Comment: 地址信息表，存储客户或实体的详细地理位置及联系方式
+-- Generated: 2026-03-17 08:19:37
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.address (
@@ -20,10 +20,10 @@ CREATE TABLE IF NOT EXISTS public.address (
 
 -- Column Comments
 COMMENT ON COLUMN public.address.address_id IS '地址唯一标识ID';
-COMMENT ON COLUMN public.address.address IS '详细地址（街道、门牌号等）';
-COMMENT ON COLUMN public.address.address2 IS '补充地址（如楼层、房间号等）';
-COMMENT ON COLUMN public.address.district IS '所属行政区（省/州/区）';
-COMMENT ON COLUMN public.address.city_id IS '所属城市的外键ID';
+COMMENT ON COLUMN public.address.address IS '详细街道地址';
+COMMENT ON COLUMN public.address.address2 IS '补充地址（如公寓号、楼层等）';
+COMMENT ON COLUMN public.address.district IS '所属行政区/区名';
+COMMENT ON COLUMN public.address.city_id IS '所属城市的唯一标识ID';
 COMMENT ON COLUMN public.address.postal_code IS '邮政编码';
 COMMENT ON COLUMN public.address.phone IS '联系电话';
 COMMENT ON COLUMN public.address.last_update IS '最后更新时间';
@@ -32,7 +32,7 @@ COMMENT ON COLUMN public.address.last_update IS '最后更新时间';
 CREATE INDEX idx_fk_city_id ON public.address(city_id);
 
 -- Table Comment
-COMMENT ON TABLE public.address IS '地址信息表，存储客户或实体的详细地址、行政区划及联系方式';
+COMMENT ON TABLE public.address IS '地址信息表，存储客户或实体的详细地理位置及联系方式';
 
 /* SAMPLE_RECORDS
 {

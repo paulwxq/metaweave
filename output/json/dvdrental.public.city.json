@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-02-26T00:19:15.652642",
+  "generated_timestamp": "2026-03-17T08:20:01.320172",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
     "table_name": "city",
     "table_type": "table",
-    "comment": "城市信息表，存储全球城市的名称、所属国家及更新时间",
+    "comment": "城市信息表，存储全球城市名称、所属国家及更新时间",
     "comment_source": "ddl",
     "total_rows": 600,
     "total_columns": 4
@@ -324,5 +324,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-02-26T00:19:23.742020"
+  "llm_enhanced_at": "2026-03-17T08:20:14.537565"
 }

@@ -1,4 +1,4 @@
-# public.city（城市信息表，存储全球城市的名称、所属国家及更新时间）
+# public.city（城市信息表，存储全球城市名称、所属国家及更新时间）
 ## 字段列表：
 - city_id (integer(32)) - 城市唯一标识ID [示例: 1, 2]
 - city (character varying(50)) - 城市名称 [示例: A Corua (La Corua), Abha]

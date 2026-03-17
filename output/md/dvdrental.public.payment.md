@@ -1,4 +1,4 @@
-# public.payment（支付记录表，存储客户租赁服务的付款信息及交易详情）
+# public.payment（支付记录表，存储客户租赁服务的付款明细及交易时间）
 ## 字段列表：
 - payment_id (integer(32)) - 支付记录唯一标识ID [示例: 17503, 17504]
 - customer_id (smallint(16)) - 关联客户ID [示例: 341, 341]

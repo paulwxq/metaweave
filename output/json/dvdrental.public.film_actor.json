@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-02-26T00:19:15.678835",
+  "generated_timestamp": "2026-03-17T08:20:01.370680",
   "table_info": {
     "database": "dvdrental",
     "schema_name": "public",
@@ -161,7 +161,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": "now()",
-      "comment": "最后更新时间戳",
+      "comment": "记录最后更新时间",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -301,5 +301,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-02-26T00:19:31.547645"
+  "llm_enhanced_at": "2026-03-17T08:20:32.896757"
 }

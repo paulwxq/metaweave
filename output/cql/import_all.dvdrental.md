@@ -7,8 +7,8 @@
 
 ## 生成信息
 
-- **生成时间**: 2026-02-26 11:30:22
-- **生成命令**: `metaweave metadata --step cql_llm`
+- **生成时间**: 2026-03-17 08:21:14
+- **生成命令**: `metaweave metadata --step cql`
 
 ---
 
@@ -27,8 +27,8 @@
 | 边类型 | 数量 |
 |-------|------|
 | HAS_COLUMN | 86 |
-| JOIN_ON | 27 |
-| **边总数** | **113** |
+| JOIN_ON | 18 |
+| **边总数** | **104** |
 
 ---
 
@@ -46,7 +46,7 @@
 
 | 文件名 | 行数 |
 |-------|------|
-| import_all.dvdrental.cypher | 2912 |
+| import_all.dvdrental.cypher | 2794 |
 | import_all.dvdrental.md | - |
 
 ---

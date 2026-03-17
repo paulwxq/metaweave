@@ -1,7 +1,7 @@
 // import_all.dvdrental.cypher
 // Neo4j 元数据导入脚本（global 模式，包含所有表和关系）
-// 生成时间: 2026-02-26T11:30:22.876176
-// 统计: 15 张表, 86 个列, 27 个关系
+// 生成时间: 2026-03-17T08:21:14.661577
+// 统计: 15 张表, 86 个列, 18 个关系
 
 // =====================================================================
 // 1. 创建唯一约束
@@ -37,7 +37,9 @@
         "last_name"
       ]
     ],
-    "table_domains": [],
+    "table_domains": [
+      "内容分类与演职人员"
+    ],
     "table_category": "dim"
   },
   {
@@ -46,7 +48,7 @@
     "full_name": "public.address",
     "schema": "public",
     "name": "address",
-    "comment": "地址信息表，存储客户或实体的详细地址、行政区划及联系方式",
+    "comment": "地址信息表，存储客户或实体的详细地理位置及联系方式",
     "pk": [
       "address_id"
     ],
@@ -64,7 +66,9 @@
         "city_id"
       ]
     ],
-    "table_domains": [],
+    "table_domains": [
+      "地理信息管理"
+    ],
     "table_category": "dim"
   },
   {
@@ -73,7 +77,7 @@
     "full_name": "public.category",
     "schema": "public",
     "name": "category",
-    "comment": "电影分类表，存储影片类别的名称及最后更新时间",
+    "comment": "电影分类表，存储影片类别名称及最后更新时间",
     "pk": [
       "category_id"
     ],
@@ -83,7 +87,9 @@
     "logic_fk": [],
     "logic_uk": [],
     "indexes": [],
-    "table_domains": [],
+    "table_domains": [
+      "内容分类与演职人员"
+    ],
     "table_category": "dim"
   },
   {
@@ -92,7 +98,7 @@
     "full_name": "public.city",
     "schema": "public",
     "name": "city",
-    "comment": "城市信息表，存储全球城市的名称、所属国家及更新时间",
+    "comment": "城市信息表，存储全球城市名称、所属国家及更新时间",
     "pk": [
       "city_id"
     ],
@@ -110,7 +116,9 @@
         "country_id"
       ]
     ],
-    "table_domains": [],
+    "table_domains": [
+      "地理信息管理"
+    ],
     "table_category": "dim"
   },
   {
@@ -129,7 +137,9 @@
     "logic_fk": [],
     "logic_uk": [],
     "indexes": [],
-    "table_domains": [],
+    "table_domains": [
+      "地理信息管理"
+    ],
     "table_category": "dim"
   },
   {
@@ -162,7 +172,9 @@
         "last_name"
       ]
     ],
-    "table_domains": [],
+    "table_domains": [
+      "客户与账户管理"
+    ],
     "table_category": "dim"
   },
   {
@@ -171,7 +183,7 @@
     "full_name": "public.film",
     "schema": "public",
     "name": "film",
-    "comment": "电影信息表，存储影片标题、描述、年份、语言、租借信息、时长、评级等元数据",
+    "comment": "电影信息表，存储影片标题、描述、年份、语言、租借参数、时长、分级等元数据",
     "pk": [
       "film_id"
     ],
@@ -195,7 +207,9 @@
         "title"
       ]
     ],
-    "table_domains": [],
+    "table_domains": [
+      "影片内容资产"
+    ],
     "table_category": "dim"
   },
   {
@@ -226,7 +240,9 @@
         "film_id"
       ]
     ],
-    "table_domains": [],
+    "table_domains": [
+      "内容分类与演职人员"
+    ],
     "table_category": "bridge"
   },
   {
@@ -235,7 +251,7 @@
     "full_name": "public.film_category",
     "schema": "public",
     "name": "film_category",
-    "comment": "电影与分类的多对多关联表，记录每部电影所属的分类及最后更新时间",
+    "comment": "电影分类关联表，记录电影与分类之间的多对多关系",
     "pk": [
       "film_id",
       "category_id"
@@ -253,7 +269,9 @@
     "logic_fk": [],
     "logic_uk": [],
     "indexes": [],
-    "table_domains": [],
+    "table_domains": [
+      "内容分类与演职人员"
+    ],
     "table_category": "bridge"
   },
   {
@@ -281,7 +299,9 @@
         "film_id"
       ]
     ],
-    "table_domains": [],
+    "table_domains": [
+      "租赁交易与履约"
+    ],
     "table_category": "fact"
   },
   {
@@ -300,7 +320,9 @@
     "logic_fk": [],
     "logic_uk": [],
     "indexes": [],
-    "table_domains": [],
+    "table_domains": [
+      "影片内容资产"
+    ],
     "table_category": "dim"
   },
   {
@@ -309,7 +331,7 @@
     "full_name": "public.payment",
     "schema": "public",
     "name": "payment",
-    "comment": "支付记录表，存储客户租赁服务的付款信息及交易详情",
+    "comment": "支付记录表，存储客户租赁服务的付款明细及交易时间",
     "pk": [
       "payment_id"
     ],
@@ -339,7 +361,9 @@
         "staff_id"
       ]
     ],
-    "table_domains": [],
+    "table_domains": [
+      "财务结算"
+    ],
     "table_category": "fact"
   },
   {
@@ -348,7 +372,7 @@
     "full_name": "public.rental",
     "schema": "public",
     "name": "rental",
-    "comment": "租赁记录表，存储影片租借、归还时间及关联的库存、客户和员工信息",
+    "comment": "租赁记录表，存储影片租借的起止时间、租借人、库存项及经办员工信息",
     "pk": [
       "rental_id"
     ],
@@ -372,7 +396,9 @@
         "inventory_id"
       ]
     ],
-    "table_domains": [],
+    "table_domains": [
+      "租赁交易与履约"
+    ],
     "table_category": "fact"
   },
   {
@@ -381,7 +407,7 @@
     "full_name": "public.staff",
     "schema": "public",
     "name": "staff",
-    "comment": "员工信息表，存储门店员工的基本资料、联系方式、账户凭证及头像等信息",
+    "comment": "员工信息表，存储门店员工的基本资料、联系方式、账户凭证及状态",
     "pk": [
       "staff_id"
     ],
@@ -395,7 +421,9 @@
     "logic_fk": [],
     "logic_uk": [],
     "indexes": [],
-    "table_domains": [],
+    "table_domains": [
+      "门店与组织架构"
+    ],
     "table_category": "dim"
   },
   {
@@ -421,7 +449,9 @@
     "logic_fk": [],
     "logic_uk": [],
     "indexes": [],
-    "table_domains": [],
+    "table_domains": [
+      "门店与组织架构"
+    ],
     "table_category": "dim"
   }
 ] AS t
@@ -438,11 +468,7 @@
     n.logic_fk = t.logic_fk,
     n.logic_uk = t.logic_uk,
     n.indexes  = t.indexes,
-    n.table_domains = CASE
-        WHEN t.table_domains IS NOT NULL AND size(t.table_domains) > 0
-            THEN t.table_domains
-        ELSE coalesce(n.table_domains, [])
-    END,
+    n.table_domains = t.table_domains,
     n.table_category = CASE
         WHEN t.table_category IS NOT NULL
             THEN t.table_category
@@ -556,7 +582,7 @@
     "schema": "public",
     "table": "address",
     "name": "address",
-    "comment": "详细地址（街道、门牌号等）",
+    "comment": "详细街道地址",
     "data_type": "character varying",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -575,7 +601,7 @@
     "schema": "public",
     "table": "address",
     "name": "address2",
-    "comment": "补充地址（如楼层、房间号等）",
+    "comment": "补充地址（如公寓号、楼层等）",
     "data_type": "character varying",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -594,7 +620,7 @@
     "schema": "public",
     "table": "address",
     "name": "district",
-    "comment": "所属行政区（省/州/区）",
+    "comment": "所属行政区/区名",
     "data_type": "character varying",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -613,7 +639,7 @@
     "schema": "public",
     "table": "address",
     "name": "city_id",
-    "comment": "所属城市的外键ID",
+    "comment": "所属城市的唯一标识ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -860,7 +886,7 @@
     "schema": "public",
     "table": "country",
     "name": "last_update",
-    "comment": "最后更新时间",
+    "comment": "最后更新时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1164,7 +1190,7 @@
     "schema": "public",
     "table": "film",
     "name": "rental_duration",
-    "comment": "租赁期限（天数）",
+    "comment": "租赁天数（单位：天）",
     "data_type": "smallint",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1183,7 +1209,7 @@
     "schema": "public",
     "table": "film",
     "name": "rental_rate",
-    "comment": "租赁单价（美元）",
+    "comment": "租赁单价（单位：美元）",
     "data_type": "numeric",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1202,7 +1228,7 @@
     "schema": "public",
     "table": "film",
     "name": "length",
-    "comment": "电影时长（分钟）",
+    "comment": "电影时长（单位：分钟）",
     "data_type": "smallint",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1221,7 +1247,7 @@
     "schema": "public",
     "table": "film",
     "name": "replacement_cost",
-    "comment": "丢失/损坏赔偿金额（美元）",
+    "comment": "丢失/损坏赔偿金额（单位：美元）",
     "data_type": "numeric",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1354,7 +1380,7 @@
     "schema": "public",
     "table": "film_actor",
     "name": "last_update",
-    "comment": "最后更新时间戳",
+    "comment": "记录最后更新时间",
     "data_type": "timestamp without time zone",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -1715,7 +1741,7 @@
     "schema": "public",
     "table": "rental",
     "name": "inventory_id",
-    "comment": "被租赁的库存物品ID",
+    "comment": "影片库存记录ID",
     "data_type": "integer",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1753,7 +1779,7 @@
     "schema": "public",
     "table": "rental",
     "name": "return_date",
-    "comment": "归还时间戳（NULL表示未归还）",
+    "comment": "影片归还时间戳（可为空）",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -1772,7 +1798,7 @@
     "schema": "public",
     "table": "rental",
     "name": "staff_id",
-    "comment": "处理该租赁业务的员工ID",
+    "comment": "处理租赁业务的员工ID",
     "data_type": "smallint",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -1981,7 +2007,7 @@
     "schema": "public",
     "table": "staff",
     "name": "last_update",
-    "comment": "最后更新时间戳",
+    "comment": "记录最后更新时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "attribute",
     "is_pk": false,
@@ -2753,150 +2779,6 @@ UNWIND [
     ],
     "src_full_name": "public.store",
     "dst_full_name": "public.staff"
-  },
-  {
-    "source_table": "public.customer",
-    "target_table": "public.inventory",
-    "cardinality": "M:N",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.store_id = DST.store_id",
-    "source_columns": [
-      "store_id"
-    ],
-    "target_columns": [
-      "store_id"
-    ],
-    "src_full_name": "public.customer",
-    "dst_full_name": "public.inventory"
-  },
-  {
-    "source_table": "public.customer",
-    "target_table": "public.staff",
-    "cardinality": "N:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.store_id = DST.store_id",
-    "source_columns": [
-      "store_id"
-    ],
-    "target_columns": [
-      "store_id"
-    ],
-    "src_full_name": "public.customer",
-    "dst_full_name": "public.staff"
-  },
-  {
-    "source_table": "public.customer",
-    "target_table": "public.store",
-    "cardinality": "N:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.store_id = DST.store_id",
-    "source_columns": [
-      "store_id"
-    ],
-    "target_columns": [
-      "store_id"
-    ],
-    "src_full_name": "public.customer",
-    "dst_full_name": "public.store"
-  },
-  {
-    "source_table": "public.film_actor",
-    "target_table": "public.film_category",
-    "cardinality": "N:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.film_id = DST.film_id",
-    "source_columns": [
-      "film_id"
-    ],
-    "target_columns": [
-      "film_id"
-    ],
-    "src_full_name": "public.film_actor",
-    "dst_full_name": "public.film_category"
-  },
-  {
-    "source_table": "public.inventory",
-    "target_table": "public.staff",
-    "cardinality": "N:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.store_id = DST.store_id",
-    "source_columns": [
-      "store_id"
-    ],
-    "target_columns": [
-      "store_id"
-    ],
-    "src_full_name": "public.inventory",
-    "dst_full_name": "public.staff"
-  },
-  {
-    "source_table": "public.inventory",
-    "target_table": "public.store",
-    "cardinality": "N:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.store_id = DST.store_id",
-    "source_columns": [
-      "store_id"
-    ],
-    "target_columns": [
-      "store_id"
-    ],
-    "src_full_name": "public.inventory",
-    "dst_full_name": "public.store"
-  },
-  {
-    "source_table": "public.payment",
-    "target_table": "public.store",
-    "cardinality": "N:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.staff_id = DST.manager_staff_id",
-    "source_columns": [
-      "staff_id"
-    ],
-    "target_columns": [
-      "manager_staff_id"
-    ],
-    "src_full_name": "public.payment",
-    "dst_full_name": "public.store"
-  },
-  {
-    "source_table": "public.rental",
-    "target_table": "public.store",
-    "cardinality": "N:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.staff_id = DST.manager_staff_id",
-    "source_columns": [
-      "staff_id"
-    ],
-    "target_columns": [
-      "manager_staff_id"
-    ],
-    "src_full_name": "public.rental",
-    "dst_full_name": "public.store"
-  },
-  {
-    "source_table": "public.staff",
-    "target_table": "public.store",
-    "cardinality": "1:1",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.store_id = DST.store_id",
-    "source_columns": [
-      "store_id"
-    ],
-    "target_columns": [
-      "store_id"
-    ],
-    "src_full_name": "public.staff",
-    "dst_full_name": "public.store"
   }
 ] AS j
 MATCH (src:Table {full_name: j.src_full_name})

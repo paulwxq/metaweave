@@ -2,7 +2,7 @@
 -- Database: dvdrental
 -- Table: public.film_actor
 -- Comment: 电影与演员的关联表，记录演员参演电影的关系及更新时间
--- Generated: 2026-02-25 19:44:23
+-- Generated: 2026-03-17 08:19:49
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.film_actor (
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS public.film_actor (
 -- Column Comments
 COMMENT ON COLUMN public.film_actor.actor_id IS '演员唯一标识ID';
 COMMENT ON COLUMN public.film_actor.film_id IS '电影唯一标识ID';
-COMMENT ON COLUMN public.film_actor.last_update IS '最后更新时间戳';
+COMMENT ON COLUMN public.film_actor.last_update IS '记录最后更新时间';
 
 -- Indexes
 CREATE INDEX idx_fk_film_id ON public.film_actor(film_id);

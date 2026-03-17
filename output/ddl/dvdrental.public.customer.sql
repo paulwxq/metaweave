@@ -2,7 +2,7 @@
 -- Database: dvdrental
 -- Table: public.customer
 -- Comment: 客户信息表，存储客户的姓名、联系方式、地址及账户状态等基本信息
--- Generated: 2026-02-25 19:44:22
+-- Generated: 2026-03-17 08:19:44
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.customer (

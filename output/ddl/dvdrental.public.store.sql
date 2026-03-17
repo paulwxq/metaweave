@@ -2,7 +2,7 @@
 -- Database: dvdrental
 -- Table: public.store
 -- Comment: 门店信息表，存储门店编号、负责人、地址及最后更新时间
--- Generated: 2026-02-25 19:44:33
+-- Generated: 2026-03-17 08:19:59
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.store (

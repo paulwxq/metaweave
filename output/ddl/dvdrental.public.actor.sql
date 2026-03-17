@@ -2,7 +2,7 @@
 -- Database: dvdrental
 -- Table: public.actor
 -- Comment: 演员信息表，存储电影演员的姓名及最后更新时间
--- Generated: 2026-02-25 19:44:14
+-- Generated: 2026-03-17 08:19:43
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.actor (
