@@ -1,0 +1,1179 @@
+{
+  "metadata_version": "2.0",
+  "generated_timestamp": "2026-03-17T23:00:22.190123",
+  "table_info": {
+    "database": "highway_db",
+    "schema_name": "public",
+    "table_name": "bss_branch",
+    "table_type": "table",
+    "comment": "高速公路服务区经营网点信息表，存储各餐饮、小吃等品牌分支网点的基本属性与归属关系",
+    "comment_source": "ddl",
+    "total_rows": 1331,
+    "total_columns": 19
+  },
+  "column_profiles": {
+    "id": {
+      "column_name": "id",
+      "ordinal_position": 1,
+      "data_type": "character varying",
+      "character_maximum_length": 32,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "分支机构唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1000,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "avg_length": 32.0,
+        "min_length": 32,
+        "max_length": 32,
+        "median_length": 32.0,
+        "length_std": 0.0
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "high_uniqueness"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "logical_primary_key",
+          "is_surrogate": true
+        }
+      }
+    },
+    "version": {
+      "column_name": "version",
+      "ordinal_position": 2,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "数据版本号，用于乐观锁控制",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 3,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.003,
+        "min": "0",
+        "max": "2",
+        "mean": "1.004",
+        "value_distribution": {
+          "1": 984,
+          "2": 10,
+          "0": 6
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:version"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "version",
+          "description": "版本号"
+        }
+      }
+    },
+    "create_ts": {
+      "column_name": "create_ts",
+      "ordinal_position": 3,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "记录创建时间戳",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 417,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.417
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_ts$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "created_by": {
+      "column_name": "created_by",
+      "ordinal_position": 4,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "创建人用户名",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 5,
+        "null_count": 21,
+        "null_rate": 0.021,
+        "uniqueness": 0.005,
+        "avg_length": 8.74,
+        "min_length": 5,
+        "max_length": 19,
+        "median_length": 5.0,
+        "length_std": 5.03,
+        "value_distribution": {
+          "admin": 595,
+          "new_insert_data": 305,
+          "third": 31,
+          "third zhengti zulin": 29,
+          "INSERT INTO DATA": 19
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^created_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "actor",
+          "description": "操作人标识"
+        }
+      }
+    },
+    "update_ts": {
+      "column_name": "update_ts",
+      "ordinal_position": 5,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "记录最后更新时间戳",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 68,
+        "null_count": 116,
+        "null_rate": 0.116,
+        "uniqueness": 0.068
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_ts$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "updated_by": {
+      "column_name": "updated_by",
+      "ordinal_position": 6,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "最后更新人用户名",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 3,
+        "null_count": 460,
+        "null_rate": 0.46,
+        "uniqueness": 0.003,
+        "avg_length": 19.19,
+        "min_length": 0,
+        "max_length": 20,
+        "median_length": 20.0,
+        "length_std": 3.89,
+        "value_distribution": {
+          "updated by importSQL": 517,
+          "": 19,
+          "admin": 4
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^updated_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "actor",
+          "description": "操作人标识"
+        }
+      }
+    },
+    "delete_ts": {
+      "column_name": "delete_ts",
+      "ordinal_position": 7,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "逻辑删除时间戳（NULL表示未删除）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 0,
+        "null_count": 1000,
+        "null_rate": 1.0,
+        "uniqueness": 0.0,
+        "value_distribution": {}
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_ts$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "deleted_by": {
+      "column_name": "deleted_by",
+      "ordinal_position": 8,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "逻辑删除操作人用户名",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1,
+        "null_count": 981,
+        "null_rate": 0.981,
+        "uniqueness": 0.001,
+        "avg_length": 0.0,
+        "min_length": 0,
+        "max_length": 0,
+        "median_length": 0.0,
+        "length_std": 0.0,
+        "value_distribution": {
+          "": 19
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^deleted_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "actor",
+          "description": "操作人标识"
+        }
+      }
+    },
+    "branch_name": {
+      "column_name": "branch_name",
+      "ordinal_position": 9,
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "档口名称",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 803,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.803,
+        "avg_length": 7.06,
+        "min_length": 2,
+        "max_length": 14,
+        "median_length": 7.0,
+        "length_std": 2.51
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {}
+    },
+    "branch_no": {
+      "column_name": "branch_no",
+      "ordinal_position": 10,
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "档口编码",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 955,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.955,
+        "avg_length": 7.26,
+        "min_length": 1,
+        "max_length": 13,
+        "median_length": 6.0,
+        "length_std": 2.64
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "high_uniqueness"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "logical_primary_key",
+          "is_surrogate": true
+        },
+        "index_info": {
+          "index_name": "idx_brach_no",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "service_area_id": {
+      "column_name": "service_area_id",
+      "ordinal_position": 11,
+      "data_type": "character varying",
+      "character_maximum_length": 32,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "服务区id",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 89,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.089,
+        "avg_length": 32.0,
+        "min_length": 32,
+        "max_length": 32,
+        "median_length": 32.0,
+        "length_std": 0.0
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 0.85,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "naming_with_uniqueness"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "id",
+          "is_surrogate": true
+        },
+        "index_info": {
+          "index_name": "idx_area_id",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "company_id": {
+      "column_name": "company_id",
+      "ordinal_position": 12,
+      "data_type": "character varying",
+      "character_maximum_length": 32,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "公司id",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 8,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.008,
+        "avg_length": 32.0,
+        "min_length": 32,
+        "max_length": 32,
+        "median_length": 32.0,
+        "length_std": 0.0,
+        "value_distribution": {
+          "e6c060f05306a03f978e2b952a551744": 165,
+          "ce5e6f553513dad393694e1fa663aaf4": 140,
+          "47ed0bb37f5a85f3d9245e4854959b81": 135,
+          "f54632bfefe1d226a78cf2b90c5dbe4f": 120,
+          "b1629f07c8d9ac81494fbc1de61f1ea5": 118,
+          "ee9bf1180a2b45003f96e597a4b7f15a": 114,
+          "30675d85ba5044c31acfa243b9d16334": 111,
+          "78efbf20d592d3ca938fd32303bb5fd8": 97
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 0.75,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "naming_only"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "id",
+          "is_surrogate": true
+        },
+        "index_info": {
+          "index_name": "idx_company_id",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "classify": {
+      "column_name": "classify",
+      "ordinal_position": 13,
+      "data_type": "character varying",
+      "character_maximum_length": 256,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "品类",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 5,
+        "null_count": 1,
+        "null_rate": 0.001,
+        "uniqueness": 0.005,
+        "avg_length": 2.13,
+        "min_length": 2,
+        "max_length": 4,
+        "median_length": 2.0,
+        "length_std": 0.39,
+        "value_distribution": {
+          "小吃": 342,
+          "其他": 317,
+          "餐饮": 226,
+          "便利店": 96,
+          "整体租赁": 18
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {}
+    },
+    "product_brand": {
+      "column_name": "product_brand",
+      "ordinal_position": 14,
+      "data_type": "character varying",
+      "character_maximum_length": 256,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "品牌",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 195,
+        "null_count": 1,
+        "null_rate": 0.001,
+        "uniqueness": 0.195,
+        "avg_length": 3.75,
+        "min_length": 2,
+        "max_length": 20,
+        "median_length": 3.0,
+        "length_std": 2.17
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {}
+    },
+    "category": {
+      "column_name": "category",
+      "ordinal_position": 15,
+      "data_type": "character varying",
+      "character_maximum_length": 256,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "类别",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 38,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.038,
+        "avg_length": 2.56,
+        "min_length": 1,
+        "max_length": 7,
+        "median_length": 2.0,
+        "length_std": 0.78
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {}
+    },
+    "section_route_id": {
+      "column_name": "section_route_id",
+      "ordinal_position": 16,
+      "data_type": "character varying",
+      "character_maximum_length": 32,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "线路id",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 45,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.045,
+        "avg_length": 32.0,
+        "min_length": 32,
+        "max_length": 32,
+        "median_length": 32.0,
+        "length_std": 0.0
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 0.75,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "naming_only"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "id",
+          "is_surrogate": true
+        }
+      }
+    },
+    "direction": {
+      "column_name": "direction",
+      "ordinal_position": 17,
+      "data_type": "character varying",
+      "character_maximum_length": 256,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "服务区方向",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 6,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.006,
+        "avg_length": 1.96,
+        "min_length": 0,
+        "max_length": 2,
+        "median_length": 2.0,
+        "length_std": 0.28,
+        "value_distribution": {
+          "南区": 258,
+          "北区": 248,
+          "东区": 241,
+          "西区": 232,
+          "": 20,
+          "两区": 1
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {}
+    },
+    "is_manual_entry": {
+      "column_name": "is_manual_entry",
+      "ordinal_position": 18,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": "0",
+      "comment": "是否手工录入数据：0：系统自动  1：手工录入",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 2,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.002,
+        "min": "0",
+        "max": "1",
+        "mean": "0.305",
+        "value_distribution": {
+          "0": 695,
+          "1": 305
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "enum",
+        "semantic_confidence": 0.85,
+        "inference_basis": [
+          "simple_two_value_enum"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "enum_info": {
+          "cardinality": 2,
+          "cardinality_level": "low",
+          "values": [
+            "0",
+            "1"
+          ]
+        }
+      }
+    },
+    "co_company": {
+      "column_name": "co_company",
+      "ordinal_position": 19,
+      "data_type": "character varying",
+      "character_maximum_length": 256,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "合作单位",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 106,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.106,
+        "avg_length": 13.79,
+        "min_length": 2,
+        "max_length": 82,
+        "median_length": 14.0,
+        "length_std": 4.88
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {}
+    }
+  },
+  "table_profile": {
+    "table_category": "dim",
+    "confidence": 0.95,
+    "inference_basis": [
+      "llm_inferred"
+    ],
+    "physical_constraints": {
+      "primary_key": null,
+      "foreign_keys": [],
+      "unique_constraints": []
+    },
+    "indexes": [
+      {
+        "index_name": "idx_area_id",
+        "index_type": "btree",
+        "columns": [
+          "service_area_id"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      },
+      {
+        "index_name": "idx_brach_no",
+        "index_type": "btree",
+        "columns": [
+          "branch_no"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      },
+      {
+        "index_name": "idx_company_id",
+        "index_type": "btree",
+        "columns": [
+          "company_id"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      }
+    ],
+    "column_statistics": {
+      "total_columns": 19,
+      "identifier_count": 5,
+      "metric_count": 0,
+      "datetime_count": 0,
+      "enum_count": 0,
+      "audit_count": 7,
+      "attribute_count": 6,
+      "primary_key_count": 0,
+      "foreign_key_count": 0
+    },
+    "unique_column_sets": [
+      {
+        "columns": [
+          "id"
+        ],
+        "confidence_score": 1.0,
+        "uniqueness": 1.0,
+        "null_rate": 0.0
+      }
+    ],
+    "table_category_rule_based": "dim",
+    "confidence_rule_based": 0.95,
+    "inference_basis_rule_based": [
+      "fact_dimension_columns",
+      "dim_identifier_columns",
+      "dim_has_primary_key"
+    ]
+  },
+  "sample_records": {
+    "sample_method": "random",
+    "sample_size": 5,
+    "total_rows": 1331,
+    "records": [
+      {
+        "id": "00904903cae681aab7a494c3e88e5acd",
+        "version": 1,
+        "create_ts": "2021-10-15 09:46:45.010000",
+        "created_by": "admin",
+        "update_ts": "2021-10-15 09:46:45.010000",
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "branch_name": "于都驿美餐饮南区",
+        "branch_no": 3585,
+        "service_area_id": "c7e2f26df373e9cb75bd24ddba57f27f",
+        "company_id": "ce5e6f553513dad393694e1fa663aaf4",
+        "classify": "餐饮",
+        "product_brand": "驿美餐饮",
+        "category": "餐饮",
+        "section_route_id": "lvkcuu94d4487c42z7qltsvxcyz0iqu5",
+        "direction": "南区",
+        "is_manual_entry": 0,
+        "co_company": "江西驿美餐饮管理有限责任公司"
+      },
+      {
+        "id": "01a3df15b454fa7b5f176125af0c57d8",
+        "version": 1,
+        "create_ts": "2021-05-20 19:53:58.977000",
+        "created_by": "admin",
+        "update_ts": "2021-11-07 20:26:10",
+        "updated_by": "updated by importSQL",
+        "delete_ts": null,
+        "deleted_by": null,
+        "branch_name": "南城餐饮西区",
+        "branch_no": "H0601B",
+        "service_area_id": "8eb8ec693642354a62d640c7f1c2365c",
+        "company_id": "e6c060f05306a03f978e2b952a551744",
+        "classify": "餐饮",
+        "product_brand": "小圆满（自助餐）",
+        "category": "中餐",
+        "section_route_id": "wnejyryq6zvtdy6axgvz6jutv8n6vc3r",
+        "direction": "西区",
+        "is_manual_entry": 0,
+        "co_company": "嘉兴市同辉高速公路服务区经营管理有限公司"
+      },
+      {
+        "id": "01bc4c3d00750860a898a295a77b388e",
+        "version": 1,
+        "create_ts": "2021-05-20 19:53:58.938000",
+        "created_by": "admin",
+        "update_ts": "2021-11-07 20:26:14",
+        "updated_by": "updated by importSQL",
+        "delete_ts": null,
+        "deleted_by": null,
+        "branch_name": "龙虎山小吃北区",
+        "branch_no": "H03106",
+        "service_area_id": "7a060d137a63111d652183007d9f0eaf",
+        "company_id": "30675d85ba5044c31acfa243b9d16334",
+        "classify": "小吃",
+        "product_brand": "百色百味",
+        "category": "小吃",
+        "section_route_id": "tvyjygi5q745pxb697eiaj2sfie6m5be",
+        "direction": "北区",
+        "is_manual_entry": 0,
+        "co_company": "嘉兴力天高速公路服务区经营管理有限公司"
+      },
+      {
+        "id": "01c5d0986490a649db8e906aa1e1748c",
+        "version": 1,
+        "create_ts": "2021-05-20 19:53:58.902000",
+        "created_by": "admin",
+        "update_ts": "2021-11-07 20:26:10",
+        "updated_by": "updated by importSQL",
+        "delete_ts": null,
+        "deleted_by": null,
+        "branch_name": "金溪水果店西区",
+        "branch_no": "H0605E",
+        "service_area_id": "935aec946d0b107f5fb825ce8923d559",
+        "company_id": "e6c060f05306a03f978e2b952a551744",
+        "classify": "其他",
+        "product_brand": "半斗米水果",
+        "category": "水果",
+        "section_route_id": "wnejyryq6zvtdy6axgvz6jutv8n6vc3r",
+        "direction": "西区",
+        "is_manual_entry": 0,
+        "co_company": "杭州半斗米水果连锁有限公司"
+      },
+      {
+        "id": "02005b4d89cd97e6e312c75d4d50ed37",
+        "version": 1,
+        "create_ts": "2021-05-20 19:53:58.900000",
+        "created_by": "admin",
+        "update_ts": "2021-11-07 20:26:11",
+        "updated_by": "updated by importSQL",
+        "delete_ts": null,
+        "deleted_by": null,
+        "branch_name": "吉安西小吃南区",
+        "branch_no": "H08123",
+        "service_area_id": "fb498760acfc18315032c2a442e69de4",
+        "company_id": "b1629f07c8d9ac81494fbc1de61f1ea5",
+        "classify": "小吃",
+        "product_brand": "润仟祥",
+        "category": "小吃",
+        "section_route_id": "e9um53e7q6oklqftlekyf8yh1dxqwen4",
+        "direction": "南区",
+        "is_manual_entry": 0,
+        "co_company": "上高县通达服务管理有限公司"
+      }
+    ]
+  },
+  "llm_enhanced_at": "2026-03-17T23:00:53.331750"
+}

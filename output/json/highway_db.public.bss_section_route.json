@@ -1,0 +1,657 @@
+{
+  "metadata_version": "2.0",
+  "generated_timestamp": "2026-03-17T23:00:21.801972",
+  "table_info": {
+    "database": "highway_db",
+    "schema_name": "public",
+    "table_name": "bss_section_route",
+    "table_type": "table",
+    "comment": "路段与路线关联表，存储路段名称、所属路线及唯一编码",
+    "comment_source": "ddl",
+    "total_rows": 54,
+    "total_columns": 11
+  },
+  "column_profiles": {
+    "id": {
+      "column_name": "id",
+      "ordinal_position": 1,
+      "data_type": "character varying",
+      "character_maximum_length": 32,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "路段路由记录唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 54,
+        "unique_count": 54,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "avg_length": 32.0,
+        "min_length": 32,
+        "max_length": 32,
+        "median_length": 32.0,
+        "length_std": 0.0
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": true,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": true
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": true,
+          "composite_columns": null
+        }
+      }
+    },
+    "version": {
+      "column_name": "version",
+      "ordinal_position": 2,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "数据版本号，用于乐观锁控制",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 54,
+        "unique_count": 2,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.037,
+        "min": "0",
+        "max": "1",
+        "mean": "0.9444444444444444",
+        "value_distribution": {
+          "1": 51,
+          "0": 3
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:version"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "version",
+          "description": "版本号"
+        }
+      }
+    },
+    "create_ts": {
+      "column_name": "create_ts",
+      "ordinal_position": 3,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "记录创建时间戳",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 54,
+        "unique_count": 11,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.2037
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_ts$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "created_by": {
+      "column_name": "created_by",
+      "ordinal_position": 4,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "创建人用户名",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 54,
+        "unique_count": 1,
+        "null_count": 8,
+        "null_rate": 0.1481,
+        "uniqueness": 0.0185,
+        "avg_length": 5.0,
+        "min_length": 5,
+        "max_length": 5,
+        "median_length": 5.0,
+        "length_std": 0.0,
+        "value_distribution": {
+          "admin": 46
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^created_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "actor",
+          "description": "操作人标识"
+        }
+      }
+    },
+    "update_ts": {
+      "column_name": "update_ts",
+      "ordinal_position": 5,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "记录最后更新时间戳",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 54,
+        "unique_count": 0,
+        "null_count": 54,
+        "null_rate": 1.0,
+        "uniqueness": 0.0,
+        "value_distribution": {}
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_ts$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "updated_by": {
+      "column_name": "updated_by",
+      "ordinal_position": 6,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "最后更新人用户名",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 54,
+        "unique_count": 0,
+        "null_count": 54,
+        "null_rate": 1.0,
+        "uniqueness": 0.0,
+        "value_distribution": {}
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^updated_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "actor",
+          "description": "操作人标识"
+        }
+      }
+    },
+    "delete_ts": {
+      "column_name": "delete_ts",
+      "ordinal_position": 7,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "逻辑删除时间戳（为空表示未删除）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 54,
+        "unique_count": 0,
+        "null_count": 54,
+        "null_rate": 1.0,
+        "uniqueness": 0.0,
+        "value_distribution": {}
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_ts$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "deleted_by": {
+      "column_name": "deleted_by",
+      "ordinal_position": 8,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "逻辑删除人用户名",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 54,
+        "unique_count": 0,
+        "null_count": 54,
+        "null_rate": 1.0,
+        "uniqueness": 0.0,
+        "value_distribution": {}
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^deleted_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "actor",
+          "description": "操作人标识"
+        }
+      }
+    },
+    "section_name": {
+      "column_name": "section_name",
+      "ordinal_position": 9,
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "路段名称",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 54,
+        "unique_count": 45,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.8333,
+        "avg_length": 2.02,
+        "min_length": 2,
+        "max_length": 3,
+        "median_length": 2.0,
+        "length_std": 0.14
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {}
+    },
+    "route_name": {
+      "column_name": "route_name",
+      "ordinal_position": 10,
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "路线名称",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 54,
+        "unique_count": 32,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.5926,
+        "avg_length": 2.13,
+        "min_length": 1,
+        "max_length": 4,
+        "median_length": 2.0,
+        "length_std": 0.48
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {}
+    },
+    "code": {
+      "column_name": "code",
+      "ordinal_position": 11,
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "编号",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 54,
+        "unique_count": 52,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.963,
+        "avg_length": 6.0,
+        "min_length": 6,
+        "max_length": 6,
+        "median_length": 6.0,
+        "length_std": 0.0
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "high_uniqueness"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "logical_primary_key",
+          "is_surrogate": true
+        }
+      }
+    }
+  },
+  "table_profile": {
+    "table_category": "bridge",
+    "confidence": 0.95,
+    "inference_basis": [
+      "llm_inferred"
+    ],
+    "physical_constraints": {
+      "primary_key": {
+        "constraint_name": "bss_section_route_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "foreign_keys": [],
+      "unique_constraints": []
+    },
+    "indexes": [],
+    "column_statistics": {
+      "total_columns": 11,
+      "identifier_count": 2,
+      "metric_count": 0,
+      "datetime_count": 0,
+      "enum_count": 0,
+      "audit_count": 7,
+      "attribute_count": 2,
+      "primary_key_count": 1,
+      "foreign_key_count": 0
+    },
+    "table_category_rule_based": "dim",
+    "confidence_rule_based": 0.95,
+    "inference_basis_rule_based": [
+      "fact_dimension_columns",
+      "dim_identifier_columns",
+      "dim_has_primary_key"
+    ]
+  },
+  "sample_records": {
+    "sample_method": "random",
+    "sample_size": 5,
+    "total_rows": 54,
+    "records": [
+      {
+        "id": "04ri3j67a806uw2c6o6dwdtz4knexczh",
+        "version": 1,
+        "create_ts": "2021-10-29 19:43:50",
+        "created_by": "admin",
+        "update_ts": null,
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "section_name": "昌栗",
+        "route_name": "昌栗",
+        "code": "SR0001"
+      },
+      {
+        "id": "0g5mnefxxtukql2cq6acul7phgskowy7",
+        "version": 1,
+        "create_ts": "2021-10-29 19:43:50",
+        "created_by": "admin",
+        "update_ts": null,
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "section_name": "昌宁",
+        "route_name": "昌韶",
+        "code": "SR0002"
+      },
+      {
+        "id": "1eff406e9b9211ec8ee6fa163eaf653f",
+        "version": 0,
+        "create_ts": "2022-03-04 16:07:16",
+        "created_by": null,
+        "update_ts": null,
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "section_name": "昌九",
+        "route_name": "/",
+        "code": "SR0147"
+      },
+      {
+        "id": "2sop3gahzo0wz6q586y241d98w6pkxd5",
+        "version": 1,
+        "create_ts": "2021-10-29 19:43:50",
+        "created_by": "admin",
+        "update_ts": null,
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "section_name": "泰井",
+        "route_name": "泰井",
+        "code": "SR0003"
+      },
+      {
+        "id": "30824fa99b9211ec8ee6fa163eaf653f",
+        "version": 0,
+        "create_ts": "2022-03-04 16:07:58",
+        "created_by": null,
+        "update_ts": null,
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "section_name": "杭瑞",
+        "route_name": "/",
+        "code": "SR0148"
+      }
+    ]
+  },
+  "llm_enhanced_at": "2026-03-17T23:00:34.459056"
+}

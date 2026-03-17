@@ -1,0 +1,21 @@
+{
+  "generated_by": "rel_llm",
+  "database": "highway_db",
+  "metadata_source": "json_files",
+  "json_metadata_version": "2.0",
+  "json_files_loaded": 0,
+  "database_queries_executed": 0,
+  "generated_timestamp": "2026-03-17T23:00:53.515616",
+  "statistics": {
+    "total_relationships_found": 0,
+    "foreign_key_relationships": 0,
+    "composite_key_relationships": 0,
+    "single_column_relationships": 0,
+    "total_suppressed_single_relations": 0,
+    "active_search_discoveries": 0,
+    "dynamic_composite_discoveries": 0,
+    "llm_assisted_relationships": 0,
+    "rejected_low_confidence": 0
+  },
+  "relationships": []
+}

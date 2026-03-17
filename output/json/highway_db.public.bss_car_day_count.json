@@ -1,0 +1,731 @@
+{
+  "metadata_version": "2.0",
+  "generated_timestamp": "2026-03-17T23:00:21.758603",
+  "table_info": {
+    "database": "highway_db",
+    "schema_name": "public",
+    "table_name": "bss_car_day_count",
+    "table_type": "table",
+    "comment": "按日统计各车型在服务区域的客户使用数量",
+    "comment_source": "ddl",
+    "total_rows": 140592,
+    "total_columns": 12
+  },
+  "column_profiles": {
+    "id": {
+      "column_name": "id",
+      "ordinal_position": 1,
+      "data_type": "character varying",
+      "character_maximum_length": 32,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "汽车日统计记录唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1000,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "avg_length": 32.0,
+        "min_length": 32,
+        "max_length": 32,
+        "median_length": 32.0,
+        "length_std": 0.0
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": true,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": true
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": true,
+          "composite_columns": null
+        }
+      }
+    },
+    "version": {
+      "column_name": "version",
+      "ordinal_position": 2,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "数据版本号，用于乐观锁控制",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.001,
+        "min": "1",
+        "max": "1",
+        "mean": "1.0",
+        "value_distribution": {
+          "1": 1000
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:version"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "version",
+          "description": "版本号"
+        }
+      }
+    },
+    "create_ts": {
+      "column_name": "create_ts",
+      "ordinal_position": 3,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "记录创建时间戳",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 243,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.243
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_ts$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "created_by": {
+      "column_name": "created_by",
+      "ordinal_position": 4,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "创建人用户名或系统标识",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 0,
+        "null_count": 1000,
+        "null_rate": 1.0,
+        "uniqueness": 0.0,
+        "value_distribution": {}
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^created_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "actor",
+          "description": "操作人标识"
+        }
+      }
+    },
+    "update_ts": {
+      "column_name": "update_ts",
+      "ordinal_position": 5,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "记录最后更新时间戳",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 243,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.243
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_ts$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "updated_by": {
+      "column_name": "updated_by",
+      "ordinal_position": 6,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "最后更新人用户名或系统标识",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 0,
+        "null_count": 1000,
+        "null_rate": 1.0,
+        "uniqueness": 0.0,
+        "value_distribution": {}
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^updated_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "actor",
+          "description": "操作人标识"
+        }
+      }
+    },
+    "delete_ts": {
+      "column_name": "delete_ts",
+      "ordinal_position": 7,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "逻辑删除时间戳（为空表示未删除）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 0,
+        "null_count": 1000,
+        "null_rate": 1.0,
+        "uniqueness": 0.0,
+        "value_distribution": {}
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_ts$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "deleted_by": {
+      "column_name": "deleted_by",
+      "ordinal_position": 8,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "逻辑删除人用户名或系统标识",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 0,
+        "null_count": 1000,
+        "null_rate": 1.0,
+        "uniqueness": 0.0,
+        "value_distribution": {}
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^deleted_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "actor",
+          "description": "操作人标识"
+        }
+      }
+    },
+    "customer_count": {
+      "column_name": "customer_count",
+      "ordinal_position": 9,
+      "data_type": "bigint",
+      "character_maximum_length": null,
+      "numeric_precision": 64,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "车辆数量",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 668,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.668,
+        "min": "0",
+        "max": "14856",
+        "mean": "751.47"
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "numeric_type",
+          "metric_pattern:count"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "count",
+          "suggested_aggregations": [
+            "SUM"
+          ]
+        }
+      }
+    },
+    "car_type": {
+      "column_name": "car_type",
+      "ordinal_position": 10,
+      "data_type": "character varying",
+      "character_maximum_length": 100,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "车辆类别",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 4,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.004,
+        "avg_length": 2.03,
+        "min_length": 2,
+        "max_length": 3,
+        "median_length": 2.0,
+        "length_std": 0.18,
+        "value_distribution": {
+          "其他": 923,
+          "危化品": 32,
+          "城际": 27,
+          "过境": 18
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {}
+    },
+    "count_date": {
+      "column_name": "count_date",
+      "ordinal_position": 11,
+      "data_type": "date",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "统计日期",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 46,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.046,
+        "avg_length": 10.0,
+        "min_length": 10,
+        "max_length": 10,
+        "median_length": 10.0,
+        "length_std": 0.0
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_date$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "service_area_id": {
+      "column_name": "service_area_id",
+      "ordinal_position": 12,
+      "data_type": "character varying",
+      "character_maximum_length": 32,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "服务区id",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 94,
+        "null_count": 583,
+        "null_rate": 0.583,
+        "uniqueness": 0.094,
+        "avg_length": 32.0,
+        "min_length": 32,
+        "max_length": 32,
+        "median_length": 32.0,
+        "length_std": 0.0
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 0.85,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "naming_with_uniqueness"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "id",
+          "is_surrogate": true
+        },
+        "index_info": {
+          "index_name": "idx_bss_car_day_count_on_service_area",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    }
+  },
+  "table_profile": {
+    "table_category": "fact",
+    "confidence": 0.95,
+    "inference_basis": [
+      "llm_inferred"
+    ],
+    "physical_constraints": {
+      "primary_key": {
+        "constraint_name": "bss_car_day_count_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "foreign_keys": [],
+      "unique_constraints": []
+    },
+    "indexes": [
+      {
+        "index_name": "idx_bss_car_day_count_on_service_area",
+        "index_type": "btree",
+        "columns": [
+          "service_area_id"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      }
+    ],
+    "column_statistics": {
+      "total_columns": 12,
+      "identifier_count": 2,
+      "metric_count": 1,
+      "datetime_count": 0,
+      "enum_count": 0,
+      "audit_count": 8,
+      "attribute_count": 1,
+      "primary_key_count": 1,
+      "foreign_key_count": 0
+    },
+    "table_category_rule_based": "fact",
+    "confidence_rule_based": 0.85,
+    "inference_basis_rule_based": [
+      "fact_has_metric",
+      "fact_dimension_columns"
+    ]
+  },
+  "sample_records": {
+    "sample_method": "random",
+    "sample_size": 5,
+    "total_rows": 140592,
+    "records": [
+      {
+        "id": "00022c1c99ff11ec86d4fa163ec0f8fc",
+        "version": 1,
+        "create_ts": "2022-03-02 16:01:43",
+        "created_by": null,
+        "update_ts": "2022-03-02 16:01:43",
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "customer_count": 1114,
+        "car_type": "其他",
+        "count_date": "2022-03-02",
+        "service_area_id": null
+      },
+      {
+        "id": "00022caa99ff11ec86d4fa163ec0f8fc",
+        "version": 1,
+        "create_ts": "2022-03-02 16:01:43",
+        "created_by": null,
+        "update_ts": "2022-03-02 16:01:43",
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "customer_count": 295,
+        "car_type": "其他",
+        "count_date": "2022-03-02",
+        "service_area_id": null
+      },
+      {
+        "id": "00022ded99ff11ec86d4fa163ec0f8fc",
+        "version": 1,
+        "create_ts": "2022-03-02 16:01:43",
+        "created_by": null,
+        "update_ts": "2022-03-02 16:01:43",
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "customer_count": 550,
+        "car_type": "其他",
+        "count_date": "2022-03-02",
+        "service_area_id": null
+      },
+      {
+        "id": "00022e8499ff11ec86d4fa163ec0f8fc",
+        "version": 1,
+        "create_ts": "2022-03-02 16:01:43",
+        "created_by": null,
+        "update_ts": "2022-03-02 16:01:43",
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "customer_count": 1050,
+        "car_type": "其他",
+        "count_date": "2022-03-02",
+        "service_area_id": null
+      },
+      {
+        "id": "0002331999ff11ec86d4fa163ec0f8fc",
+        "version": 1,
+        "create_ts": "2022-03-02 16:01:43",
+        "created_by": null,
+        "update_ts": "2022-03-02 16:01:43",
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "customer_count": 993,
+        "car_type": "其他",
+        "count_date": "2022-03-02",
+        "service_area_id": null
+      }
+    ]
+  },
+  "llm_enhanced_at": "2026-03-17T23:00:28.087201"
+}

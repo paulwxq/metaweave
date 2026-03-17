@@ -1,0 +1,1566 @@
+{
+  "metadata_version": "2.0",
+  "generated_timestamp": "2026-03-17T23:00:21.788339",
+  "table_info": {
+    "database": "highway_db",
+    "schema_name": "public",
+    "table_name": "bss_business_day_data",
+    "table_type": "table",
+    "comment": "服务区各营业网点按日统计的多渠道（微信、支付宝、现金等）交易金额与订单数明细",
+    "comment_source": "ddl",
+    "total_rows": 71321,
+    "total_columns": 26
+  },
+  "column_profiles": {
+    "id": {
+      "column_name": "id",
+      "ordinal_position": 1,
+      "data_type": "character varying",
+      "character_maximum_length": 32,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "业务日数据记录唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1000,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "avg_length": 32.0,
+        "min_length": 32,
+        "max_length": 32,
+        "median_length": 32.0,
+        "length_std": 0.0
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": true,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": true
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": true,
+          "composite_columns": null
+        }
+      }
+    },
+    "version": {
+      "column_name": "version",
+      "ordinal_position": 2,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "数据版本号，用于乐观锁控制",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.001,
+        "min": "1",
+        "max": "1",
+        "mean": "1.0",
+        "value_distribution": {
+          "1": 1000
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:version"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "version",
+          "description": "版本号"
+        }
+      }
+    },
+    "create_ts": {
+      "column_name": "create_ts",
+      "ordinal_position": 3,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "记录创建时间戳",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 84,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.084
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_ts$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "created_by": {
+      "column_name": "created_by",
+      "ordinal_position": 4,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "创建人用户名",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1,
+        "null_count": 586,
+        "null_rate": 0.586,
+        "uniqueness": 0.001,
+        "avg_length": 6.0,
+        "min_length": 6,
+        "max_length": 6,
+        "median_length": 6.0,
+        "length_std": 0.0,
+        "value_distribution": {
+          "xingba": 414
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^created_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "actor",
+          "description": "操作人标识"
+        }
+      }
+    },
+    "update_ts": {
+      "column_name": "update_ts",
+      "ordinal_position": 5,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "记录最后更新时间戳",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 26,
+        "null_count": 58,
+        "null_rate": 0.058,
+        "uniqueness": 0.026
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_ts$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "updated_by": {
+      "column_name": "updated_by",
+      "ordinal_position": 6,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "最后更新人用户名",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 0,
+        "null_count": 1000,
+        "null_rate": 1.0,
+        "uniqueness": 0.0,
+        "value_distribution": {}
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^updated_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "actor",
+          "description": "操作人标识"
+        }
+      }
+    },
+    "delete_ts": {
+      "column_name": "delete_ts",
+      "ordinal_position": 7,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "逻辑删除时间戳（为空表示未删除）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 0,
+        "null_count": 1000,
+        "null_rate": 1.0,
+        "uniqueness": 0.0,
+        "value_distribution": {}
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_ts$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "deleted_by": {
+      "column_name": "deleted_by",
+      "ordinal_position": 8,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "逻辑删除人用户名",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 0,
+        "null_count": 1000,
+        "null_rate": 1.0,
+        "uniqueness": 0.0,
+        "value_distribution": {}
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^deleted_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "actor",
+          "description": "操作人标识"
+        }
+      }
+    },
+    "oper_date": {
+      "column_name": "oper_date",
+      "ordinal_position": 9,
+      "data_type": "date",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "统计日期",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 2,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.002,
+        "avg_length": 10.0,
+        "min_length": 10,
+        "max_length": 10,
+        "median_length": 10.0,
+        "length_std": 0.0,
+        "value_distribution": {
+          "2023-04-01": 910,
+          "2023-04-02": 90
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_date$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        },
+        "index_info": {
+          "index_name": "idx_oper_date",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "service_no": {
+      "column_name": "service_no",
+      "ordinal_position": 10,
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "服务区编码",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 170,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.17,
+        "avg_length": 4.86,
+        "min_length": 4,
+        "max_length": 5,
+        "median_length": 5.0,
+        "length_std": 0.35
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 0.85,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "naming_with_uniqueness"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "no",
+          "is_surrogate": true
+        }
+      }
+    },
+    "service_name": {
+      "column_name": "service_name",
+      "ordinal_position": 11,
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "服务区名称",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 96,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.096,
+        "avg_length": 5.48,
+        "min_length": 5,
+        "max_length": 9,
+        "median_length": 5.0,
+        "length_std": 0.65
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {}
+    },
+    "branch_no": {
+      "column_name": "branch_no",
+      "ordinal_position": 12,
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "档口编码",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 777,
+        "null_count": 4,
+        "null_rate": 0.004,
+        "uniqueness": 0.777,
+        "avg_length": 7.26,
+        "min_length": 1,
+        "max_length": 13,
+        "median_length": 6.0,
+        "length_std": 3.36
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 0.85,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "naming_with_uniqueness"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "no",
+          "is_surrogate": true
+        },
+        "index_info": {
+          "index_name": "idx_branch_no",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "branch_name": {
+      "column_name": "branch_name",
+      "ordinal_position": 13,
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "档口名称",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 709,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.709,
+        "avg_length": 6.22,
+        "min_length": 3,
+        "max_length": 14,
+        "median_length": 6.0,
+        "length_std": 2.38
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {}
+    },
+    "wx": {
+      "column_name": "wx",
+      "ordinal_position": 14,
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "numeric_precision": 19,
+      "numeric_scale": 4,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "微信支付金额（单位：元）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 562,
+        "null_count": 386,
+        "null_rate": 0.386,
+        "uniqueness": 0.562,
+        "min": "0.0",
+        "max": "29438.0",
+        "mean": "3240.6184853420195"
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "numeric_type"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "metric",
+          "suggested_aggregations": [
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX"
+          ]
+        }
+      }
+    },
+    "wx_order": {
+      "column_name": "wx_order",
+      "ordinal_position": 15,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "微信订单数量",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 255,
+        "null_count": 386,
+        "null_rate": 0.386,
+        "uniqueness": 0.255,
+        "min": "0.0",
+        "max": "1275.0",
+        "mean": "119.12377850162866"
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "numeric_type"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "metric",
+          "suggested_aggregations": [
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX"
+          ]
+        }
+      }
+    },
+    "zfb": {
+      "column_name": "zfb",
+      "ordinal_position": 16,
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "numeric_precision": 19,
+      "numeric_scale": 4,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "支付宝支付金额（单位：元）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 236,
+        "null_count": 386,
+        "null_rate": 0.386,
+        "uniqueness": 0.236,
+        "min": "0.0",
+        "max": "3855.0",
+        "mean": "154.92182410423453"
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "numeric_type"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "metric",
+          "suggested_aggregations": [
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX"
+          ]
+        }
+      }
+    },
+    "zf_order": {
+      "column_name": "zf_order",
+      "ordinal_position": 17,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "支付宝订单数量",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 57,
+        "null_count": 386,
+        "null_rate": 0.386,
+        "uniqueness": 0.057,
+        "min": "0.0",
+        "max": "83.0",
+        "mean": "6.714983713355049"
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "numeric_type"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "metric",
+          "suggested_aggregations": [
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX"
+          ]
+        }
+      }
+    },
+    "rmb": {
+      "column_name": "rmb",
+      "ordinal_position": 18,
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "numeric_precision": 19,
+      "numeric_scale": 4,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "现金支付金额（单位：元）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 363,
+        "null_count": 386,
+        "null_rate": 0.386,
+        "uniqueness": 0.363,
+        "min": "0.0",
+        "max": "3901.0",
+        "mean": "313.43648208469057"
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "numeric_type"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "metric",
+          "suggested_aggregations": [
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX"
+          ]
+        }
+      }
+    },
+    "rmb_order": {
+      "column_name": "rmb_order",
+      "ordinal_position": 19,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "现金支付订单数量",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 71,
+        "null_count": 386,
+        "null_rate": 0.386,
+        "uniqueness": 0.071,
+        "min": "0.0",
+        "max": "165.0",
+        "mean": "13.607491856677525"
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "numeric_type"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "metric",
+          "suggested_aggregations": [
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX"
+          ]
+        }
+      }
+    },
+    "xs": {
+      "column_name": "xs",
+      "ordinal_position": 20,
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "numeric_precision": 19,
+      "numeric_scale": 4,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "信用卡支付金额（单位：元）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 34,
+        "null_count": 386,
+        "null_rate": 0.386,
+        "uniqueness": 0.034,
+        "min": "0.0",
+        "max": "1962.0",
+        "mean": "17.31514657980456"
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "numeric_type"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "metric",
+          "suggested_aggregations": [
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX"
+          ]
+        }
+      }
+    },
+    "xs_order": {
+      "column_name": "xs_order",
+      "ordinal_position": 21,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "行吧支付数量",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 15,
+        "null_count": 386,
+        "null_rate": 0.386,
+        "uniqueness": 0.015,
+        "min": "0.0",
+        "max": "90.0",
+        "mean": "0.6237785016286646"
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "numeric_type"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "metric",
+          "suggested_aggregations": [
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX"
+          ]
+        }
+      }
+    },
+    "jd": {
+      "column_name": "jd",
+      "ordinal_position": 22,
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "numeric_precision": 19,
+      "numeric_scale": 4,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "京东支付金额（单位：元）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1,
+        "null_count": 386,
+        "null_rate": 0.386,
+        "uniqueness": 0.001,
+        "min": "0.0",
+        "max": "0.0",
+        "mean": "0.0",
+        "value_distribution": {
+          "0.0": 614
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "numeric_type"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "metric",
+          "suggested_aggregations": [
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX"
+          ]
+        }
+      }
+    },
+    "jd_order": {
+      "column_name": "jd_order",
+      "ordinal_position": 23,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "金豆支付数量",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 1,
+        "null_count": 386,
+        "null_rate": 0.386,
+        "uniqueness": 0.001,
+        "min": "0.0",
+        "max": "0.0",
+        "mean": "0.0",
+        "value_distribution": {
+          "0.0": 614
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "numeric_type"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "metric",
+          "suggested_aggregations": [
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX"
+          ]
+        }
+      }
+    },
+    "order_sum": {
+      "column_name": "order_sum",
+      "ordinal_position": 24,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "订单总数",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 276,
+        "null_count": 386,
+        "null_rate": 0.386,
+        "uniqueness": 0.276,
+        "min": "1.0",
+        "max": "1441.0",
+        "mean": "140.0700325732899"
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "numeric_type",
+          "metric_pattern:sum"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "metric",
+          "suggested_aggregations": [
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX"
+          ]
+        }
+      }
+    },
+    "pay_sum": {
+      "column_name": "pay_sum",
+      "ordinal_position": 25,
+      "data_type": "numeric",
+      "character_maximum_length": null,
+      "numeric_precision": 19,
+      "numeric_scale": 4,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "当日总支付金额（单位：元）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 738,
+        "null_count": 49,
+        "null_rate": 0.049,
+        "uniqueness": 0.738,
+        "min": "0.0",
+        "max": "32700.0",
+        "mean": "2633.449137749737"
+      },
+      "semantic_analysis": {
+        "semantic_role": "metric",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "numeric_type",
+          "metric_pattern:sum"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "metric_info": {
+          "metric_category": "metric",
+          "suggested_aggregations": [
+            "SUM",
+            "AVG",
+            "MIN",
+            "MAX"
+          ]
+        }
+      }
+    },
+    "source_type": {
+      "column_name": "source_type",
+      "ordinal_position": 26,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "数据来源类别",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 1000,
+        "unique_count": 4,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.004,
+        "min": "0",
+        "max": "4",
+        "mean": "1.923",
+        "value_distribution": {
+          "0": 393,
+          "4": 386,
+          "1": 142,
+          "3": 79
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^source_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    }
+  },
+  "table_profile": {
+    "table_category": "fact",
+    "confidence": 0.95,
+    "inference_basis": [
+      "llm_inferred"
+    ],
+    "physical_constraints": {
+      "primary_key": {
+        "constraint_name": "bss_business_day_data_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "foreign_keys": [],
+      "unique_constraints": []
+    },
+    "indexes": [
+      {
+        "index_name": "idx_branch_no",
+        "index_type": "btree",
+        "columns": [
+          "branch_no"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      },
+      {
+        "index_name": "idx_oper_date",
+        "index_type": "btree",
+        "columns": [
+          "oper_date"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      }
+    ],
+    "column_statistics": {
+      "total_columns": 26,
+      "identifier_count": 3,
+      "metric_count": 12,
+      "datetime_count": 0,
+      "enum_count": 0,
+      "audit_count": 9,
+      "attribute_count": 2,
+      "primary_key_count": 1,
+      "foreign_key_count": 0
+    },
+    "table_category_rule_based": "fact",
+    "confidence_rule_based": 0.9,
+    "inference_basis_rule_based": [
+      "fact_has_metric",
+      "fact_dimension_columns",
+      "fact_comment_keyword"
+    ]
+  },
+  "sample_records": {
+    "sample_method": "random",
+    "sample_size": 5,
+    "total_rows": 71321,
+    "records": [
+      {
+        "id": "00827DFF993D415488EA1F07CAE6C440",
+        "version": 1,
+        "create_ts": "2023-04-02 08:31:51",
+        "created_by": null,
+        "update_ts": "2023-04-02 08:31:51",
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "oper_date": "2023-04-01",
+        "service_no": 1028,
+        "service_name": "宜春服务区",
+        "branch_no": 1,
+        "branch_name": "宜春南区",
+        "wx": 4790.0,
+        "wx_order": 253.0,
+        "zfb": 229.0,
+        "zf_order": 15.0,
+        "rmb": 1058.5,
+        "rmb_order": 56.0,
+        "xs": 0.0,
+        "xs_order": 0.0,
+        "jd": 0.0,
+        "jd_order": 0.0,
+        "order_sum": 324.0,
+        "pay_sum": 6077.5,
+        "source_type": 1
+      },
+      {
+        "id": "00e799048b8cbb8ee758eac9c8b4b820",
+        "version": 1,
+        "create_ts": "2023-04-02 02:30:08",
+        "created_by": "xingba",
+        "update_ts": "2023-04-02 02:30:08",
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "oper_date": "2023-04-01",
+        "service_no": "H0501",
+        "service_name": "庐山服务区",
+        "branch_no": "H05016",
+        "branch_name": "庐山鲜徕客东区",
+        "wx": 2523.0,
+        "wx_order": 133.0,
+        "zfb": 0.0,
+        "zf_order": 0.0,
+        "rmb": 124.0,
+        "rmb_order": 12.0,
+        "xs": 40.0,
+        "xs_order": 1.0,
+        "jd": 0.0,
+        "jd_order": 0.0,
+        "order_sum": 146.0,
+        "pay_sum": 2687.0,
+        "source_type": 0
+      },
+      {
+        "id": "019a5915c2f624800be71a2dd3e172e2",
+        "version": 1,
+        "create_ts": "2023-04-02 02:30:09",
+        "created_by": "xingba",
+        "update_ts": "2023-04-02 02:30:09",
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "oper_date": "2023-04-01",
+        "service_no": "H0804",
+        "service_name": "永丰南服务区(新)",
+        "branch_no": "H0804B",
+        "branch_name": "永丰南餐饮西区(新)",
+        "wx": 2820.0,
+        "wx_order": 40.0,
+        "zfb": 0.0,
+        "zf_order": 0.0,
+        "rmb": 245.0,
+        "rmb_order": 4.0,
+        "xs": 0.0,
+        "xs_order": 0.0,
+        "jd": 0.0,
+        "jd_order": 0.0,
+        "order_sum": 44.0,
+        "pay_sum": 3065.0,
+        "source_type": 0
+      },
+      {
+        "id": "019DC1B2C42E4AEFA5C834021A3B2E51",
+        "version": 1,
+        "create_ts": "2023-04-02 08:31:51",
+        "created_by": null,
+        "update_ts": "2023-04-02 08:31:51",
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "oper_date": "2023-04-01",
+        "service_no": 1027,
+        "service_name": "上高服务区",
+        "branch_no": 1,
+        "branch_name": "上高东区",
+        "wx": 4135.0,
+        "wx_order": 181.0,
+        "zfb": 216.0,
+        "zf_order": 14.0,
+        "rmb": 405.5,
+        "rmb_order": 18.0,
+        "xs": 0.0,
+        "xs_order": 0.0,
+        "jd": 0.0,
+        "jd_order": 0.0,
+        "order_sum": 213.0,
+        "pay_sum": 4756.5,
+        "source_type": 1
+      },
+      {
+        "id": "01d77aad56535689ebbb33bd1c35b0b5",
+        "version": 1,
+        "create_ts": "2023-04-02 02:30:07",
+        "created_by": "xingba",
+        "update_ts": "2023-04-02 02:30:07",
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "oper_date": "2023-04-01",
+        "service_no": "H0301",
+        "service_name": "上饶服务区",
+        "branch_no": "H0301C",
+        "branch_name": "上饶如意菜饭北区",
+        "wx": 2880.0,
+        "wx_order": 139.0,
+        "zfb": 75.0,
+        "zf_order": 4.0,
+        "rmb": 180.0,
+        "rmb_order": 12.0,
+        "xs": 0.0,
+        "xs_order": 0.0,
+        "jd": 0.0,
+        "jd_order": 0.0,
+        "order_sum": 155.0,
+        "pay_sum": 3135.0,
+        "source_type": 0
+      }
+    ]
+  },
+  "llm_enhanced_at": "2026-03-17T23:00:31.433577"
+}

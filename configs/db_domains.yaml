@@ -1,46 +1,35 @@
 # 数据库业务主题配置
 database:
-  name: dvdrental
-  description: dvdrental 是一个面向DVD影片租赁连锁店的全业务关系型数据库系统，完整支撑门店运营、客户管理、影片资产管控、租借交易处理、员工协同及地理信息管理等核心场景。它涵盖从全球国家/城市/地址的层级化地理数据、多语言电影元数据与分类体系、演员参演关系，到客户账户、门店库存、租赁履约、支付结算、员工权限及门店组织架构的端到端业务闭环，支持实时租赁状态追踪、库存分布查询、客户消费分析及内容运营决策。
+  name: highway_db
+  description: highway_db 是一个面向高速公路服务区全生命周期运营管理的业务分析型数据库，覆盖服务区基础资产、经营主体、空间拓扑（路段/路线/服务区层级关系）、多渠道日度经营数据（交易金额、订单数、车流车型统计）、企业组织架构、跨系统服务对象映射、数据治理元信息及用户反馈闭环等核心场景，支撑运营监控、商业分析、资源调度与智能SQL优化。
 llm_inference:
   max_domains_per_table: 3
 domains:
 - name: _未分类_
   description: 无法归入其他业务主题的表
-  tables: []
-- name: 客户与账户管理
-  description: 管理租赁业务中终端客户的身份信息、联系方式、地址关联、账户激活状态及生命周期（创建/更新/停用）
   tables:
-  - dvdrental.public.customer
-- name: 门店与组织架构
-  description: 定义物理经营单元（门店）及其组织关系，包括门店基本信息、负责人（经理）指派、所属地址及员工归属关系
+  - highway_db.public.qa_feedback
+- name: 服务区基础资产与地理拓扑
+  description: 管理高速公路服务区的空间实体属性、位置信息、类型状态、所属公司，以及其与路段、路线之间的层级与关联关系，构成服务区数字化空间骨架。
   tables:
-  - dvdrental.public.store
-  - dvdrental.public.staff
-- name: 地理信息管理
-  description: 维护全球国家、城市、行政区划及详细地址的层级化地理参考数据，支撑客户、员工、门店的地理位置建模与区域分析
+  - highway_db.public.bss_service_area
+  - highway_db.public.bss_section_route
+  - highway_db.public.bss_section_route_area_link
+- name: 经营主体与组织架构
+  description: 记录参与服务区运营的企业主体（含分公司）及其编号、名称、审计信息，明确经营责任归属与组织管理边界。
   tables:
-  - dvdrental.public.country
-  - dvdrental.public.city
-  - dvdrental.public.address
-- name: 影片内容资产
-  description: 存储DVD影片的核心元数据，包括标题、描述、年份、时长、评级、语言、租赁定价、赔偿成本及全文检索能力，构成内容库基础
+  - highway_db.public.bss_company
+  - highway_db.public.bss_branch
+- name: 日度经营与客流分析
+  description: 采集并聚合各营业网点按日维度的多支付渠道交易数据（金额、订单数）及服务区域车流分车型统计，支撑营收监控与消费行为分析。
   tables:
-  - dvdrental.public.film
-  - dvdrental.public.language
-- name: 内容分类与演职人员
-  description: 管理影片的内容维度（如动作、动画等分类）及创作主体（演员），并通过关联表实现多对多关系建模，支撑内容标签化与艺人画像
+  - highway_db.public.bss_business_day_data
+  - highway_db.public.bss_car_day_count
+- name: 数据治理与元信息管理
+  description: 存储高速公路领域数据资产的元数据描述，包括主题定义、关联表结构、常见问题、关键词标签等，服务于数据发现、理解与质量管控。
   tables:
-  - dvdrental.public.category
-  - dvdrental.public.actor
-  - dvdrental.public.film_category
-  - dvdrental.public.film_actor
-- name: 租赁交易与履约
-  description: 记录客户租借行为的全生命周期事件，包括租赁发起、库存扣减、归还确认，并关联客户、员工、库存项及时间戳，是业务核心操作日志
+  - highway_db.public.highway_metadata
+- name: 跨系统服务对象主数据映射
+  description: 建立不同业务系统间服务区标识体系的标准化映射关系，解决同服务区在多源系统中命名、编码不一致问题，保障主数据一致性。
   tables:
-  - dvdrental.public.rental
-  - dvdrental.public.inventory
-- name: 财务结算
-  description: 跟踪每笔租赁服务产生的应收款项，存储支付金额、时间、客户、员工、对应租赁单据等关键财务事实，支撑营收对账与分析
-  tables:
-  - dvdrental.public.payment
+  - highway_db.public.bss_service_area_mapper

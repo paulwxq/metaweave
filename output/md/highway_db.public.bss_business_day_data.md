@@ -1,0 +1,38 @@
+# public.bss_business_day_data（服务区各营业网点按日统计的多渠道（微信、支付宝、现金等）交易金额与订单数明细）
+## 字段列表：
+- id (character varying(32)) - 业务日数据记录唯一标识ID [示例: 00827DFF993D415488EA1F07CAE6C440, 00e799048b8cbb8ee758eac9c8b4b820]
+- version (integer(32)) - 数据版本号，用于乐观锁控制 [示例: 1, 1]
+- create_ts (timestamp without time zone) - 记录创建时间戳 [示例: 2023-04-02 08:31:51, 2023-04-02 02:30:08]
+- created_by (character varying(50)) - 创建人用户名 [示例: xingba, xingba]
+- update_ts (timestamp without time zone) - 记录最后更新时间戳 [示例: 2023-04-02 08:31:51, 2023-04-02 02:30:08]
+- updated_by (character varying(50)) - 最后更新人用户名 [示例: null]
+- delete_ts (timestamp without time zone) - 逻辑删除时间戳（为空表示未删除） [示例: null]
+- deleted_by (character varying(50)) - 逻辑删除人用户名 [示例: null]
+- oper_date (date) - 统计日期 [示例: 2023-04-01, 2023-04-01]
+- service_no (character varying(255)) - 服务区编码 [示例: 1028, H0501]
+- service_name (character varying(255)) - 服务区名称 [示例: 宜春服务区, 庐山服务区]
+- branch_no (character varying(255)) - 档口编码 [示例: 1, H05016]
+- branch_name (character varying(255)) - 档口名称 [示例: 宜春南区, 庐山鲜徕客东区]
+- wx (numeric(19,4)) - 微信支付金额（单位：元） [示例: 4790.0, 2523.0]
+- wx_order (integer(32)) - 微信订单数量 [示例: 253.0, 133.0]
+- zfb (numeric(19,4)) - 支付宝支付金额（单位：元） [示例: 229.0, 0.0]
+- zf_order (integer(32)) - 支付宝订单数量 [示例: 15.0, 0.0]
+- rmb (numeric(19,4)) - 现金支付金额（单位：元） [示例: 1058.5, 124.0]
+- rmb_order (integer(32)) - 现金支付订单数量 [示例: 56.0, 12.0]
+- xs (numeric(19,4)) - 信用卡支付金额（单位：元） [示例: 0.0, 40.0]
+- xs_order (integer(32)) - 行吧支付数量 [示例: 0.0, 1.0]
+- jd (numeric(19,4)) - 京东支付金额（单位：元） [示例: 0.0, 0.0]
+- jd_order (integer(32)) - 金豆支付数量 [示例: 0.0, 0.0]
+- order_sum (integer(32)) - 订单总数 [示例: 324.0, 146.0]
+- pay_sum (numeric(19,4)) - 当日总支付金额（单位：元） [示例: 6077.5, 2687.0]
+- source_type (integer(32)) - 数据来源类别 [示例: 1, 0]
+## 字段补充说明：
+- 主键约束 bss_business_day_data_pkey: id
+- 索引 idx_branch_no (btree): branch_no
+- 索引 idx_oper_date (btree): oper_date
+- wx 使用numeric(19,4)存储，精确到小数点后4位
+- zfb 使用numeric(19,4)存储，精确到小数点后4位
+- rmb 使用numeric(19,4)存储，精确到小数点后4位
+- xs 使用numeric(19,4)存储，精确到小数点后4位
+- jd 使用numeric(19,4)存储，精确到小数点后4位
+- pay_sum 使用numeric(19,4)存储，精确到小数点后4位

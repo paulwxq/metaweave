@@ -1,0 +1,60 @@
+SQL验证报告
+==================================================
+
+输入文件: output/sql/qs_highway_db_pair.json
+验证时间: 2026-03-17T23:03:19.810954
+验证耗时: 0.06秒
+
+验证结果摘要:
+  总SQL数量: 53
+  有效SQL: 50
+  无效SQL: 3
+  成功率: 94.34%
+  平均耗时: 0.005秒
+  重试次数: 0
+
+SQL修复统计:
+  尝试修复: 3
+  修复成功: 1
+  修复失败: 2
+  修复成功率: 33.33%
+
+修复结果回写统计:
+  替换的SQL: 1
+  删除的无效项: 2
+  回写失败: 0
+
+错误详情（共2个）:
+==================================================
+
+1. 问题: 找出创建时间最早和最晚的两个公司（未删除），返回其名称、编码和创建时间
+   错误: 语法错误 在 "UNION" 或附近的
+LINE 1: ...HERE delete_ts IS NULL ORDER BY create_ts LIMIT 1 UNION ALL ...
+                                                             ^
+   LLM修复尝试: 失败
+   修复失败原因: 语法错误 在 "UNION" 或附近的
+LINE 1: ... delete_ts IS NULL ORDER BY create_ts ASC LIMIT 1 UNION ALL ...
+                                                             ^
+   完整SQL:
+   SELECT company_name AS 公司名称, company_no AS 公司编码, create_ts AS 创建时间 FROM public.bss_company WHERE delete_ts IS NULL ORDER BY create_ts LIMIT 1 UNION ALL SELECT company_name AS 公司名称, company_no AS 公司编码, create_ts AS 创建时间 FROM public.bss_company WHERE delete_ts IS NULL ORDER BY create_ts DESC LIMIT 1;
+----------------------------------------
+
+2. 问题: 查询每个服务区编码（service_no）下映射的服务区名称是否唯一；若存在同编码多名称情况，列出编码、所有对应名称及数量
+   错误: 检测到多语句（中间含分号），拒绝校验: SELECT service_no AS 服务区编码, STRING_AGG(DISTINCT service_name, '; ') AS 对应服务区名称列表...
+   LLM修复尝试: 失败
+   修复失败原因: 检测到多语句（中间含分号），拒绝校验: SELECT service_no AS 服务区编码, STRING_AGG(DISTINCT service_name, '; ') AS 对应服务区名称列表...
+   完整SQL:
+   SELECT service_no AS 服务区编码, STRING_AGG(DISTINCT service_name, '; ') AS 对应服务区名称列表, COUNT(DISTINCT service_name) AS 名称数量 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL GROUP BY service_no HAVING COUNT(DISTINCT service_name) > 1;
+----------------------------------------
+
+
+成功修复的SQL（共1个）:
+==================================================
+
+1. 问题: 对比‘日营收’和‘车流量’两个主题的关键词重合度：列出它们共有的关键词，并统计出现频次
+   原始错误: 返回集合函数不允许出现在WHERE中
+LINE 1: ... WHERE topic_code = 'traffic_volume') AS k2 WHERE UNNEST(k1....
+                                                             ^
+   修复后SQL:
+   SELECT keyword AS "共有关键词", COUNT(*) AS "出现频次" FROM (SELECT UNNEST(k1.keywords) AS keyword FROM public.highway_metadata k1 WHERE k1.topic_code = 'daily_revenue') AS t1 INNER JOIN (SELECT UNNEST(k2.keywords) AS keyword FROM public.highway_metadata k2 WHERE k2.topic_code = 'traffic_volume') AS t2 USING (keyword) GROUP BY keyword;
+----------------------------------------

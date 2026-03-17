@@ -18,15 +18,25 @@
 #         embedding_col: product_name, category, brand # 多列（自动拆分）
 
 databases:
-  highway_db:
+  dvdrental:
     tables:
-      public.bss_branch:
-        embedding_col: null
-      public.bss_company:
-        embedding_col: null
-      public.bss_service_area:
-        embedding_col: null
-      public.bss_service_area_mapper:
-        embedding_col: null
-      public.highway_metadata:
-        embedding_col: null
+      public.actor:
+        embedding_col: [first_name,last_name]
+      public.address:
+        embedding_col: [address,district]
+      public.category:
+        embedding_col: name
+      public.city:
+        embedding_col: city
+      public.country:
+        embedding_col: country
+      public.customer:
+        embedding_col: [first_name,last_name]
+      public.film:
+        embedding_col: [title,description]
+      public.language:
+        embedding_col: name
+      public.staff:
+        embedding_col: [first_name,last_name]
+#     public.store:
+#       embedding_col: null

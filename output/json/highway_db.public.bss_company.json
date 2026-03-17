@@ -1,0 +1,668 @@
+{
+  "metadata_version": "2.0",
+  "generated_timestamp": "2026-03-17T23:00:21.724912",
+  "table_info": {
+    "database": "highway_db",
+    "schema_name": "public",
+    "table_name": "bss_company",
+    "table_type": "table",
+    "comment": "公司信息表，存储企业分公司名称、编号及基础审计信息",
+    "comment_source": "ddl",
+    "total_rows": 9,
+    "total_columns": 10
+  },
+  "column_profiles": {
+    "id": {
+      "column_name": "id",
+      "ordinal_position": 1,
+      "data_type": "character varying",
+      "character_maximum_length": 32,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "公司唯一标识ID（UUID格式）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 9,
+        "unique_count": 9,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "avg_length": 32.0,
+        "min_length": 32,
+        "max_length": 32,
+        "median_length": 32.0,
+        "length_std": 0.0,
+        "value_distribution": {
+          "30675d85ba5044c31acfa243b9d16334": 1,
+          "47ed0bb37f5a85f3d9245e4854959b81": 1,
+          "78efbf20d592d3ca938fd32303bb5fd8": 1,
+          "b1629f07c8d9ac81494fbc1de61f1ea5": 1,
+          "ce5e6f553513dad393694e1fa663aaf4": 1,
+          "e6c060f05306a03f978e2b952a551744": 1,
+          "ee9bf1180a2b45003f96e597a4b7f15a": 1,
+          "f1d42247ef7feb1e0e148d3c35e3c21c": 1,
+          "f54632bfefe1d226a78cf2b90c5dbe4f": 1
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": true,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": true
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": true,
+          "composite_columns": null
+        }
+      }
+    },
+    "version": {
+      "column_name": "version",
+      "ordinal_position": 2,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "数据版本号，用于乐观锁控制",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 9,
+        "unique_count": 2,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.2222,
+        "min": "1",
+        "max": "2",
+        "mean": "1.1111111111111112",
+        "value_distribution": {
+          "1": 8,
+          "2": 1
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:version"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "version",
+          "description": "版本号"
+        }
+      }
+    },
+    "create_ts": {
+      "column_name": "create_ts",
+      "ordinal_position": 3,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "记录创建时间戳",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 9,
+        "unique_count": 9,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "value_distribution": {
+          "2021-05-20 09:51:58.718000": 1,
+          "2021-05-20 09:42:03.341000": 1,
+          "2021-05-20 09:53:29.261000": 1,
+          "2021-05-20 09:53:44.926000": 1,
+          "2021-05-20 09:43:04.960000": 1,
+          "2021-05-20 09:53:09.630000": 1,
+          "2021-05-20 09:41:23.976000": 1,
+          "2021-05-21 11:32:44.175000": 1,
+          "2021-05-20 09:52:47.808000": 1
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_ts$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "created_by": {
+      "column_name": "created_by",
+      "ordinal_position": 4,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "创建人用户名",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 9,
+        "unique_count": 1,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.1111,
+        "avg_length": 5.0,
+        "min_length": 5,
+        "max_length": 5,
+        "median_length": 5.0,
+        "length_std": 0.0,
+        "value_distribution": {
+          "admin": 9
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^created_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "actor",
+          "description": "操作人标识"
+        }
+      }
+    },
+    "update_ts": {
+      "column_name": "update_ts",
+      "ordinal_position": 5,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "记录最后更新时间戳",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 9,
+        "unique_count": 9,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "value_distribution": {
+          "2021-05-20 09:51:58.718000": 1,
+          "2021-05-20 09:42:03.341000": 1,
+          "2021-05-20 09:53:29.261000": 1,
+          "2021-05-20 09:53:44.926000": 1,
+          "2021-05-20 09:52:26.461000": 1,
+          "2021-05-20 09:53:09.630000": 1,
+          "2021-05-20 09:41:23.976000": 1,
+          "2021-05-21 11:32:44.175000": 1,
+          "2021-05-20 09:52:47.808000": 1
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_ts$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "updated_by": {
+      "column_name": "updated_by",
+      "ordinal_position": 6,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "最后更新人用户名",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 9,
+        "unique_count": 1,
+        "null_count": 8,
+        "null_rate": 0.8889,
+        "uniqueness": 0.1111,
+        "avg_length": 5.0,
+        "min_length": 5,
+        "max_length": 5,
+        "median_length": 5.0,
+        "length_std": 0.0,
+        "value_distribution": {
+          "admin": 1
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^updated_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "actor",
+          "description": "操作人标识"
+        }
+      }
+    },
+    "delete_ts": {
+      "column_name": "delete_ts",
+      "ordinal_position": 7,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "逻辑删除时间戳（NULL表示未删除）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 9,
+        "unique_count": 0,
+        "null_count": 9,
+        "null_rate": 1.0,
+        "uniqueness": 0.0,
+        "value_distribution": {}
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_ts$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "审计时间戳"
+        }
+      }
+    },
+    "deleted_by": {
+      "column_name": "deleted_by",
+      "ordinal_position": 8,
+      "data_type": "character varying",
+      "character_maximum_length": 50,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "逻辑删除操作人用户名",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 9,
+        "unique_count": 0,
+        "null_count": 9,
+        "null_rate": 1.0,
+        "uniqueness": 0.0,
+        "value_distribution": {}
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:^deleted_"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "actor",
+          "description": "操作人标识"
+        }
+      }
+    },
+    "company_name": {
+      "column_name": "company_name",
+      "ordinal_position": 9,
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "公司名称",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 9,
+        "unique_count": 9,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "avg_length": 5.22,
+        "min_length": 5,
+        "max_length": 6,
+        "median_length": 5.0,
+        "length_std": 0.44,
+        "value_distribution": {
+          "上饶分公司": 1,
+          "宜春分公司": 1,
+          "景德镇分公司": 1,
+          "吉安分公司": 1,
+          "赣州分公司": 1,
+          "抚州分公司": 1,
+          "南昌分公司": 1,
+          "其他公司管辖": 1,
+          "九江分公司": 1
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {}
+    },
+    "company_no": {
+      "column_name": "company_no",
+      "ordinal_position": 10,
+      "data_type": "character varying",
+      "character_maximum_length": 255,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "公司编码",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 9,
+        "unique_count": 9,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "avg_length": 3.0,
+        "min_length": 3,
+        "max_length": 3,
+        "median_length": 3.0,
+        "length_std": 0.0,
+        "value_distribution": {
+          "H03": 1,
+          "H02": 1,
+          "H07": 1,
+          "H08": 1,
+          "H04": 1,
+          "H06": 1,
+          "H01": 1,
+          "Q01": 1,
+          "H05": 1
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "high_uniqueness"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "logical_primary_key",
+          "is_surrogate": true
+        }
+      }
+    }
+  },
+  "table_profile": {
+    "table_category": "dim",
+    "confidence": 0.95,
+    "inference_basis": [
+      "llm_inferred"
+    ],
+    "physical_constraints": {
+      "primary_key": {
+        "constraint_name": "bss_company_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "foreign_keys": [],
+      "unique_constraints": []
+    },
+    "indexes": [],
+    "column_statistics": {
+      "total_columns": 10,
+      "identifier_count": 2,
+      "metric_count": 0,
+      "datetime_count": 0,
+      "enum_count": 0,
+      "audit_count": 7,
+      "attribute_count": 1,
+      "primary_key_count": 1,
+      "foreign_key_count": 0
+    },
+    "table_category_rule_based": "dim",
+    "confidence_rule_based": 0.95,
+    "inference_basis_rule_based": [
+      "fact_dimension_columns",
+      "dim_identifier_columns",
+      "dim_has_primary_key"
+    ]
+  },
+  "sample_records": {
+    "sample_method": "random",
+    "sample_size": 5,
+    "total_rows": 9,
+    "records": [
+      {
+        "id": "30675d85ba5044c31acfa243b9d16334",
+        "version": 1,
+        "create_ts": "2021-05-20 09:51:58.718000",
+        "created_by": "admin",
+        "update_ts": "2021-05-20 09:51:58.718000",
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "company_name": "上饶分公司",
+        "company_no": "H03"
+      },
+      {
+        "id": "47ed0bb37f5a85f3d9245e4854959b81",
+        "version": 1,
+        "create_ts": "2021-05-20 09:42:03.341000",
+        "created_by": "admin",
+        "update_ts": "2021-05-20 09:42:03.341000",
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "company_name": "宜春分公司",
+        "company_no": "H02"
+      },
+      {
+        "id": "78efbf20d592d3ca938fd32303bb5fd8",
+        "version": 1,
+        "create_ts": "2021-05-20 09:53:29.261000",
+        "created_by": "admin",
+        "update_ts": "2021-05-20 09:53:29.261000",
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "company_name": "景德镇分公司",
+        "company_no": "H07"
+      },
+      {
+        "id": "b1629f07c8d9ac81494fbc1de61f1ea5",
+        "version": 1,
+        "create_ts": "2021-05-20 09:53:44.926000",
+        "created_by": "admin",
+        "update_ts": "2021-05-20 09:53:44.926000",
+        "updated_by": null,
+        "delete_ts": null,
+        "deleted_by": null,
+        "company_name": "吉安分公司",
+        "company_no": "H08"
+      },
+      {
+        "id": "ce5e6f553513dad393694e1fa663aaf4",
+        "version": 2,
+        "create_ts": "2021-05-20 09:43:04.960000",
+        "created_by": "admin",
+        "update_ts": "2021-05-20 09:52:26.461000",
+        "updated_by": "admin",
+        "delete_ts": null,
+        "deleted_by": null,
+        "company_name": "赣州分公司",
+        "company_no": "H04"
+      }
+    ]
+  },
+  "llm_enhanced_at": "2026-03-17T23:00:25.399718"
+}

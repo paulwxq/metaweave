@@ -1,0 +1,584 @@
+{
+  "metadata_version": "2.0",
+  "generated_timestamp": "2026-03-17T23:00:21.884668",
+  "table_info": {
+    "database": "highway_db",
+    "schema_name": "public",
+    "table_name": "qa_feedback",
+    "table_type": "table",
+    "comment": "用户对SQL查询结果的反馈记录，包含问题、生成SQL、点赞状态及是否用于训练数据",
+    "comment_source": "ddl",
+    "total_rows": 20,
+    "total_columns": 8
+  },
+  "column_profiles": {
+    "id": {
+      "column_name": "id",
+      "ordinal_position": 1,
+      "data_type": "integer",
+      "character_maximum_length": null,
+      "numeric_precision": 32,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": "nextval('qa_feedback_id_seq'::regclass)",
+      "comment": "反馈记录唯一标识ID",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 20,
+        "unique_count": 20,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "min": "1",
+        "max": "21",
+        "mean": "10.85"
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": true,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": true
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": true,
+          "composite_columns": null
+        }
+      }
+    },
+    "question": {
+      "column_name": "question",
+      "ordinal_position": 2,
+      "data_type": "text",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "用户提出的自然语言问题",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 20,
+        "unique_count": 16,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.8,
+        "avg_length": 7.8,
+        "min_length": 5,
+        "max_length": 14,
+        "median_length": 8.0,
+        "length_std": 1.7
+      },
+      "semantic_analysis": {
+        "semantic_role": "attribute",
+        "semantic_confidence": 0.7,
+        "inference_basis": [
+          "fallback_attribute"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {}
+    },
+    "sql": {
+      "column_name": "sql",
+      "ordinal_position": 3,
+      "data_type": "text",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "系统生成的对应SQL查询语句",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 20,
+        "unique_count": 16,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.8,
+        "avg_length": 61.65,
+        "min_length": 17,
+        "max_length": 165,
+        "median_length": 48.5,
+        "length_std": 46.19
+      },
+      "semantic_analysis": {
+        "semantic_role": "description",
+        "semantic_confidence": 0.85,
+        "inference_basis": [
+          "description_high_variance"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "description_info": {
+          "avg_length": 61.65,
+          "max_length": 165,
+          "length_variance": 46.19,
+          "is_rich_text": false
+        }
+      }
+    },
+    "is_thumb_up": {
+      "column_name": "is_thumb_up",
+      "ordinal_position": 4,
+      "data_type": "boolean",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "用户是否点赞（True-是，False-否）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 20,
+        "unique_count": 2,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.1,
+        "min": "False",
+        "max": "True",
+        "mean": "0.5",
+        "value_distribution": {
+          "True": 10,
+          "False": 10
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "enum",
+        "semantic_confidence": 0.85,
+        "inference_basis": [
+          "simple_two_value_enum"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "enum_info": {
+          "cardinality": 2,
+          "cardinality_level": "low",
+          "values": [
+            "True",
+            "False"
+          ]
+        },
+        "index_info": {
+          "index_name": "idx_qa_feedback_is_thumb_up",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "user_id": {
+      "column_name": "user_id",
+      "ordinal_position": 5,
+      "data_type": "character varying",
+      "character_maximum_length": 64,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "提交反馈的用户账号标识",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 20,
+        "unique_count": 18,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.9,
+        "avg_length": 6.7,
+        "min_length": 5,
+        "max_length": 8,
+        "median_length": 7.0,
+        "length_std": 0.73
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 0.85,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "naming_with_uniqueness"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "id",
+          "is_surrogate": true
+        },
+        "index_info": {
+          "index_name": "idx_qa_feedback_user_id",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "create_time": {
+      "column_name": "create_time",
+      "ordinal_position": 6,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": "CURRENT_TIMESTAMP",
+      "comment": "反馈记录创建时间戳",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 20,
+        "unique_count": 20,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_time$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "记录创建时间"
+        },
+        "index_info": {
+          "index_name": "idx_qa_feedback_create_time",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "is_in_training_data": {
+      "column_name": "is_in_training_data",
+      "ordinal_position": 7,
+      "data_type": "boolean",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": "false",
+      "comment": "是否已纳入训练数据集（True-是，False-否）",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 20,
+        "unique_count": 2,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.1,
+        "min": "False",
+        "max": "True",
+        "mean": "0.25",
+        "value_distribution": {
+          "False": 15,
+          "True": 5
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "enum",
+        "semantic_confidence": 0.85,
+        "inference_basis": [
+          "simple_two_value_enum"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "enum_info": {
+          "cardinality": 2,
+          "cardinality_level": "low",
+          "values": [
+            "False",
+            "True"
+          ]
+        },
+        "index_info": {
+          "index_name": "idx_qa_feedback_is_in_training",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    },
+    "update_time": {
+      "column_name": "update_time",
+      "ordinal_position": 8,
+      "data_type": "timestamp without time zone",
+      "character_maximum_length": null,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": true,
+      "column_default": null,
+      "comment": "反馈记录最后更新时间戳",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 20,
+        "unique_count": 2,
+        "null_count": 16,
+        "null_rate": 0.8,
+        "uniqueness": 0.1,
+        "value_distribution": {
+          "2025-06-24 13:05:00.792156": 3,
+          "2025-06-30 10:07:37.344199": 1
+        }
+      },
+      "semantic_analysis": {
+        "semantic_role": "audit",
+        "semantic_confidence": 0.95,
+        "inference_basis": [
+          "audit_pattern:_time$"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": false,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": true
+      },
+      "role_specific_info": {
+        "audit_info": {
+          "audit_type": "timestamp",
+          "description": "记录更新时间"
+        }
+      }
+    }
+  },
+  "table_profile": {
+    "table_category": "fact",
+    "confidence": 0.95,
+    "inference_basis": [
+      "llm_inferred"
+    ],
+    "physical_constraints": {
+      "primary_key": {
+        "constraint_name": "qa_feedback_pkey",
+        "columns": [
+          "id"
+        ]
+      },
+      "foreign_keys": [],
+      "unique_constraints": []
+    },
+    "indexes": [
+      {
+        "index_name": "idx_qa_feedback_create_time",
+        "index_type": "btree",
+        "columns": [
+          "create_time"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      },
+      {
+        "index_name": "idx_qa_feedback_is_in_training",
+        "index_type": "btree",
+        "columns": [
+          "is_in_training_data"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      },
+      {
+        "index_name": "idx_qa_feedback_is_thumb_up",
+        "index_type": "btree",
+        "columns": [
+          "is_thumb_up"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      },
+      {
+        "index_name": "idx_qa_feedback_user_id",
+        "index_type": "btree",
+        "columns": [
+          "user_id"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      }
+    ],
+    "column_statistics": {
+      "total_columns": 8,
+      "identifier_count": 2,
+      "metric_count": 0,
+      "datetime_count": 0,
+      "enum_count": 0,
+      "audit_count": 2,
+      "attribute_count": 1,
+      "primary_key_count": 1,
+      "foreign_key_count": 0
+    },
+    "table_category_rule_based": "dim",
+    "confidence_rule_based": 0.95,
+    "inference_basis_rule_based": [
+      "fact_dimension_columns",
+      "dim_identifier_columns",
+      "dim_has_primary_key"
+    ]
+  },
+  "sample_records": {
+    "sample_method": "random",
+    "sample_size": 5,
+    "total_rows": 20,
+    "records": [
+      {
+        "id": 4,
+        "question": "按服务区统计营收",
+        "sql": "SELECT service_name, SUM(pay_sum) as total_revenue FROM bss_business_day_data WHERE delete_ts IS NULL GROUP BY service_name ORDER BY total_revenue DESC;",
+        "is_thumb_up": "True",
+        "user_id": "user004",
+        "create_time": "2024-01-16 09:45:00",
+        "is_in_training_data": "False",
+        "update_time": null
+      },
+      {
+        "id": 5,
+        "question": "查询今日新增用户",
+        "sql": "SELECT COUNT(*) as new_users FROM users WHERE DATE(create_time) = CURRENT_DATE;",
+        "is_thumb_up": "True",
+        "user_id": "user005",
+        "create_time": "2024-01-16 16:30:00",
+        "is_in_training_data": "False",
+        "update_time": null
+      },
+      {
+        "id": 6,
+        "question": "热门商品排行榜",
+        "sql": "SELECT product_name, SUM(quantity) as total_sold FROM order_items oi JOIN products p ON oi.product_id = p.id GROUP BY product_name ORDER BY total_sold DESC LIMIT 10;",
+        "is_thumb_up": "True",
+        "user_id": "admin",
+        "create_time": "2024-01-17 10:00:00",
+        "is_in_training_data": "True",
+        "update_time": null
+      },
+      {
+        "id": 7,
+        "question": "查询用户余额",
+        "sql": "SELECT user_id, account_balance FROM user_accounts WHERE user_id = '12345';",
+        "is_thumb_up": "True",
+        "user_id": "user006",
+        "create_time": "2024-01-17 13:25:00",
+        "is_in_training_data": "False",
+        "update_time": null
+      },
+      {
+        "id": 8,
+        "question": "按月统计订单趋势",
+        "sql": "SELECT DATE_TRUNC('month', create_time) as month, COUNT(*) as order_count FROM orders GROUP BY month ORDER BY month;",
+        "is_thumb_up": "True",
+        "user_id": "user007",
+        "create_time": "2024-01-18 11:40:00",
+        "is_in_training_data": "False",
+        "update_time": null
+      }
+    ]
+  },
+  "llm_enhanced_at": "2026-03-17T23:00:50.155353"
+}

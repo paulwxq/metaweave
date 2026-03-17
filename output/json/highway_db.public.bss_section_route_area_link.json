@@ -1,0 +1,218 @@
+{
+  "metadata_version": "2.0",
+  "generated_timestamp": "2026-03-17T23:00:21.809407",
+  "table_info": {
+    "database": "highway_db",
+    "schema_name": "public",
+    "table_name": "bss_section_route_area_link",
+    "table_type": "table",
+    "comment": "路段路由与服务区的关联关系表",
+    "comment_source": "ddl",
+    "total_rows": 80,
+    "total_columns": 2
+  },
+  "column_profiles": {
+    "section_route_id": {
+      "column_name": "section_route_id",
+      "ordinal_position": 1,
+      "data_type": "character varying",
+      "character_maximum_length": 32,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "路线id",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 80,
+        "unique_count": 42,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 0.525,
+        "avg_length": 32.0,
+        "min_length": 32,
+        "max_length": 32,
+        "median_length": 32.0,
+        "length_std": 0.0
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": true,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": false,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": false,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": true
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": false,
+          "composite_columns": [
+            "section_route_id",
+            "service_area_id"
+          ]
+        }
+      }
+    },
+    "service_area_id": {
+      "column_name": "service_area_id",
+      "ordinal_position": 2,
+      "data_type": "character varying",
+      "character_maximum_length": 32,
+      "numeric_precision": null,
+      "numeric_scale": null,
+      "is_nullable": false,
+      "column_default": null,
+      "comment": "服务区id",
+      "comment_source": "ddl",
+      "statistics": {
+        "sample_count": 80,
+        "unique_count": 80,
+        "null_count": 0,
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
+        "avg_length": 32.0,
+        "min_length": 32,
+        "max_length": 32,
+        "median_length": 32.0,
+        "length_std": 0.0
+      },
+      "semantic_analysis": {
+        "semantic_role": "identifier",
+        "semantic_confidence": 1.0,
+        "inference_basis": [
+          "type_whitelist_passed",
+          "physical_constraint:primary_key"
+        ]
+      },
+      "structure_flags": {
+        "is_primary_key": false,
+        "is_composite_primary_key_member": true,
+        "is_foreign_key": false,
+        "is_composite_foreign_key_member": false,
+        "is_unique": true,
+        "is_composite_unique_member": false,
+        "is_unique_constraint": false,
+        "is_composite_unique_constraint_member": false,
+        "is_indexed": true,
+        "is_composite_indexed_member": false,
+        "is_nullable": false
+      },
+      "role_specific_info": {
+        "identifier_info": {
+          "naming_pattern": "primary_key",
+          "is_surrogate": true
+        },
+        "primary_key_info": {
+          "source": "constraint",
+          "confidence": null,
+          "is_single_column": false,
+          "composite_columns": [
+            "section_route_id",
+            "service_area_id"
+          ]
+        },
+        "index_info": {
+          "index_name": "fk_bss_section_area_link",
+          "index_type": "btree",
+          "is_unique": false,
+          "position": 1
+        }
+      }
+    }
+  },
+  "table_profile": {
+    "table_category": "bridge",
+    "confidence": 0.95,
+    "inference_basis": [
+      "llm_inferred"
+    ],
+    "physical_constraints": {
+      "primary_key": {
+        "constraint_name": "bss_section_route_area_link_pkey",
+        "columns": [
+          "section_route_id",
+          "service_area_id"
+        ]
+      },
+      "foreign_keys": [],
+      "unique_constraints": []
+    },
+    "indexes": [
+      {
+        "index_name": "fk_bss_section_area_link",
+        "index_type": "btree",
+        "columns": [
+          "service_area_id"
+        ],
+        "is_unique": false,
+        "is_primary": false,
+        "condition": null
+      }
+    ],
+    "column_statistics": {
+      "total_columns": 2,
+      "identifier_count": 2,
+      "metric_count": 0,
+      "datetime_count": 0,
+      "enum_count": 0,
+      "audit_count": 0,
+      "attribute_count": 0,
+      "primary_key_count": 2,
+      "foreign_key_count": 0
+    },
+    "table_category_rule_based": "dim",
+    "confidence_rule_based": 0.95,
+    "inference_basis_rule_based": [
+      "fact_dimension_columns",
+      "dim_identifier_columns",
+      "dim_has_primary_key"
+    ]
+  },
+  "sample_records": {
+    "sample_method": "random",
+    "sample_size": 5,
+    "total_rows": 80,
+    "records": [
+      {
+        "section_route_id": "v8elrsfs5f7lt7jl8a6p87smfzesn3rz",
+        "service_area_id": "08e01d7402abd1d6a4d9fdd5df855ef8"
+      },
+      {
+        "section_route_id": "hxzi2iim238e3s1eajjt1enmh9o4h3wp",
+        "service_area_id": "091662311d2c737029445442ff198c4c"
+      },
+      {
+        "section_route_id": "59x441yb58kyopu38juna3avtvpztign",
+        "service_area_id": "0b70f74d0516fa5316dd5cb848ffaae9"
+      },
+      {
+        "section_route_id": "m4qmswd08ajhcw9q0uypvhajzrzx7rxr",
+        "service_area_id": "104253161ec311f96c3367e42c97525c"
+      },
+      {
+        "section_route_id": "tvyjygi5q745pxb697eiaj2sfie6m5be",
+        "service_area_id": "15d16d34f3f9d35f3a77852a8a4f8916"
+      }
+    ]
+  },
+  "llm_enhanced_at": "2026-03-17T23:00:37.125648"
+}
