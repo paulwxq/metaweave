@@ -2,7 +2,7 @@
 -- Database: highway_db
 -- Table: public.bss_service_area
 -- Comment: 服务区信息表，存储高速公路服务区的名称、编号、位置、类型、状态及所属公司等基础信息
--- Generated: 2026-03-18 06:59:19
+-- Generated: 2026-03-18 12:46:10
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_service_area (

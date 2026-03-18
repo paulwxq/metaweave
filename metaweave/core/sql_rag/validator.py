@@ -306,6 +306,17 @@ class SQLValidator:
                 table_relationships=rel_context,
             )
 
+            logger.debug(
+                "SQL 修复批次 [batch_start=%d, size=%d] LLM 提示词\n"
+                "========== SYSTEM PROMPT ==========\n%s\n"
+                "========== USER PROMPT ==========\n%s\n"
+                "=================================",
+                batch_start,
+                len(batch_indices),
+                SQL_REPAIR_SYSTEM_PROMPT,
+                prompt,
+            )
+
             try:
                 response = self.llm_service.call_llm(
                     prompt, system_message=SQL_REPAIR_SYSTEM_PROMPT

@@ -1,7 +1,7 @@
 # 数据库业务主题配置
 database:
   name: highway_db
-  description: highway_db 是一个面向高速公路服务区全生命周期运营管理的业务分析型数据库，覆盖服务区基础资产、所属公司与组织架构、路段与路线拓扑关系、车流与客流统计、多渠道经营数据（餐饮及零售分支）、跨系统服务标识映射、主题元数据治理以及用户查询反馈闭环等核心场景，支撑经营分析、资源调度、服务质量评估和智能SQL训练等关键业务。
+  description: highway_db 是面向全国高速公路服务区运营与数字化管理的业务分析型数据库，全面覆盖服务区基础资产（位置、类型、所属公司）、路段与路网拓扑关系、多业态分支网点（餐饮/小吃）、日级客流与车流统计、全渠道支付交易明细、跨系统服务区标识映射、业务元数据治理及用户查询反馈闭环等核心场景，支撑经营分析、资源调度、服务质量评估与智能SQL辅助生成。
 llm_inference:
   max_domains_per_table: 3
 domains:
@@ -10,29 +10,29 @@ domains:
   tables:
   - highway_db.public.qa_feedback
 - name: 服务区基础资产与组织管理
-  description: 管理高速公路服务区实体资产及其归属关系，包括服务区基本信息、所属公司、组织架构及审计元数据
+  description: 管理高速公路服务区实体及其所属组织架构，包括服务区基本信息、公司主体、唯一标识映射及审计属性，是所有业务数据的空间与组织锚点。
   tables:
   - highway_db.public.bss_service_area
   - highway_db.public.bss_company
-- name: 路段-路线-服务区拓扑关系
-  description: 刻画高速公路基础设施层级结构，定义路段、路线与服务区之间的空间与逻辑隶属关系
+  - highway_db.public.bss_service_area_mapper
+- name: 路网结构与空间关联
+  description: 刻画高速公路物理路网结构，定义路段、路线及其与服务区的空间隶属关系，为地理分析、路径推演和服务区辐射范围建模提供拓扑基础。
   tables:
   - highway_db.public.bss_section_route
   - highway_db.public.bss_section_route_area_link
-- name: 服务区分支网点运营
-  description: 记录服务区内部细分业务单元（如餐饮、便利店等分支网点）的静态信息与动态经营表现
+- name: 服务区经营业态与网点管理
+  description: 聚焦服务区内部商业生态，记录餐饮及小吃等细分业态的分支网点信息，支撑业态分布、网点密度及多层级运营单元管理。
   tables:
   - highway_db.public.bss_branch
-  - highway_db.public.bss_business_day_data
-- name: 交通流量与车型分析
-  description: 按日统计进入各服务区的车辆类型分布与使用频次，支撑服务区承载力评估与设施规划
+- name: 交通流量与车辆行为分析
+  description: 采集并统计各服务区内按日分车型的车辆到达与使用数据，用于分析车流特征、高峰时段、车型结构及服务区承载能力。
   tables:
   - highway_db.public.bss_car_day_count
-- name: 跨系统服务标识治理
-  description: 维护服务区在不同业务系统中的命名、编码及唯一标识映射关系，保障主数据一致性与系统集成
+- name: 支付交易与经营绩效分析
+  description: 记录各服务区及分支网点按日、按支付渠道（微信、支付宝、现金等）的交易金额与订单数，支撑营收监控、渠道效能评估与经营决策。
   tables:
-  - highway_db.public.bss_service_area_mapper
-- name: 业务分析主题元数据
-  description: 定义高速公路领域可分析的主题域、关联数据表、典型业务问题及关键词，支撑自助分析与语义层建设
+  - highway_db.public.bss_business_day_data
+- name: 业务元数据与分析治理
+  description: 存储高速公路领域关键分析主题的语义定义、关联表结构、典型业务问题及关键词，驱动自助分析、智能SQL生成与知识沉淀。
   tables:
   - highway_db.public.highway_metadata

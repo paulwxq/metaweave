@@ -4,18 +4,565 @@
   "metadata_source": "json_files",
   "json_metadata_version": "2.0",
   "json_files_loaded": 10,
-  "database_queries_executed": 0,
-  "generated_timestamp": "2026-03-18T07:00:07.796679",
+  "database_queries_executed": 87,
+  "generated_timestamp": "2026-03-18T12:47:16.152747",
   "statistics": {
-    "total_relationships_found": 0,
+    "total_relationships_found": 21,
     "foreign_key_relationships": 0,
     "composite_key_relationships": 0,
-    "single_column_relationships": 0,
+    "single_column_relationships": 21,
     "total_suppressed_single_relations": 0,
     "active_search_discoveries": 0,
     "dynamic_composite_discoveries": 0,
-    "llm_assisted_relationships": 0,
-    "rejected_low_confidence": 0
+    "llm_assisted_relationships": 21,
+    "rejected_low_confidence": 10
   },
-  "relationships": []
+  "relationships": [
+    {
+      "relationship_id": "rel_08999963f801",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_business_day_data"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_branch"
+      },
+      "from_column": "branch_no",
+      "to_column": "branch_no",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.8497,
+      "confidence_level": "medium",
+      "metrics": {
+        "inclusion_rate": 0.8057,
+        "jaccard_index": 0.566,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_5ff334d90fff",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_car_day_count"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_branch"
+      },
+      "from_column": "service_area_id",
+      "to_column": "service_area_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.9419,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 0.9149,
+        "jaccard_index": 0.8866,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "M:N"
+    },
+    {
+      "relationship_id": "rel_11f1cd8a41f2",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_branch"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_company"
+      },
+      "from_column": "company_id",
+      "to_column": "id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.9416,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 0.8889,
+        "name_similarity": 0.7637,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_ee0c5fbcfcff",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_branch"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_section_route"
+      },
+      "from_column": "section_route_id",
+      "to_column": "id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.908,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 0.8333,
+        "name_similarity": 0.6232,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_72126a780584",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_branch"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_section_route_area_link"
+      },
+      "from_column": "service_area_id",
+      "to_column": "service_area_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.926,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 0.8876,
+        "jaccard_index": 0.8778,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_a13964be2ea0",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_branch"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_section_route_area_link"
+      },
+      "from_column": "section_route_id",
+      "to_column": "section_route_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.924,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 0.8889,
+        "jaccard_index": 0.8511,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "M:N"
+    },
+    {
+      "relationship_id": "rel_b889677e9a18",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_branch"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_service_area"
+      },
+      "from_column": "service_area_id",
+      "to_column": "id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.9026,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 0.7417,
+        "name_similarity": 0.6422,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_a07c5fdf1b5c",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_branch"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_service_area"
+      },
+      "from_column": "company_id",
+      "to_column": "company_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 1.0,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 1.0,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "M:N"
+    },
+    {
+      "relationship_id": "rel_6bb7e744ed7f",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_branch"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_service_area_mapper"
+      },
+      "from_column": "service_area_id",
+      "to_column": "service_area_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.9672,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 0.9888,
+        "jaccard_index": 0.7333,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "M:N"
+    },
+    {
+      "relationship_id": "rel_aeea1f6f6c67",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_business_day_data"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_service_area"
+      },
+      "from_column": "service_no",
+      "to_column": "service_area_no",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.6672,
+      "confidence_level": "low",
+      "metrics": {
+        "inclusion_rate": 0.5353,
+        "jaccard_index": 0.4596,
+        "name_similarity": 0.8839,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_dddf93e11658",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_business_day_data"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_service_area_mapper"
+      },
+      "from_column": "service_no",
+      "to_column": "service_no",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.9418,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 0.9765,
+        "jaccard_index": 0.5479,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "M:N"
+    },
+    {
+      "relationship_id": "rel_eae4692379c7",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_business_day_data"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_service_area_mapper"
+      },
+      "from_column": "service_name",
+      "to_column": "service_name",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.949,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 0.9583,
+        "jaccard_index": 0.7188,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "M:N"
+    },
+    {
+      "relationship_id": "rel_fb41bbe4f118",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_car_day_count"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_section_route_area_link"
+      },
+      "from_column": "service_area_id",
+      "to_column": "service_area_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.8954,
+      "confidence_level": "medium",
+      "metrics": {
+        "inclusion_rate": 0.8404,
+        "jaccard_index": 0.8316,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_c7962fd58f36",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_car_day_count"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_service_area"
+      },
+      "from_column": "service_area_id",
+      "to_column": "id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.9068,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 0.7833,
+        "name_similarity": 0.6422,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_d82cb406b8ff",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_car_day_count"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_service_area_mapper"
+      },
+      "from_column": "service_area_id",
+      "to_column": "service_area_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.979,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 0.7899,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "M:N"
+    },
+    {
+      "relationship_id": "rel_c7962fd58f36",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_car_day_count"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_service_area"
+      },
+      "from_column": "service_area_id",
+      "to_column": "id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.9068,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 0.7833,
+        "name_similarity": 0.6422,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_54b4e3ea3090",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_service_area"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_company"
+      },
+      "from_column": "company_id",
+      "to_column": "id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.9416,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 0.8889,
+        "name_similarity": 0.7637,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_55e8db07c432",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_section_route_area_link"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_section_route"
+      },
+      "from_column": "section_route_id",
+      "to_column": "id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.9024,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 0.7778,
+        "name_similarity": 0.6232,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_9e1e24083bcb",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_section_route_area_link"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_service_area"
+      },
+      "from_column": "service_area_id",
+      "to_column": "id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.8951,
+      "confidence_level": "medium",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 0.6667,
+        "name_similarity": 0.6422,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "1:1"
+    },
+    {
+      "relationship_id": "rel_a0d0e5b47e87",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_section_route_area_link"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_service_area_mapper"
+      },
+      "from_column": "service_area_id",
+      "to_column": "service_area_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.9672,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 0.6723,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "1:N"
+    },
+    {
+      "relationship_id": "rel_225fb133d126",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_service_area_mapper"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_service_area"
+      },
+      "from_column": "service_area_id",
+      "to_column": "id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.9276,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 1.0,
+        "jaccard_index": 0.9917,
+        "name_similarity": 0.6422,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
+    }
+  ]
 }

@@ -41,13 +41,13 @@ class RelationshipDiscoveryPipeline:
         """
         self.config_path = Path(config_path)
         self.config = self._load_config()
-        self.rel_config = self.config.get("relationships", {}).copy()
+        self.rel_config = (self.config.get("relationships") or {}).copy()
         for key in ["single_column", "composite", "decision", "weights"]:
             if key in self.config and key not in self.rel_config:
                 self.rel_config[key] = self.config[key]
         # 关系评分阶段的数据库采样行数上限：统一使用 sampling.sample_size
-        self.rel_config["sample_size"] = self.config.get("sampling", {}).get("sample_size", 1000)
-        self.embedding_config = self.config.get("embedding", {})
+        self.rel_config["sample_size"] = (self.config.get("sampling") or {}).get("sample_size", 1000)
+        self.embedding_config = self.config.get("embedding") or {}
 
         # 获取JSON目录（支持直接配置 json_directory，或从 output_dir 推导）
         output_config = self.config.get("output", {})

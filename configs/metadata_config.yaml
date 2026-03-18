@@ -346,6 +346,13 @@ output:
 
 # Step 3: 关系发现配置
 relationships:
+  # domain 表对分组控制（CLI --domain 可覆盖）
+  # null=全表两两组合, "all"=所有domain, "A,B"=指定domain
+  domain: null
+  # 是否包含跨域表对（CLI --cross-domain/--no-cross-domain 可覆盖）
+  # null/false=仅域内, true=包含跨域; domain为null时此项被忽略
+  cross_domain: null
+
   # sample_size: 1000  # 已废弃：关系评分阶段统一使用 sampling.sample_size
   name_similarity:
     method: embedding
@@ -459,7 +466,7 @@ loaders:
 # ============================================================
 sql_rag:
   generation:
-    questions_per_domain: 10
+    questions_per_domain: 3
     uncategorized_questions: 3
     skip_uncategorized: false
     output_dir: "output/sql"

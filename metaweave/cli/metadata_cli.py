@@ -6,7 +6,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import yaml
 
 from metaweave.core.metadata.generator import MetadataGenerator
@@ -14,6 +14,20 @@ from metaweave.utils.file_utils import get_project_root, clear_dir_contents
 from metaweave.utils.logger import set_current_step
 
 logger = logging.getLogger("metaweave.cli")
+
+
+def _resolve_domain_params(
+    cli_domain: Optional[str],
+    cli_cross_domain: Optional[bool],
+    loaded_config: Dict,
+) -> Tuple[Optional[str], bool]:
+    """合并 domain/cross_domain 参数：CLI > yaml > 默认值 null"""
+    rel_cfg = loaded_config.get("relationships") or {}
+    d = cli_domain if cli_domain is not None else rel_cfg.get("domain")
+    cd = cli_cross_domain if cli_cross_domain is not None else rel_cfg.get("cross_domain")
+    if not d:
+        return None, False
+    return d, bool(cd)
 
 
 @click.command(name="metadata")
@@ -68,7 +82,11 @@ logger = logging.getLogger("metaweave.cli")
     type=str,
     default=None,
     flag_value="all",
-    help="启用 domain 功能。不传值或传 'all' 表示使用所有 domain；传 'A,B' 表示只使用指定 domain"
+    help=(
+        "控制 domain 表对分组。"
+        "'all' 使用所有 domain；'A,B' 指定 domain。"
+        "不传时从 yaml relationships.domain 读取；yaml 也未配置则全表两两组合"
+    ),
 )
 @click.option(
     "--domains-config",
@@ -89,10 +107,9 @@ logger = logging.getLogger("metaweave.cli")
     help="可选：生成 domains 时提供数据库补充说明（用于 LLM 提示词，不直接写入 YAML）"
 )
 @click.option(
-    "--cross-domain",
-    is_flag=True,
-    default=False,
-    help="是否包含跨域关系。可与 --domain 一起使用，也可单独使用（只生成跨域关系）"
+    "--cross-domain/--no-cross-domain",
+    default=None,
+    help="是否包含跨域关系。不传时从 yaml relationships.cross_domain 读取；yaml 也未配置则不跨域",
 )
 @click.option(
     "--md-context-dir",
@@ -151,14 +168,6 @@ def metadata_command(
                 return {}
             with open(path, "r", encoding="utf-8") as f:
                 return yaml.safe_load(f) or {}
-
-        def _parse_domain_filter(domain_value: Optional[str]) -> Optional[List[str]]:
-            if not domain_value:
-                return None
-            lower = domain_value.lower()
-            if lower == "all":
-                return ["all"]
-            return [d.strip() for d in domain_value.split(",") if d.strip()]
 
         def _get_default_domain_resolver():
             """为 cql/cql_llm 步骤加载默认的 DomainResolver"""
@@ -253,23 +262,13 @@ def metadata_command(
             _log_step_failure(step_name, message, errors)
             raise click.Abort()
 
-        # 参数校验
-        if generate_domains and (domain or cross_domain):
+        # 阶段 1: CLI 级互斥校验（只看 CLI 参数，不涉及 yaml）
+        if generate_domains and (domain is not None or cross_domain is not None):
             raise click.UsageError("--generate-domains 与 --domain/--cross-domain 互斥，请分两步执行")
 
         domains_config_path = Path(domains_config)
         if not domains_config_path.is_absolute():
             domains_config_path = get_project_root() / domains_config_path
-
-        from metaweave.core.domains import DomainResolver
-
-        domain_resolver: Optional[DomainResolver] = None
-        if domain or cross_domain:
-            if not domains_config_path.exists():
-                raise click.UsageError(f"错误：{domains_config} 文件不存在，无法使用 --domain/--cross-domain")
-            domain_resolver = DomainResolver(domains_config_path)
-            if not domain_resolver.get_all_domains():
-                raise click.UsageError(f"错误：{domains_config} 中 domains 列表为空，请先执行 --generate-domains")
 
         def _resolve_md_context_dir(loaded_config: Dict, cli_md_context_dir: str) -> Path:
             """解析 generate-domains 使用的 md 目录。
@@ -335,13 +334,41 @@ def metadata_command(
             )
             return
 
-        domain_filter = _parse_domain_filter(domain)
+        # 阶段 2.5: 加载配置（供后续所有分支复用）
+        from services.config_loader import load_config
+        from metaweave.core.domains import DomainResolver
+
+        loaded_config = load_config(config_path)
+
+        # 阶段 3: CLI > yaml > null 合并
+        effective_domain, effective_cross_domain = _resolve_domain_params(
+            domain, cross_domain, loaded_config
+        )
+
+        # 阶段 4: 根据 effective_domain 决定是否初始化 DomainResolver
+        domain_resolver: Optional[DomainResolver] = None
+        if effective_domain:
+            source_hint = (
+                f"CLI 参数 --domain={domain}"
+                if domain is not None
+                else f"yaml 配置 relationships.domain={effective_domain}"
+            )
+            if not domains_config_path.exists():
+                raise click.UsageError(
+                    f"当前生效的 domain 配置（来源: {source_hint}）需要 domains 配置文件，"
+                    f"但 {domains_config_path} 不存在。"
+                    f"请先执行 --generate-domains 生成该文件，或取消 domain 配置"
+                )
+            domain_resolver = DomainResolver(domains_config_path)
+            if not domain_resolver.get_all_domains():
+                raise click.UsageError(
+                    f"当前生效的 domain 配置（来源: {source_hint}）需要有效的 domains 列表，"
+                    f"但 {domains_config_path} 中 domains 列表为空。"
+                    f"请先执行 --generate-domains 生成 domain 配置"
+                )
 
         # Step: standard - 串行调度多个步骤（fail-fast）
         if step_lower == "standard":
-            from services.config_loader import load_config
-
-            loaded_config = load_config(config_path)
 
             schemas_list = [s.strip() for s in (schemas or "").split(",") if s.strip()] or None
             tables_list = [t.strip() for t in (tables or "").split(",") if t.strip()] or None
@@ -479,8 +506,8 @@ def metadata_command(
                                 discovery = LLMRelationshipDiscovery(
                                     config=loaded_config,
                                     connector=connector,
-                                    domain_filter=domain,
-                                    cross_domain=cross_domain,
+                                    domain_filter=effective_domain,
+                                    cross_domain=effective_cross_domain,
                                     domain_resolver=domain_resolver,
                                 )
 
@@ -684,8 +711,8 @@ def metadata_command(
                 discovery = LLMRelationshipDiscovery(
                     config=config,
                     connector=connector,
-                    domain_filter=domain,
-                    cross_domain=cross_domain,
+                    domain_filter=effective_domain,
+                    cross_domain=effective_cross_domain,
                     domain_resolver=domain_resolver,
                 )
 

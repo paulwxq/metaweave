@@ -124,7 +124,7 @@ class DomainResolver:
         Returns:
             去重后的表对列表
         """
-        if not domain_filter and not cross_domain:
+        if not domain_filter:
             return list(combinations(available_tables, 2))
 
         # 解析 domain_filter
@@ -146,6 +146,26 @@ class DomainResolver:
                     filtered.append(casefold_to_original[cf])
             if filtered:
                 domain_tables[domain_name] = filtered
+
+        sample = available_tables[:3]
+        logger.info(
+            "resolve_table_pairs: available_tables=%d 张 (示例: %s), "
+            "domain_filter=%r, 命中 %d 个 domain %s",
+            len(available_tables),
+            sample,
+            domain_filter,
+            len(domain_tables),
+            {d: len(ts) for d, ts in domain_tables.items()},
+        )
+        if available_tables and not domain_tables:
+            logger.warning(
+                "available_tables 共 %d 张表，但没有任何表命中 domain 配置。"
+                "请检查 db_domains.yaml 中的表名格式是否与 available_tables 一致 "
+                "(示例 available: %s, domain 配置中的表: %s)",
+                len(available_tables),
+                sample,
+                [t for ts in self._domain_to_tables.values() for t in ts[:2]][:4],
+            )
 
         # 生成域内表对
         intra_pairs: List[Tuple[str, str]] = []

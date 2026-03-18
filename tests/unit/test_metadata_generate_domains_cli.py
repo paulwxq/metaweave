@@ -91,3 +91,53 @@ def test_generate_domains_conflicts_with_cross_domain(tmp_path):
 
     assert result.exit_code != 0
     assert "互斥" in result.output
+
+
+def test_generate_domains_conflicts_with_no_cross_domain(tmp_path):
+    """--no-cross-domain 同样应与 --generate-domains 互斥"""
+    cfg = tmp_path / "metadata_config.yaml"
+    cfg.write_text("database:\n  database: demo\n", encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        metadata_cli.metadata_command,
+        [
+            "--config",
+            str(cfg),
+            "--generate-domains",
+            "--no-cross-domain",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "互斥" in result.output
+
+
+def test_generate_domains_succeeds_despite_yaml_domain_all(tmp_path, monkeypatch):
+    """yaml 中配置了 relationships.domain: all，但 db_domains.yaml 不存在时，
+    --generate-domains 仍应成功（不受 domain 合并逻辑影响）。
+    """
+    cfg = tmp_path / "metadata_config.yaml"
+    cfg.write_text("database:\n  database: demo\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "metaweave.core.metadata.domain_generator.DomainGenerator",
+        _DummyDomainGenerator,
+    )
+    monkeypatch.setattr(
+        "services.config_loader.load_config",
+        lambda _path: {
+            "relationships": {"domain": "all", "cross_domain": True},
+            "output": {"markdown_directory": "output/md"},
+        },
+    )
+    monkeypatch.setattr(metadata_cli, "get_project_root", lambda: tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        metadata_cli.metadata_command,
+        ["--config", str(cfg), "--generate-domains"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "已生成" in result.output

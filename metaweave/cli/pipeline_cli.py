@@ -318,16 +318,36 @@ def _step_rel_llm(ctx: _PipelineContext) -> None:
 
     connector = DatabaseConnector(ctx.loaded_config.get("database", {}))
     try:
-        # pipeline generate 中 domain 固定使用 "all"
-        domain_resolver = (
-            DomainResolver(ctx.domains_path) if ctx.domains_path.exists() else None
-        )
+        rel_cfg = ctx.loaded_config.get("relationships") or {}
+        effective_domain = rel_cfg.get("domain")
+        effective_cross_domain = rel_cfg.get("cross_domain")
+
+        if not effective_domain:
+            effective_cross_domain = False
+        else:
+            effective_cross_domain = bool(effective_cross_domain)
+
+        domain_resolver = None
+        if effective_domain:
+            if not ctx.domains_path.exists():
+                raise _StepError("rel_llm", [
+                    f"yaml 配置 relationships.domain={effective_domain} 已生效，"
+                    f"但 domains 配置文件不存在: {ctx.domains_path}。"
+                    f"请先执行 generate-domains 步骤，或将 relationships.domain 设为 null"
+                ])
+            domain_resolver = DomainResolver(ctx.domains_path)
+            if not domain_resolver.get_all_domains():
+                raise _StepError("rel_llm", [
+                    f"yaml 配置 relationships.domain={effective_domain} 已生效，"
+                    f"但 {ctx.domains_path} 中 domains 列表为空。"
+                    f"请先执行 generate-domains 步骤生成 domain 配置"
+                ])
 
         discovery = LLMRelationshipDiscovery(
             config=ctx.loaded_config,
             connector=connector,
-            domain_filter="all",
-            cross_domain=True,  # 包含跨域关系，确保产物完整
+            domain_filter=effective_domain,
+            cross_domain=effective_cross_domain,
             domain_resolver=domain_resolver,
         )
 

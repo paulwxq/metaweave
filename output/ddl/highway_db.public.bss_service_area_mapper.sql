@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: highway_db
 -- Table: public.bss_service_area_mapper
--- Comment: 服务区与业务系统映射关系表，记录服务区在不同源系统中的名称、编号及标识信息
--- Generated: 2026-03-18 06:59:20
+-- Comment: 服务区信息映射表，关联不同来源系统中的服务区名称、编号与唯一标识
+-- Generated: 2026-03-18 12:46:11
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_service_area_mapper (
@@ -41,7 +41,7 @@ COMMENT ON COLUMN public.bss_service_area_mapper.source_type IS '数据来源类
 CREATE INDEX idx_bss_service_area_mapper_on_service_area ON public.bss_service_area_mapper(service_area_id);
 
 -- Table Comment
-COMMENT ON TABLE public.bss_service_area_mapper IS '服务区与业务系统映射关系表，记录服务区在不同源系统中的名称、编号及标识信息';
+COMMENT ON TABLE public.bss_service_area_mapper IS '服务区信息映射表，关联不同来源系统中的服务区名称、编号与唯一标识';
 
 /* SAMPLE_RECORDS
 {

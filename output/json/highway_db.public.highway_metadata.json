@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-18T06:59:36.811830",
+  "generated_timestamp": "2026-03-18T12:46:27.950337",
   "table_info": {
     "database": "highway_db",
     "schema_name": "public",
@@ -304,7 +304,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "常见业务问题及对应SQL查询示例",
+      "comment": "常见业务问题及对应SQL查询语句",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 6,
@@ -459,7 +459,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": "CURRENT_TIMESTAMP",
-      "comment": "元数据最后更新时间戳",
+      "comment": "元数据最后更新时间",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 6,
@@ -602,5 +602,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-18T07:00:00.196894"
+  "llm_enhanced_at": "2026-03-18T12:46:52.587835"
 }

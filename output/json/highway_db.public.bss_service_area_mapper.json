@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-18T06:59:36.810433",
+  "generated_timestamp": "2026-03-18T12:46:27.936183",
   "table_info": {
     "database": "highway_db",
     "schema_name": "public",
     "table_name": "bss_service_area_mapper",
     "table_type": "table",
-    "comment": "服务区与业务系统映射关系表，记录服务区在不同源系统中的名称、编号及标识信息",
+    "comment": "服务区信息映射表，关联不同来源系统中的服务区名称、编号与唯一标识",
     "comment_source": "ddl",
     "total_rows": 317,
     "total_columns": 13
@@ -806,5 +806,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-18T06:59:57.236466"
+  "llm_enhanced_at": "2026-03-18T12:46:49.265910"
 }

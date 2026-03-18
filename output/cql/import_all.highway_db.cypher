@@ -1,7 +1,7 @@
 // import_all.highway_db.cypher
 // Neo4j 元数据导入脚本（global 模式，包含所有表和关系）
-// 生成时间: 2026-03-18T07:00:07.881025
-// 统计: 10 张表, 124 个列, 0 个关系
+// 生成时间: 2026-03-18T12:47:16.268470
+// 统计: 10 张表, 124 个列, 21 个关系
 
 // =====================================================================
 // 1. 创建唯一约束
@@ -46,7 +46,7 @@
       ]
     ],
     "table_domains": [
-      "服务区分支网点运营"
+      "服务区经营业态与网点管理"
     ],
     "table_category": "dim"
   },
@@ -56,7 +56,7 @@
     "full_name": "public.bss_business_day_data",
     "schema": "public",
     "name": "bss_business_day_data",
-    "comment": "服务区每日经营数据表，记录各服务区分支的分渠道交易笔数、金额及汇总信息",
+    "comment": "服务区每日各支付渠道交易数据统计表，记录各服务区、分店按日期的微信、支付宝、现金等支付金额与订单数",
     "pk": [
       "id"
     ],
@@ -74,7 +74,7 @@
       ]
     ],
     "table_domains": [
-      "服务区分支网点运营"
+      "支付交易与经营绩效分析"
     ],
     "table_category": "fact"
   },
@@ -99,7 +99,7 @@
       ]
     ],
     "table_domains": [
-      "交通流量与车型分析"
+      "交通流量与车辆行为分析"
     ],
     "table_category": "fact"
   },
@@ -109,7 +109,7 @@
     "full_name": "public.bss_company",
     "schema": "public",
     "name": "bss_company",
-    "comment": "公司信息表，存储企业分公司名称、编号及基础审计信息",
+    "comment": "公司信息表，存储分公司名称、编号及基础审计字段",
     "pk": [
       "id"
     ],
@@ -141,7 +141,7 @@
     "logic_uk": [],
     "indexes": [],
     "table_domains": [
-      "路段-路线-服务区拓扑关系"
+      "路网结构与空间关联"
     ],
     "table_category": "bridge"
   },
@@ -151,7 +151,7 @@
     "full_name": "public.bss_section_route_area_link",
     "schema": "public",
     "name": "bss_section_route_area_link",
-    "comment": "路段路由与服务区的关联关系表，记录路段路由所属的服务区",
+    "comment": "路段路由与服务区的关联关系表，记录路段路由所属的服务区ID",
     "pk": [
       "section_route_id",
       "service_area_id"
@@ -167,7 +167,7 @@
       ]
     ],
     "table_domains": [
-      "路段-路线-服务区拓扑关系"
+      "路网结构与空间关联"
     ],
     "table_category": "bridge"
   },
@@ -202,7 +202,7 @@
     "full_name": "public.bss_service_area_mapper",
     "schema": "public",
     "name": "bss_service_area_mapper",
-    "comment": "服务区与业务系统映射关系表，记录服务区在不同源系统中的名称、编号及标识信息",
+    "comment": "服务区信息映射表，关联不同来源系统中的服务区名称、编号与唯一标识",
     "pk": [
       "id"
     ],
@@ -217,7 +217,7 @@
       ]
     ],
     "table_domains": [
-      "跨系统服务标识治理"
+      "服务区基础资产与组织管理"
     ],
     "table_category": "dim"
   },
@@ -238,7 +238,7 @@
     "logic_uk": [],
     "indexes": [],
     "table_domains": [
-      "业务分析主题元数据"
+      "业务元数据与分析治理"
     ],
     "table_category": "dim"
   },
@@ -248,7 +248,7 @@
     "full_name": "public.qa_feedback",
     "schema": "public",
     "name": "qa_feedback",
-    "comment": "用户对SQL查询结果的反馈记录，包含问题、生成SQL、点赞状态及训练数据标记",
+    "comment": "用户对SQL查询结果的反馈记录，包括问题、生成SQL、点赞状态及是否用于训练",
     "pk": [
       "id"
     ],
@@ -423,7 +423,7 @@
     "schema": "public",
     "table": "bss_branch",
     "name": "delete_ts",
-    "comment": "逻辑删除时间戳（NULL表示未删除）",
+    "comment": "逻辑删除时间戳（为空表示未删除）",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -1031,7 +1031,7 @@
     "schema": "public",
     "table": "bss_business_day_data",
     "name": "xs",
-    "comment": "信用卡支付金额（单位：元）",
+    "comment": "刷卡支付金额（单位：元）",
     "data_type": "numeric",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1506,7 +1506,7 @@
     "schema": "public",
     "table": "bss_company",
     "name": "delete_ts",
-    "comment": "逻辑删除时间戳（NULL表示未删除）",
+    "comment": "逻辑删除时间戳（为空表示未删除）",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -1525,7 +1525,7 @@
     "schema": "public",
     "table": "bss_company",
     "name": "deleted_by",
-    "comment": "逻辑删除操作人用户名",
+    "comment": "逻辑删除人用户名",
     "data_type": "character varying",
     "semantic_role": "audit",
     "is_pk": false,
@@ -1696,7 +1696,7 @@
     "schema": "public",
     "table": "bss_section_route",
     "name": "delete_ts",
-    "comment": "逻辑删除时间戳（为空表示未删除）",
+    "comment": "逻辑删除时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -2437,7 +2437,7 @@
     "schema": "public",
     "table": "highway_metadata",
     "name": "questions",
-    "comment": "常见业务问题及对应SQL查询示例",
+    "comment": "常见业务问题及对应SQL查询语句",
     "data_type": "jsonb",
     "semantic_role": "complex",
     "is_pk": false,
@@ -2494,7 +2494,7 @@
     "schema": "public",
     "table": "highway_metadata",
     "name": "update_ts",
-    "comment": "元数据最后更新时间戳",
+    "comment": "元数据最后更新时间",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -2551,7 +2551,7 @@
     "schema": "public",
     "table": "qa_feedback",
     "name": "sql",
-    "comment": "系统生成的对应SQL查询语句",
+    "comment": "生成的对应SQL查询语句",
     "data_type": "text",
     "semantic_role": "description",
     "is_pk": false,
@@ -2570,7 +2570,7 @@
     "schema": "public",
     "table": "qa_feedback",
     "name": "is_thumb_up",
-    "comment": "用户是否点赞（True-是，False-否）",
+    "comment": "用户是否点赞（True-点赞，False-未点赞）",
     "data_type": "boolean",
     "semantic_role": "enum",
     "is_pk": false,
@@ -2589,7 +2589,7 @@
     "schema": "public",
     "table": "qa_feedback",
     "name": "user_id",
-    "comment": "提交反馈的用户标识符",
+    "comment": "提交反馈的用户ID",
     "data_type": "character varying",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -2608,7 +2608,7 @@
     "schema": "public",
     "table": "qa_feedback",
     "name": "create_time",
-    "comment": "反馈记录创建时间戳",
+    "comment": "反馈创建时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -2646,7 +2646,7 @@
     "schema": "public",
     "table": "qa_feedback",
     "name": "update_time",
-    "comment": "反馈记录最后更新时间戳",
+    "comment": "反馈最后更新时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -3187,7 +3187,344 @@ MERGE (t)-[:HAS_COLUMN]->(c);
 // 5. 建立 JOIN_ON 关系
 // =====================================================================
 
-UNWIND [] AS j
+UNWIND [
+  {
+    "source_table": "public.bss_business_day_data",
+    "target_table": "public.bss_branch",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.branch_no = DST.branch_no",
+    "source_columns": [
+      "branch_no"
+    ],
+    "target_columns": [
+      "branch_no"
+    ],
+    "src_full_name": "public.bss_business_day_data",
+    "dst_full_name": "public.bss_branch"
+  },
+  {
+    "source_table": "public.bss_car_day_count",
+    "target_table": "public.bss_branch",
+    "cardinality": "M:N",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.service_area_id = DST.service_area_id",
+    "source_columns": [
+      "service_area_id"
+    ],
+    "target_columns": [
+      "service_area_id"
+    ],
+    "src_full_name": "public.bss_car_day_count",
+    "dst_full_name": "public.bss_branch"
+  },
+  {
+    "source_table": "public.bss_branch",
+    "target_table": "public.bss_company",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.company_id = DST.id",
+    "source_columns": [
+      "company_id"
+    ],
+    "target_columns": [
+      "id"
+    ],
+    "src_full_name": "public.bss_branch",
+    "dst_full_name": "public.bss_company"
+  },
+  {
+    "source_table": "public.bss_branch",
+    "target_table": "public.bss_section_route",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.section_route_id = DST.id",
+    "source_columns": [
+      "section_route_id"
+    ],
+    "target_columns": [
+      "id"
+    ],
+    "src_full_name": "public.bss_branch",
+    "dst_full_name": "public.bss_section_route"
+  },
+  {
+    "source_table": "public.bss_branch",
+    "target_table": "public.bss_section_route_area_link",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.service_area_id = DST.service_area_id",
+    "source_columns": [
+      "service_area_id"
+    ],
+    "target_columns": [
+      "service_area_id"
+    ],
+    "src_full_name": "public.bss_branch",
+    "dst_full_name": "public.bss_section_route_area_link"
+  },
+  {
+    "source_table": "public.bss_branch",
+    "target_table": "public.bss_section_route_area_link",
+    "cardinality": "M:N",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.section_route_id = DST.section_route_id",
+    "source_columns": [
+      "section_route_id"
+    ],
+    "target_columns": [
+      "section_route_id"
+    ],
+    "src_full_name": "public.bss_branch",
+    "dst_full_name": "public.bss_section_route_area_link"
+  },
+  {
+    "source_table": "public.bss_branch",
+    "target_table": "public.bss_service_area",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.service_area_id = DST.id",
+    "source_columns": [
+      "service_area_id"
+    ],
+    "target_columns": [
+      "id"
+    ],
+    "src_full_name": "public.bss_branch",
+    "dst_full_name": "public.bss_service_area"
+  },
+  {
+    "source_table": "public.bss_branch",
+    "target_table": "public.bss_service_area",
+    "cardinality": "M:N",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.company_id = DST.company_id",
+    "source_columns": [
+      "company_id"
+    ],
+    "target_columns": [
+      "company_id"
+    ],
+    "src_full_name": "public.bss_branch",
+    "dst_full_name": "public.bss_service_area"
+  },
+  {
+    "source_table": "public.bss_branch",
+    "target_table": "public.bss_service_area_mapper",
+    "cardinality": "M:N",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.service_area_id = DST.service_area_id",
+    "source_columns": [
+      "service_area_id"
+    ],
+    "target_columns": [
+      "service_area_id"
+    ],
+    "src_full_name": "public.bss_branch",
+    "dst_full_name": "public.bss_service_area_mapper"
+  },
+  {
+    "source_table": "public.bss_business_day_data",
+    "target_table": "public.bss_service_area",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.service_no = DST.service_area_no",
+    "source_columns": [
+      "service_no"
+    ],
+    "target_columns": [
+      "service_area_no"
+    ],
+    "src_full_name": "public.bss_business_day_data",
+    "dst_full_name": "public.bss_service_area"
+  },
+  {
+    "source_table": "public.bss_business_day_data",
+    "target_table": "public.bss_service_area_mapper",
+    "cardinality": "M:N",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.service_no = DST.service_no",
+    "source_columns": [
+      "service_no"
+    ],
+    "target_columns": [
+      "service_no"
+    ],
+    "src_full_name": "public.bss_business_day_data",
+    "dst_full_name": "public.bss_service_area_mapper"
+  },
+  {
+    "source_table": "public.bss_business_day_data",
+    "target_table": "public.bss_service_area_mapper",
+    "cardinality": "M:N",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.service_name = DST.service_name",
+    "source_columns": [
+      "service_name"
+    ],
+    "target_columns": [
+      "service_name"
+    ],
+    "src_full_name": "public.bss_business_day_data",
+    "dst_full_name": "public.bss_service_area_mapper"
+  },
+  {
+    "source_table": "public.bss_car_day_count",
+    "target_table": "public.bss_section_route_area_link",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.service_area_id = DST.service_area_id",
+    "source_columns": [
+      "service_area_id"
+    ],
+    "target_columns": [
+      "service_area_id"
+    ],
+    "src_full_name": "public.bss_car_day_count",
+    "dst_full_name": "public.bss_section_route_area_link"
+  },
+  {
+    "source_table": "public.bss_car_day_count",
+    "target_table": "public.bss_service_area",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.service_area_id = DST.id",
+    "source_columns": [
+      "service_area_id"
+    ],
+    "target_columns": [
+      "id"
+    ],
+    "src_full_name": "public.bss_car_day_count",
+    "dst_full_name": "public.bss_service_area"
+  },
+  {
+    "source_table": "public.bss_car_day_count",
+    "target_table": "public.bss_service_area_mapper",
+    "cardinality": "M:N",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.service_area_id = DST.service_area_id",
+    "source_columns": [
+      "service_area_id"
+    ],
+    "target_columns": [
+      "service_area_id"
+    ],
+    "src_full_name": "public.bss_car_day_count",
+    "dst_full_name": "public.bss_service_area_mapper"
+  },
+  {
+    "source_table": "public.bss_car_day_count",
+    "target_table": "public.bss_service_area",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.service_area_id = DST.id",
+    "source_columns": [
+      "service_area_id"
+    ],
+    "target_columns": [
+      "id"
+    ],
+    "src_full_name": "public.bss_car_day_count",
+    "dst_full_name": "public.bss_service_area"
+  },
+  {
+    "source_table": "public.bss_service_area",
+    "target_table": "public.bss_company",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.company_id = DST.id",
+    "source_columns": [
+      "company_id"
+    ],
+    "target_columns": [
+      "id"
+    ],
+    "src_full_name": "public.bss_service_area",
+    "dst_full_name": "public.bss_company"
+  },
+  {
+    "source_table": "public.bss_section_route_area_link",
+    "target_table": "public.bss_section_route",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.section_route_id = DST.id",
+    "source_columns": [
+      "section_route_id"
+    ],
+    "target_columns": [
+      "id"
+    ],
+    "src_full_name": "public.bss_section_route_area_link",
+    "dst_full_name": "public.bss_section_route"
+  },
+  {
+    "source_table": "public.bss_section_route_area_link",
+    "target_table": "public.bss_service_area",
+    "cardinality": "1:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.service_area_id = DST.id",
+    "source_columns": [
+      "service_area_id"
+    ],
+    "target_columns": [
+      "id"
+    ],
+    "src_full_name": "public.bss_section_route_area_link",
+    "dst_full_name": "public.bss_service_area"
+  },
+  {
+    "source_table": "public.bss_service_area_mapper",
+    "target_table": "public.bss_section_route_area_link",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.service_area_id = DST.service_area_id",
+    "source_columns": [
+      "service_area_id"
+    ],
+    "target_columns": [
+      "service_area_id"
+    ],
+    "src_full_name": "public.bss_service_area_mapper",
+    "dst_full_name": "public.bss_section_route_area_link"
+  },
+  {
+    "source_table": "public.bss_service_area_mapper",
+    "target_table": "public.bss_service_area",
+    "cardinality": "N:1",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.service_area_id = DST.id",
+    "source_columns": [
+      "service_area_id"
+    ],
+    "target_columns": [
+      "id"
+    ],
+    "src_full_name": "public.bss_service_area_mapper",
+    "dst_full_name": "public.bss_service_area"
+  }
+] AS j
 MATCH (src:Table {full_name: j.src_full_name})
 MATCH (dst:Table {full_name: j.dst_full_name})
 MERGE (src)-[r:JOIN_ON]->(dst)

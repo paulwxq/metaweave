@@ -6,7 +6,7 @@
 - created_by (character varying(50)) - 创建人用户名 [示例: admin, admin]
 - update_ts (timestamp without time zone) - 记录最后更新时间戳 [示例: 2021-10-15 09:46:45.010000, 2021-11-07 20:26:10]
 - updated_by (character varying(50)) - 最后更新人用户名 [示例: updated by importSQL, updated by importSQL]
-- delete_ts (timestamp without time zone) - 逻辑删除时间戳（NULL表示未删除） [示例: null]
+- delete_ts (timestamp without time zone) - 逻辑删除时间戳（为空表示未删除） [示例: null]
 - deleted_by (character varying(50)) - 逻辑删除操作人用户名 [示例: null]
 - branch_name (character varying(255)) - 档口名称 [示例: 于都驿美餐饮南区, 南城餐饮西区]
 - branch_no (character varying(255)) - 档口编码 [示例: 003585, H0601B]

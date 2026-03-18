@@ -1,0 +1,179 @@
+[
+  {
+    "question": "查询过去一周内所有用户的反馈记录，并按创建时间降序排列",
+    "sql": "SELECT * FROM public.qa_feedback WHERE create_time >= NOW() - INTERVAL '7 days' ORDER BY create_time DESC;",
+    "domain": "_未分类_",
+    "tables": [
+      "highway_db.public.qa_feedback"
+    ]
+  },
+  {
+    "question": "统计每个用户提交的反馈记录数量，并按数量降序排列",
+    "sql": "SELECT user_id, COUNT(*) AS \"反馈数量\" FROM public.qa_feedback GROUP BY user_id ORDER BY \"反馈数量\" DESC;",
+    "domain": "_未分类_",
+    "tables": [
+      "highway_db.public.qa_feedback"
+    ]
+  },
+  {
+    "question": "查询点赞数最多的前10条反馈记录",
+    "sql": "SELECT * FROM public.qa_feedback WHERE is_thumb_up = TRUE ORDER BY create_time DESC LIMIT 10;",
+    "domain": "_未分类_",
+    "tables": [
+      "highway_db.public.qa_feedback"
+    ]
+  },
+  {
+    "question": "查询所有服务区的名称、类型以及所属公司名称，并按公司名称排序",
+    "sql": "SELECT bss_service_area.service_area_name AS \"服务区名称\", bss_service_area.service_area_type AS \"服务区类型\", bss_company.company_name AS \"公司名称\" FROM public.bss_service_area JOIN public.bss_company ON bss_service_area.company_id = bss_company.id ORDER BY bss_company.company_name;",
+    "domain": "服务区基础资产与组织管理",
+    "tables": [
+      "highway_db.public.bss_service_area",
+      "highway_db.public.bss_company",
+      "highway_db.public.bss_service_area_mapper"
+    ]
+  },
+  {
+    "question": "统计每个公司的服务区数量，并按服务区数量从高到低排序",
+    "sql": "SELECT bss_company.company_name AS \"公司名称\", COUNT(bss_service_area.id) AS \"服务区数量\" FROM public.bss_service_area JOIN public.bss_company ON bss_service_area.company_id = bss_company.id GROUP BY bss_company.company_name ORDER BY \"服务区数量\" DESC;",
+    "domain": "服务区基础资产与组织管理",
+    "tables": [
+      "highway_db.public.bss_service_area",
+      "highway_db.public.bss_company",
+      "highway_db.public.bss_service_area_mapper"
+    ]
+  },
+  {
+    "question": "查询所有开放状态的服务区及其对应的映射信息，包括来源系统类别和编码",
+    "sql": "SELECT bss_service_area.service_area_name AS \"服务区名称\", bss_service_area.service_area_no AS \"服务区编码\", bss_service_area_mapper.source_system_type AS \"来源系统类别\", bss_service_area_mapper.service_no AS \"服务编码\" FROM public.bss_service_area JOIN public.bss_service_area_mapper ON bss_service_area.id = bss_service_area_mapper.service_area_id WHERE bss_service_area.service_state = '开放';",
+    "domain": "服务区基础资产与组织管理",
+    "tables": [
+      "highway_db.public.bss_service_area",
+      "highway_db.public.bss_company",
+      "highway_db.public.bss_service_area_mapper"
+    ]
+  },
+  {
+    "question": "查询所有路段名称及其所属路线名称，并按路线名称排序",
+    "sql": "SELECT section_name AS \"路段名称\", route_name AS \"路线名称\" FROM public.bss_section_route ORDER BY route_name;",
+    "domain": "路网结构与空间关联",
+    "tables": [
+      "highway_db.public.bss_section_route",
+      "highway_db.public.bss_section_route_area_link"
+    ]
+  },
+  {
+    "question": "统计每个服务区所关联的路段数量，并按路段数量降序排列，取前10名",
+    "sql": "SELECT service_area_id, COUNT(section_route_id) AS \"路段数量\" FROM public.bss_section_route_area_link GROUP BY service_area_id ORDER BY \"路段数量\" DESC LIMIT 10;",
+    "domain": "路网结构与空间关联",
+    "tables": [
+      "highway_db.public.bss_section_route",
+      "highway_db.public.bss_section_route_area_link"
+    ]
+  },
+  {
+    "question": "查询每条路线下的所有路段和服务区的关联关系，并显示路线名称、路段名称和服务区ID",
+    "sql": "SELECT sr.route_name AS \"路线名称\", sr.section_name AS \"路段名称\", sral.service_area_id AS \"服务区ID\" FROM public.bss_section_route AS sr JOIN public.bss_section_route_area_link AS sral ON sr.id = sral.section_route_id;",
+    "domain": "路网结构与空间关联",
+    "tables": [
+      "highway_db.public.bss_section_route",
+      "highway_db.public.bss_section_route_area_link"
+    ]
+  },
+  {
+    "question": "查询每个服务区的餐饮网点数量，并按数量从高到低排序",
+    "sql": "SELECT b.service_area_id, COUNT(*) AS \"网点数量\" FROM public.bss_branch b WHERE b.classify = '餐饮' GROUP BY b.service_area_id ORDER BY \"网点数量\" DESC;",
+    "domain": "服务区经营业态与网点管理",
+    "tables": [
+      "highway_db.public.bss_branch"
+    ]
+  },
+  {
+    "question": "找出所有手工录入的餐饮网点，并显示其所属公司名称和服务区方向",
+    "sql": "SELECT b.branch_name, c.company_name AS \"公司名称\", b.direction AS \"服务区方向\" FROM public.bss_branch b JOIN public.bss_company c ON b.company_id = c.id WHERE b.is_manual_entry = 1 AND b.classify = '餐饮';",
+    "domain": "服务区经营业态与网点管理",
+    "tables": [
+      "highway_db.public.bss_branch"
+    ]
+  },
+  {
+    "question": "统计2021年新增的餐饮网点数量，并按月份分组显示",
+    "sql": "SELECT EXTRACT(MONTH FROM b.create_ts) AS \"月份\", COUNT(*) AS \"新增数量\" FROM public.bss_branch b WHERE b.classify = '餐饮' AND EXTRACT(YEAR FROM b.create_ts) = 2021 GROUP BY EXTRACT(MONTH FROM b.create_ts) ORDER BY \"月份\" ASC;",
+    "domain": "服务区经营业态与网点管理",
+    "tables": [
+      "highway_db.public.bss_branch"
+    ]
+  },
+  {
+    "question": "请查询2022年3月所有服务区按车型分类的车辆到达数量，并按车辆数量降序排列。",
+    "sql": "SELECT car_type, SUM(customer_count) AS \"车辆总数\" FROM public.bss_car_day_count WHERE count_date BETWEEN '2022-03-01' AND '2022-03-31' GROUP BY car_type ORDER BY \"车辆总数\" DESC;",
+    "domain": "交通流量与车辆行为分析",
+    "tables": [
+      "highway_db.public.bss_car_day_count"
+    ]
+  },
+  {
+    "question": "请列出2022年3月每天各服务区的车辆到达数量，并按日期和车辆数量降序排列。",
+    "sql": "SELECT count_date, service_area_id, SUM(customer_count) AS \"车辆总数\" FROM public.bss_car_day_count WHERE count_date BETWEEN '2022-03-01' AND '2022-03-31' GROUP BY count_date, service_area_id ORDER BY count_date, \"车辆总数\" DESC;",
+    "domain": "交通流量与车辆行为分析",
+    "tables": [
+      "highway_db.public.bss_car_day_count"
+    ]
+  },
+  {
+    "question": "请查询2022年3月每个服务区按车型分类的车辆到达数量，并按服务区ID和车辆类型分组，最后按服务区ID和车辆数量降序排列。",
+    "sql": "SELECT service_area_id, car_type, SUM(customer_count) AS \"车辆总数\" FROM public.bss_car_day_count WHERE count_date BETWEEN '2022-03-01' AND '2022-03-31' GROUP BY service_area_id, car_type ORDER BY service_area_id, \"车辆总数\" DESC;",
+    "domain": "交通流量与车辆行为分析",
+    "tables": [
+      "highway_db.public.bss_car_day_count"
+    ]
+  },
+  {
+    "question": "查询2023年1月1日至2023年1月31日，每个服务区的总支付金额和订单总数，并按总支付金额降序排列",
+    "sql": "SELECT service_name AS \"服务区名称\", SUM(pay_sum) AS \"总支付金额\", SUM(order_sum) AS \"订单总数\" FROM public.bss_business_day_data WHERE oper_date BETWEEN '2023-01-01' AND '2023-01-31' GROUP BY service_name ORDER BY SUM(pay_sum) DESC;",
+    "domain": "支付交易与经营绩效分析",
+    "tables": [
+      "highway_db.public.bss_business_day_data"
+    ]
+  },
+  {
+    "question": "统计2023年4月庐山服务区各支付渠道的交易金额和订单数，并按支付渠道排序",
+    "sql": "SELECT service_name AS \"服务区名称\", wx AS \"微信支付金额\", wx_order AS \"微信订单数量\", zfb AS \"支付宝支付金额\", zf_order AS \"支付宝订单数量\", rmb AS \"现金支付金额\", rmb_order AS \"现金支付订单数量\" FROM public.bss_business_day_data WHERE service_name = '庐山服务区' AND oper_date >= '2023-04-01' AND oper_date < '2023-05-01' ORDER BY oper_date, wx DESC, zfb DESC, rmb DESC;",
+    "domain": "支付交易与经营绩效分析",
+    "tables": [
+      "highway_db.public.bss_business_day_data"
+    ]
+  },
+  {
+    "question": "查询2023年第一季度宜春服务区各档口的总支付金额和订单总数，并按总支付金额降序排列",
+    "sql": "SELECT branch_name AS \"档口名称\", SUM(pay_sum) AS \"总支付金额\", SUM(order_sum) AS \"订单总数\" FROM public.bss_business_day_data WHERE service_name = '宜春服务区' AND oper_date BETWEEN '2023-01-01' AND '2023-03-31' GROUP BY branch_name ORDER BY SUM(pay_sum) DESC;",
+    "domain": "支付交易与经营绩效分析",
+    "tables": [
+      "highway_db.public.bss_business_day_data"
+    ]
+  },
+  {
+    "question": "哪个服务区在过去一周内车流量最多？",
+    "sql": "SELECT s.service_area_name AS \"服务区名称\", SUM(c.customer_count) AS \"总车流量\" FROM bss_car_day_count c JOIN bss_service_area s ON c.service_area_id = s.id WHERE c.count_date >= CURRENT_DATE - INTERVAL '7 day' GROUP BY s.service_area_name ORDER BY \"总车流量\" DESC LIMIT 1;",
+    "domain": "业务元数据与分析治理",
+    "tables": [
+      "highway_db.public.highway_metadata"
+    ]
+  },
+  {
+    "question": "昨天各支付方式的收入汇总是多少？",
+    "sql": "SELECT SUM(wx) AS \"微信支付总额\", SUM(zfb) AS \"支付宝支付总额\", SUM(rmb) AS \"现金支付总额\", SUM(xs) AS \"刷卡支付总额\", SUM(jd) AS \"京东支付总额\" FROM bss_business_day_data WHERE oper_date = CURRENT_DATE - INTERVAL '1 day';",
+    "domain": "业务元数据与分析治理",
+    "tables": [
+      "highway_db.public.highway_metadata"
+    ]
+  },
+  {
+    "question": "最近一个月内，每个服务区的货车流量占总车流量的比例是多少？",
+    "sql": "SELECT s.service_area_name AS \"服务区名称\", SUM(CASE WHEN c.car_type = '货车' THEN c.customer_count ELSE 0 END) * 1.0 / SUM(c.customer_count) AS \"货车占比\" FROM bss_car_day_count c JOIN bss_service_area s ON c.service_area_id = s.id WHERE c.count_date >= CURRENT_DATE - INTERVAL '1 month' GROUP BY s.service_area_name ORDER BY \"货车占比\" DESC;",
+    "domain": "业务元数据与分析治理",
+    "tables": [
+      "highway_db.public.highway_metadata"
+    ]
+  }
+]

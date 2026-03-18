@@ -2,7 +2,7 @@
 -- Database: highway_db
 -- Table: public.bss_branch
 -- Comment: 高速公路服务区餐饮及小吃分支网点信息表
--- Generated: 2026-03-18 06:59:16
+-- Generated: 2026-03-18 12:46:06
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_branch (
@@ -34,7 +34,7 @@ COMMENT ON COLUMN public.bss_branch.create_ts IS '记录创建时间戳';
 COMMENT ON COLUMN public.bss_branch.created_by IS '创建人用户名';
 COMMENT ON COLUMN public.bss_branch.update_ts IS '记录最后更新时间戳';
 COMMENT ON COLUMN public.bss_branch.updated_by IS '最后更新人用户名';
-COMMENT ON COLUMN public.bss_branch.delete_ts IS '逻辑删除时间戳（NULL表示未删除）';
+COMMENT ON COLUMN public.bss_branch.delete_ts IS '逻辑删除时间戳（为空表示未删除）';
 COMMENT ON COLUMN public.bss_branch.deleted_by IS '逻辑删除操作人用户名';
 COMMENT ON COLUMN public.bss_branch.branch_name IS '档口名称';
 COMMENT ON COLUMN public.bss_branch.branch_no IS '档口编码';

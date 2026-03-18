@@ -1,4 +1,4 @@
-# public.bss_service_area_mapper（服务区与业务系统映射关系表，记录服务区在不同源系统中的名称、编号及标识信息）
+# public.bss_service_area_mapper（服务区信息映射表，关联不同来源系统中的服务区名称、编号与唯一标识）
 ## 字段列表：
 - id (character varying(32)) - 服务区域映射记录唯一标识ID [示例: 00e1e893909211ed8ee6fa163eaf653f, 013867f5962211ed8ee6fa163eaf653f]
 - version (integer(32)) - 数据版本号，用于乐观锁控制 [示例: 1, 1]

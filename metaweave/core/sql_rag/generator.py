@@ -156,6 +156,16 @@ class QuestionSQLGenerator:
             questions_per_domain=questions_count,
         )
 
+        logger.debug(
+            "主题域 [%s] LLM 提示词\n"
+            "========== SYSTEM PROMPT ==========\n%s\n"
+            "========== USER PROMPT ==========\n%s\n"
+            "=================================",
+            domain_name,
+            SYSTEM_PROMPT,
+            prompt,
+        )
+
         # 调用 LLM
         response = self.llm_service.call_llm(prompt, system_message=SYSTEM_PROMPT)
 

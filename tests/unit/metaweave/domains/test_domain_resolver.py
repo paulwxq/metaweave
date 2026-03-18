@@ -64,6 +64,35 @@ class TestInit:
         assert resolver.get_all_domains() == []
 
 
+class TestDomainsFileEdgeCases:
+    """domains 文件存在但内容为空/无效的边界场景"""
+
+    def test_empty_file_returns_empty_domains(self, tmp_path):
+        path = tmp_path / "db_domains.yaml"
+        path.write_text("", encoding="utf-8")
+        resolver = DomainResolver(path)
+        assert resolver.get_all_domains() == []
+
+    def test_domains_empty_list_returns_empty(self, tmp_path):
+        data = {"database": {"name": "test"}, "domains": []}
+        path = _write_yaml(tmp_path, data)
+        resolver = DomainResolver(path)
+        assert resolver.get_all_domains() == []
+
+    def test_only_uncategorized_with_empty_tables(self, tmp_path):
+        data = {
+            "database": {"name": "test"},
+            "domains": [
+                {"name": "_未分类_", "description": "未分类", "tables": []},
+            ],
+        }
+        path = _write_yaml(tmp_path, data)
+        resolver = DomainResolver(path)
+        all_domains = resolver.get_all_domains()
+        assert "_未分类_" in all_domains
+        assert len(all_domains) == 1
+
+
 class TestCoreLookup:
     @pytest.fixture()
     def resolver(self, tmp_path):
@@ -203,3 +232,15 @@ class TestResolveTablePairs:
             available, domain_filter="客户管理", cross_domain=False
         )
         assert len(pairs) == 1
+
+    def test_domain_none_cross_domain_true_returns_all_pairs(self, resolver):
+        """domain_filter=None 时 cross_domain=True 被忽略，走全量路径"""
+        tables = ["t1", "t2", "t3"]
+        pairs = resolver.resolve_table_pairs(tables, domain_filter=None, cross_domain=True)
+        assert len(pairs) == 3  # C(3,2)
+
+    def test_domain_none_cross_domain_false_returns_all_pairs(self, resolver):
+        """domain_filter=None + cross_domain=False 走全量路径"""
+        tables = ["t1", "t2", "t3"]
+        pairs = resolver.resolve_table_pairs(tables, domain_filter=None, cross_domain=False)
+        assert len(pairs) == 3  # C(3,2)

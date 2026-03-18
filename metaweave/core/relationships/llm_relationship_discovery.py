@@ -124,15 +124,15 @@ class LLMRelationshipDiscovery:
         self.connector = connector  # 仅用于评分阶段
 
         # 构造关系配置（兼容混合结构）
-        self.rel_config = config.get("relationships", {}).copy()
+        self.rel_config = (config.get("relationships") or {}).copy()
         for key in ["single_column", "composite", "decision", "weights"]:
             if key in config and key not in self.rel_config:
                 self.rel_config[key] = config[key]
         # 关系评分阶段的数据库采样行数上限：统一使用 sampling.sample_size
-        self.rel_config["sample_size"] = config.get("sampling", {}).get("sample_size", 1000)
+        self.rel_config["sample_size"] = (config.get("sampling") or {}).get("sample_size", 1000)
 
         # 初始化名称相似度服务
-        embedding_config = config.get("embedding", {})
+        embedding_config = config.get("embedding") or {}
         name_sim_config = self.rel_config.get("name_similarity", {})
         if (name_sim_config.get("method") or "string").lower() != "string":
             self.name_similarity_service = NameSimilarityService(name_sim_config, embedding_config)
@@ -288,18 +288,22 @@ class LLMRelationshipDiscovery:
         return tables, fk_relation_objects, fk_relationship_ids
 
     def _resolve_table_pairs(self, tables: Dict) -> List[Tuple[str, str]]:
-        """根据 domain 配置生成表对列表"""
-        if not self.domain_filter and not self.cross_domain:
+        """根据 domain 配置生成表对列表
+
+        当 domain_filter 为空时，无论 cross_domain 是什么，都走全量两两组合路径。
+        """
+        if not self.domain_filter:
             return list(combinations(tables.keys(), 2))
 
         if self.domain_resolver is None:
             raise ValueError(
-                "启用 --domain/--cross-domain 时必须提供 DomainResolver"
+                f"domain={self.domain_filter} 已生效，但未提供 DomainResolver。"
+                f"请确认 domains 配置文件存在且已正确加载"
             )
         return self.domain_resolver.resolve_table_pairs(
             available_tables=list(tables.keys()),
             domain_filter=self.domain_filter,
-            cross_domain=self.cross_domain,
+            cross_domain=bool(self.cross_domain),
         )
 
     def _discover_llm_candidates_sync(
@@ -591,6 +595,9 @@ class LLMRelationshipDiscovery:
         Returns:
             (关系列表, 被拒绝数量, 额外统计信息)
         """
+        # 阶段 3.5: LLM 候选内部去重（节省后续评分开销）
+        llm_candidates = self._dedup_llm_candidates(llm_candidates)
+
         logger.info("阶段4: 过滤已有物理外键（基于 relationship_id）")
         filtered_candidates = self._filter_existing_fks(llm_candidates, fk_relationship_ids)
         skipped_fk_count = len(llm_candidates) - len(filtered_candidates)
@@ -1101,6 +1108,58 @@ class LLMRelationshipDiscovery:
         tgt_cols_str = ",".join(sorted(tgt_cols))
         return f"{src_schema}.{src_table}[{src_cols_str}]->{tgt_schema}.{tgt_table}[{tgt_cols_str}]"
     
+    def _dedup_llm_candidates(self, candidates: List[Dict]) -> List[Dict]:
+        """Stage 3.5: 对 LLM 返回的原始候选按 relationship_id 去重，保留首次出现项。
+
+        在评分（Stage 5）之前执行，避免同一候选被重复评分、浪费数据库查询。
+        """
+        seen: set = set()
+        unique: List[Dict] = []
+        dup_count = 0
+
+        for candidate in candidates:
+            from_info = candidate["from_table"]
+            to_info = candidate["to_table"]
+
+            if candidate["type"] == "single_column":
+                from_cols = [candidate["from_column"]]
+                to_cols = [candidate["to_column"]]
+            else:
+                from_cols = candidate["from_columns"]
+                to_cols = candidate["to_columns"]
+
+            rel_id = MetadataRepository.compute_relationship_id(
+                source_schema=from_info["schema"],
+                source_table=from_info["table"],
+                source_columns=from_cols,
+                target_schema=to_info["schema"],
+                target_table=to_info["table"],
+                target_columns=to_cols,
+                rel_id_salt=self.repo.rel_id_salt,
+            )
+
+            if rel_id in seen:
+                dup_count += 1
+                logger.debug(
+                    "阶段3.5去重：跳过重复候选 %s.%s -> %s.%s (relationship_id=%s)",
+                    from_info["schema"], from_info["table"],
+                    to_info["schema"], to_info["table"],
+                    rel_id,
+                )
+            else:
+                seen.add(rel_id)
+                unique.append(candidate)
+
+        if dup_count > 0:
+            logger.info(
+                "阶段3.5: 移除 %s 个 LLM 候选内部重复，剩余 %s 个",
+                dup_count, len(unique),
+            )
+        else:
+            logger.debug("阶段3.5: 未发现 LLM 候选内部重复")
+
+        return unique
+
     def _filter_existing_fks(self, candidates: List[Dict], fk_relationship_ids: Set[str]) -> List[Dict]:
         """过滤已有的物理外键（使用 relationship_id 去重）
 
@@ -1194,11 +1253,12 @@ class LLMRelationshipDiscovery:
         fk_id_map = {rel.relationship_id: rel for rel in fk_relations}
 
         # 过滤 LLM 关系：如果 relationship_id 与物理外键重复，跳过
+        fk_dedup_count = 0
         filtered_llm_relations = []
         for llm_rel in llm_relations:
             rel_id = llm_rel.relationship_id
             if rel_id in fk_id_map:
-                # 记录被去重的关系（Relation 对象：source=外键表, target=主键表）
+                fk_dedup_count += 1
                 logger.debug(
                     f"去重：跳过 LLM 推断关系 {llm_rel.target_schema}.{llm_rel.target_table} -> "
                     f"{llm_rel.source_schema}.{llm_rel.source_table} "
@@ -1207,12 +1267,34 @@ class LLMRelationshipDiscovery:
             else:
                 filtered_llm_relations.append(llm_rel)
 
-        # 合并：物理外键 + 去重后的 LLM 关系
-        all_relations = fk_relations + filtered_llm_relations
+        if fk_dedup_count > 0:
+            logger.info(f"去重：移除 {fk_dedup_count} 个与物理外键重复的 LLM 推断关系")
 
-        if len(llm_relations) > len(filtered_llm_relations):
-            dedup_count = len(llm_relations) - len(filtered_llm_relations)
-            logger.info(f"去重：移除 {dedup_count} 个与物理外键重复的 LLM 推断关系")
+        # LLM 内部去重：同一 relationship_id 只保留首次出现的
+        seen_ids: set = set()
+        unique_llm_relations = []
+        llm_internal_dedup_count = 0
+        for llm_rel in filtered_llm_relations:
+            if llm_rel.relationship_id in seen_ids:
+                llm_internal_dedup_count += 1
+                logger.debug(
+                    "去重：跳过 LLM 内部重复关系 %s.%s -> %s.%s "
+                    "(relationship_id=%s)",
+                    llm_rel.target_schema, llm_rel.target_table,
+                    llm_rel.source_schema, llm_rel.source_table,
+                    llm_rel.relationship_id,
+                )
+            else:
+                seen_ids.add(llm_rel.relationship_id)
+                unique_llm_relations.append(llm_rel)
+
+        if llm_internal_dedup_count > 0:
+            logger.info(
+                "去重：移除 %s 个 LLM 内部重复关系", llm_internal_dedup_count
+            )
+
+        # 合并：物理外键 + 去重后的 LLM 关系
+        all_relations = fk_relations + unique_llm_relations
 
         return all_relations
     
