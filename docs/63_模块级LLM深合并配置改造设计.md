@@ -313,7 +313,9 @@ comment_generation:
 
 ## 6.4 SQL RAG 存量字段 `llm_timeout` 的处理原则
 
-当前 `metadata_config.yaml` 中存在：
+**实施前注意**：在正式实施第二阶段前，应先确认 `sql_rag.generation.llm_timeout` 字段是否真实存在于当前 `configs/metadata_config.yaml` 中。若该字段已不存在，则此处描述仅作历史背景参考，无需在 `_validate_nonstandard_llm_paths` 中为其增加专项检测逻辑（但 `sql_rag.generation.llm` 这类非标准路径的检测仍需保留）。
+
+当前 `metadata_config.yaml` 中（历史上）存在：
 
 ```yaml
 sql_rag:
@@ -755,26 +757,38 @@ json_llm:
 
 补充说明：
 
-1. `JsonLlmEnhancer` 自身应消费 `resolve_module_llm_config(config, "json_llm.llm")` 的结果
-2. `pipeline_cli.py` 中当前存在“强制 `langchain_config.use_async = False`”的运行时行为
-3. 该行为在改造后不应继续通过直接修改 `cli_config["llm"]` 实现
-4. 应改为通过 `runtime_override={"langchain_config": {"use_async": False}}` 显式传入解析器
+1. `JsonLlmEnhancer` 自身应消费 `resolve_module_llm_config(config, “json_llm.llm”)` 的结果
+2. `pipeline_cli.py` 中当前存在”强制 `langchain_config.use_async = False`”的运行时行为
+3. 该行为在改造后不应继续通过直接修改 `cli_config[“llm”]` 实现
+4. 应改为通过 `runtime_override={“langchain_config”: {“use_async”: False}}` 显式传入解析器
+5. 接口改动方向：`JsonLlmEnhancer.__init__` 新增 `runtime_override: dict | None = None` 参数，内部将其传给 `resolve_module_llm_config`；`pipeline_cli.py` 在构造 `JsonLlmEnhancer` 时显式传入该参数，彻底移除原有直接修改 `config[“llm”]` 的逻辑
 
 推荐写法：
 
 ```python
-llm_config = resolve_module_llm_config(
+# pipeline_cli.py 中
+enhancer = JsonLlmEnhancer(
     cli_config,
-    "json_llm.llm",
     runtime_override={
-        "langchain_config": {
-            "use_async": False,
+        “langchain_config”: {
+            “use_async”: False,
         }
     },
 )
 ```
 
-然后将该 `llm_config` 注入 `JsonLlmEnhancer`，或先写回一份新的完整配置对象后再传入。
+```python
+# json_llm_enhancer.py 中
+class JsonLlmEnhancer:
+    def __init__(self, config: dict, runtime_override: dict | None = None):
+        llm_config = resolve_module_llm_config(
+            config,
+            “json_llm.llm”,
+            runtime_override=runtime_override,
+        )
+        self.llm_service = LLMService(llm_config)
+        ...
+```
 
 ---
 
@@ -837,7 +851,7 @@ comment_generation:
 
 其中：
 
-1. `test_domain_mapping_refactor.py` 当前测试里还在使用旧语义
+1. `test_domain_mapping_refactor.py` 当前测试里还在使用旧语义（使用了 `provider`、`model_name` 等非法字段），且其测试逻辑本身是在验证旧的浅合并行为；改造后**不能只做字段替换**，必须完整重写测试逻辑，改为验证：深合并正确性（`providers` 层级递归合并）、非法字段触发 `ValueError`、`active` 切换生效等新行为
 2. `test_sql_rag_training_scenario.py` 当前手动读取旧字段，与正式代码目标结构不一致
 3. `test_step_all_orchestrator.py` 当前仍直接使用 `llm_comment_generation`
 
@@ -1021,10 +1035,14 @@ SUPPORTED_MODULE_LLM_PATHS = {
 
 建议顺序：
 
-1. 新增 `metaweave/services/llm_config_resolver.py`
-2. 改造 `DomainGenerator`
-3. 补 resolver 单测
-4. 补 `DomainGenerator` 深合并与非法字段报错单测
+1. 新增 `metaweave/services/llm_config_resolver.py`（含 `deep_merge_dict`、`_validate_declared_module_llm_paths`、`_validate_nonstandard_llm_paths`、`_validate_override_llm_dict`、`_validate_final_llm_config`、`resolve_module_llm_config`）
+2. 改造 CLI/pipeline 入口（`metaweave/cli/metadata_cli.py` 与 `metaweave/cli/pipeline_cli.py`），在加载配置后、任何 step 执行前立即调用 `_validate_declared_module_llm_paths` 与 `_validate_nonstandard_llm_paths` 对整份配置做全局预检
+3. 改造 `DomainGenerator`，用 `resolve_module_llm_config(config, "domain_generation.llm")` 替换现有浅合并逻辑
+4. 同步清理 `configs/metadata_config.yaml` 中 `domain_generation.llm` 下的旧字段（当前存在 `model_name: qwen-max`），改写为标准写法（`providers.qwen.model: qwen-max` 或直接删除覆盖）
+5. 补 resolver 单测
+6. 补 `DomainGenerator` 深合并与非法字段报错单测
+
+说明：步骤 2 必须在步骤 3 之前或同步完成，否则验收标准第 5 条无法满足——全局预检不由 `resolve_module_llm_config` 内部自动触发，只有入口主动调用才会生效。步骤 4 必须与步骤 3 同步完成，否则改造完成后第一次运行就会因自身配置文件触发 ValueError。
 
 验收标准：
 
