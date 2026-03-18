@@ -1,5 +1,6 @@
 """数据处理工具函数"""
 
+import json
 import logging
 from typing import List, Any, Optional
 import pandas as pd
@@ -133,6 +134,43 @@ def truncate_sample(data: pd.DataFrame, max_rows: int = 5) -> pd.DataFrame:
     return data.head(max_rows)
 
 
+def _is_complex_value(value: Any) -> bool:
+    """判断单个值是否为复杂类型（ARRAY/JSON/JSONB/BYTEA 在 psycopg3 下的 Python 映射）"""
+    return isinstance(value, (list, tuple, set, dict, bytes))
+
+
+def _normalize_for_hash(value: Any) -> Any:
+    """将复杂值转换为可哈希的稳定字符串表示，用于 nunique / value_counts。
+
+    标量值原样返回；bytes 不应进入此路径（BYTEA 跳过哈希统计）。
+    list/tuple 保留元素顺序（PostgreSQL ARRAY 有序），同时通过 sort_keys=True
+    递归归一化内嵌 dict 的键顺序（PostgreSQL JSONB 对象键序无关）。
+    set 排序后归一化。
+    """
+    if isinstance(value, dict):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
+    if isinstance(value, set):
+        try:
+            return json.dumps(sorted(value), ensure_ascii=False, default=str)
+        except TypeError:
+            return str(value)
+    if isinstance(value, (list, tuple)):
+        return json.dumps(list(value), ensure_ascii=False, sort_keys=True, default=str)
+    return value
+
+
+def _is_null_value(value: Any) -> bool:
+    """安全的空值判断，兼容复杂类型（list/dict/bytes 不走 pd.isna）"""
+    if value is None:
+        return True
+    if _is_complex_value(value):
+        return False
+    try:
+        return bool(pd.isna(value))
+    except (TypeError, ValueError):
+        return False
+
+
 def safe_str(value: Any, max_length: int = 100) -> str:
     """安全转换值为字符串
     
@@ -173,26 +211,27 @@ def dataframe_to_sample_dict(
     if df.empty:
         return []
     
-    # 截断数据
     sample_df = truncate_sample(df, max_rows)
     
-    # 转换为字典列表，处理特殊值
-    try:
-        result = []
-        for _, row in sample_df.iterrows():
-            row_dict = {}
-            for col in sample_df.columns:
+    result = []
+    for _, row in sample_df.iterrows():
+        row_dict = {}
+        for col in sample_df.columns:
+            try:
                 value = row[col]
-                # 处理 NaN 和 None
-                if pd.isna(value):
+                if _is_null_value(value):
                     row_dict[col] = None
+                elif isinstance(value, bytes):
+                    row_dict[col] = f"<binary:{len(value)} bytes>"
+                elif isinstance(value, (list, dict)):
+                    row_dict[col] = json.dumps(value, ensure_ascii=False, default=str)
                 else:
                     row_dict[col] = safe_str(value, max_length=200)
-            result.append(row_dict)
-        return result
-    except Exception as e:
-        logger.error(f"转换 DataFrame 为字典列表失败: {e}")
-        return []
+            except Exception as e:
+                logger.warning(f"字段序列化失败 ({col}): {e}")
+                row_dict[col] = None
+        result.append(row_dict)
+    return result
 
 
 def get_column_statistics(
@@ -215,27 +254,50 @@ def get_column_statistics(
     
     try:
         col_data = df[column]
+
+        # --- 全列扫描：检测是否包含复杂类型 --------------------------------
+        non_null_values = col_data.dropna()
+        is_bytes_col = any(isinstance(v, bytes) for v in non_null_values)
+        is_complex_col = (not is_bytes_col) and any(
+            _is_complex_value(v) for v in non_null_values
+        )
+
+        # --- 基础统计（对所有类型安全） ------------------------------------
         stats = {
             "sample_count": int(len(col_data)),
-            "unique_count": int(col_data.nunique()),
             "null_count": int(col_data.isnull().sum()),
             "null_rate": float(calculate_null_rate(df, [column])),
-            "uniqueness": float(calculate_uniqueness(df, [column])),
         }
-        
-        # 如果是数值类型，添加数值统计
+
+        # --- unique_count / uniqueness ------------------------------------
+        hashable_series = None
+        if is_bytes_col:
+            pass  # BYTEA: 跳过，不写入 unique_count / uniqueness
+        elif is_complex_col:
+            hashable_series = non_null_values.apply(_normalize_for_hash)
+            unique_count = int(hashable_series.nunique())
+            uniqueness = round(unique_count / len(col_data), 4) if len(col_data) > 0 else 0.0
+            stats["unique_count"] = unique_count
+            stats["uniqueness"] = uniqueness
+        else:
+            stats["unique_count"] = int(col_data.nunique())
+            stats["uniqueness"] = float(calculate_uniqueness(df, [column]))
+
+        # --- 数值统计（仅数值列） ------------------------------------------
         if pd.api.types.is_numeric_dtype(col_data):
             stats.update({
                 "min": safe_str(col_data.min()),
                 "max": safe_str(col_data.max()),
                 "mean": safe_str(col_data.mean()),
             })
-        
-        # 如果是字符串类型，添加长度统计（用于 description 检测）
-        if pd.api.types.is_string_dtype(col_data) or col_data.dtype == object:
-            non_null_data = col_data.dropna()
-            if len(non_null_data) > 0:
-                lengths = non_null_data.astype(str).str.len()
+
+        # --- 字符串长度统计（排除 ARRAY/JSON/JSONB/BYTEA） ------------------
+        is_string_col = (
+            pd.api.types.is_string_dtype(col_data) or col_data.dtype == object
+        ) and not is_complex_col and not is_bytes_col
+        if is_string_col:
+            if len(non_null_values) > 0:
+                lengths = non_null_values.astype(str).str.len()
                 stats.update({
                     "avg_length": round(float(lengths.mean()), 2),
                     "min_length": int(lengths.min()),
@@ -243,14 +305,19 @@ def get_column_statistics(
                     "median_length": round(float(lengths.median()), 2),
                     "length_std": round(float(lengths.std()), 2) if len(lengths) > 1 else 0.0,
                 })
-        
-        # 如果唯一值较少，添加值分布
-        if stats["unique_count"] <= value_distribution_threshold:
-            value_counts = col_data.value_counts().head(10)
-            stats["value_distribution"] = {
-                safe_str(k): int(v) for k, v in value_counts.items()
-            }
-        
+
+        # --- value_distribution -------------------------------------------
+        if not is_bytes_col:
+            effective_unique_count = stats.get("unique_count", 0)
+            if effective_unique_count <= value_distribution_threshold:
+                if is_complex_col and hashable_series is not None:
+                    vc = hashable_series.value_counts().head(10)
+                else:
+                    vc = col_data.value_counts().head(10)
+                stats["value_distribution"] = {
+                    safe_str(k): int(v) for k, v in vc.items()
+                }
+
         return stats
     except Exception as e:
         logger.error(f"获取列统计信息失败 ({column}): {e}")

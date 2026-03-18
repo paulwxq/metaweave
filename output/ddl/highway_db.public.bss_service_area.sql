@@ -2,7 +2,7 @@
 -- Database: highway_db
 -- Table: public.bss_service_area
 -- Comment: 服务区信息表，存储高速公路服务区的名称、编号、位置、类型、状态及所属公司等基础信息
--- Generated: 2026-03-17 23:00:04
+-- Generated: 2026-03-18 06:59:19
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_service_area (
@@ -30,7 +30,7 @@ COMMENT ON COLUMN public.bss_service_area.create_ts IS '记录创建时间戳';
 COMMENT ON COLUMN public.bss_service_area.created_by IS '创建人用户名';
 COMMENT ON COLUMN public.bss_service_area.update_ts IS '记录最后更新时间戳';
 COMMENT ON COLUMN public.bss_service_area.updated_by IS '最后更新人用户名';
-COMMENT ON COLUMN public.bss_service_area.delete_ts IS '逻辑删除时间戳（NULL表示未删除）';
+COMMENT ON COLUMN public.bss_service_area.delete_ts IS '逻辑删除时间戳（为空表示未删除）';
 COMMENT ON COLUMN public.bss_service_area.deleted_by IS '逻辑删除操作人用户名';
 COMMENT ON COLUMN public.bss_service_area.service_area_name IS '服务区名称';
 COMMENT ON COLUMN public.bss_service_area.service_area_no IS '服务区编码';

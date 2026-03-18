@@ -1,267 +1,317 @@
 [
   {
-    "question": "统计近7天每日用户反馈数量及点赞率（点赞数/总反馈数），按日期升序排列",
-    "sql": "SELECT DATE(create_time) AS 日期, COUNT(*) AS 反馈总数, ROUND(AVG(CASE WHEN is_thumb_up THEN 1.0 ELSE 0.0 END), 3) AS 点赞率 FROM qa_feedback WHERE create_time >= CURRENT_DATE - INTERVAL '6 days' GROUP BY DATE(create_time) ORDER BY 日期 ASC;",
+    "question": "统计近7天每日用户反馈数量，并按日期升序排列",
+    "sql": "SELECT DATE(create_time) AS 日期, COUNT(*) AS 反馈数量 FROM qa_feedback WHERE create_time >= CURRENT_DATE - INTERVAL '7 days' GROUP BY DATE(create_time) ORDER BY 日期 ASC;",
     "domain": "_未分类_"
   },
   {
-    "question": "列出点赞数最多的前5个自然语言问题及其对应SQL，要求该问题未被纳入训练数据且提交时间在近30天内",
-    "sql": "SELECT question AS 问题, sql AS 对应SQL FROM qa_feedback WHERE is_thumb_up = true AND is_in_training_data = false AND create_time >= CURRENT_DATE - INTERVAL '30 days' GROUP BY id, question, sql ORDER BY COUNT(*) DESC LIMIT 5;",
+    "question": "列出点赞数最多的前5个自然语言问题及其对应SQL语句",
+    "sql": "SELECT question AS 问题, sql AS 生成SQL FROM qa_feedback WHERE is_thumb_up = true ORDER BY create_time DESC LIMIT 5;",
     "domain": "_未分类_"
   },
   {
-    "question": "对比分析不同用户账号的反馈活跃度：统计每个user_id的总反馈数、已点赞数、未纳入训练数据的反馈数，并筛选出总反馈数超过2条的用户",
-    "sql": "SELECT user_id AS 用户账号, COUNT(*) AS 总反馈数, COUNT(*) FILTER (WHERE is_thumb_up) AS 已点赞数, COUNT(*) FILTER (WHERE NOT is_in_training_data) AS 未入训数 FROM qa_feedback GROUP BY user_id HAVING COUNT(*) > 2 ORDER BY 总反馈数 DESC;",
+    "question": "对比分析已纳入训练数据与未纳入训练数据的反馈中，用户点赞率（点赞数/总数）差异",
+    "sql": "SELECT is_in_training_data AS 是否在训练集, COUNT(*) AS 总数, COUNT(CASE WHEN is_thumb_up THEN 1 END)::FLOAT / COUNT(*) AS 点赞率 FROM qa_feedback GROUP BY is_in_training_data;",
     "domain": "_未分类_"
   },
   {
-    "question": "查询所有处于‘开放’状态的服务区名称、编码及所属公司ID，并按创建时间倒序排列",
-    "sql": "SELECT service_area_name AS 服务区名称, service_area_no AS 服务区编码, company_id AS 所属公司ID FROM public.bss_service_area WHERE service_state = '开放' AND delete_ts IS NULL ORDER BY create_ts DESC;",
-    "domain": "服务区基础资产与地理拓扑"
+    "question": "查询所有未被逻辑删除的服务区名称、编码及其所属公司名称，并按服务区创建时间倒序排列",
+    "sql": "SELECT sa.service_area_name AS 服务区名称, sa.service_area_no AS 服务区编码, c.company_name AS 所属公司名称 FROM public.bss_service_area sa JOIN public.bss_company c ON sa.company_id = c.id WHERE sa.delete_ts IS NULL AND c.delete_ts IS NULL ORDER BY sa.create_ts DESC;",
+    "domain": "服务区基础资产与组织管理"
   },
   {
-    "question": "统计每个路段名称下关联的服务区数量，并仅显示服务区数量大于1的路段",
-    "sql": "SELECT s.section_name AS 路段名称, COUNT(l.service_area_id) AS 关联服务区数量 FROM public.bss_section_route s JOIN public.bss_section_route_area_link l ON s.id = l.section_route_id GROUP BY s.section_name HAVING COUNT(l.service_area_id) > 1;",
-    "domain": "服务区基础资产与地理拓扑"
+    "question": "统计每个公司下辖的服务区数量，并仅显示服务区数量大于5的公司，按数量降序排列",
+    "sql": "SELECT c.company_name AS 公司名称, COUNT(sa.id) AS 服务区数量 FROM public.bss_company c LEFT JOIN public.bss_service_area sa ON c.id = sa.company_id AND sa.delete_ts IS NULL WHERE c.delete_ts IS NULL GROUP BY c.id, c.company_name HAVING COUNT(sa.id) > 5 ORDER BY 服务区数量 DESC;",
+    "domain": "服务区基础资产与组织管理"
   },
   {
-    "question": "列出所有未被逻辑删除的服务区及其所在路线名称，要求按路线名称升序、服务区名称降序排列",
-    "sql": "SELECT a.service_area_name AS 服务区名称, r.route_name AS 所属路线名称 FROM public.bss_service_area a JOIN public.bss_section_route_area_link l ON a.id = l.service_area_id JOIN public.bss_section_route r ON l.section_route_id = r.id WHERE a.delete_ts IS NULL ORDER BY r.route_name ASC, a.service_area_name DESC;",
-    "domain": "服务区基础资产与地理拓扑"
+    "question": "列出所有状态为'开放'且类型为'信息化服务区'的服务区，返回其名称、编码、经纬度及所属公司编码",
+    "sql": "SELECT sa.service_area_name AS 服务区名称, sa.service_area_no AS 服务区编码, sa.service_position AS 经纬度, c.company_no AS 所属公司编码 FROM public.bss_service_area sa JOIN public.bss_company c ON sa.company_id = c.id WHERE sa.service_state = '开放' AND sa.service_area_type = '信息化服务区' AND sa.delete_ts IS NULL AND c.delete_ts IS NULL;",
+    "domain": "服务区基础资产与组织管理"
   },
   {
-    "question": "查询信息化服务区中经纬度坐标包含‘28.’的所有服务区名称、类型和坐标位置",
-    "sql": "SELECT service_area_name AS 服务区名称, service_area_type AS 服务区类型, service_position AS 经纬度坐标 FROM public.bss_service_area WHERE service_area_type = '信息化服务区' AND service_position LIKE '%28.%' AND delete_ts IS NULL;",
-    "domain": "服务区基础资产与地理拓扑"
+    "question": "查询创建时间最早和最晚的两个服务区信息（包括名称、编码、创建人和创建时间）",
+    "sql": "SELECT service_area_name AS 服务区名称, service_area_no AS 服务区编码, created_by AS 创建人, create_ts AS 创建时间 FROM public.bss_service_area WHERE delete_ts IS NULL ORDER BY create_ts LIMIT 1 UNION ALL SELECT service_area_name AS 服务区名称, service_area_no AS 服务区编码, created_by AS 创建人, create_ts AS 创建时间 FROM public.bss_service_area WHERE delete_ts IS NULL ORDER BY create_ts DESC LIMIT 1;",
+    "domain": "服务区基础资产与组织管理"
   },
   {
-    "question": "找出每个公司的服务区内数量TOP3的公司名称（需关联公司表，此处用company_id模拟），并标注其服务区总数",
-    "sql": "SELECT company_id AS 公司ID, COUNT(*) AS 服务区总数 FROM public.bss_service_area WHERE delete_ts IS NULL GROUP BY company_id ORDER BY 服务区总数 DESC LIMIT 3;",
-    "domain": "服务区基础资产与地理拓扑"
+    "question": "对比各公司所辖服务区的平均版本号（version），筛选出平均版本大于2的公司，并按平均版本降序展示",
+    "sql": "SELECT c.company_name AS 公司名称, ROUND(AVG(sa.version), 2) AS 平均数据版本 FROM public.bss_company c JOIN public.bss_service_area sa ON c.id = sa.company_id WHERE c.delete_ts IS NULL AND sa.delete_ts IS NULL GROUP BY c.id, c.company_name HAVING AVG(sa.version) > 2 ORDER BY 平均数据版本 DESC;",
+    "domain": "服务区基础资产与组织管理"
   },
   {
-    "question": "对比分析昌栗路段与昌韶路段各自覆盖的服务区数量及平均创建时间（以天为单位，从2020-01-01起算）",
-    "sql": "SELECT r.route_name AS 路线名称, COUNT(a.id) AS 服务区数量, FLOOR(AVG(EXTRACT(EPOCH FROM (a.create_ts - '2020-01-01'::timestamp)) / 86400)) AS 平均创建天数 FROM public.bss_section_route r JOIN public.bss_section_route_area_link l ON r.id = l.section_route_id JOIN public.bss_service_area a ON l.service_area_id = a.id WHERE r.route_name IN ('昌栗', '昌韶') AND a.delete_ts IS NULL GROUP BY r.route_name;",
-    "domain": "服务区基础资产与地理拓扑"
+    "question": "查询所有在2021年7月之后更新过的服务区明细，包括名称、编码、最后更新人、更新时间及所属公司名称",
+    "sql": "SELECT sa.service_area_name AS 服务区名称, sa.service_area_no AS 服务区编码, sa.updated_by AS 最后更新人, sa.update_ts AS 更新时间, c.company_name AS 所属公司名称 FROM public.bss_service_area sa JOIN public.bss_company c ON sa.company_id = c.id WHERE sa.update_ts > '2021-07-01' AND sa.delete_ts IS NULL AND c.delete_ts IS NULL ORDER BY sa.update_ts DESC;",
+    "domain": "服务区基础资产与组织管理"
   },
   {
-    "question": "查询尚未关联任何路段的服务区名称、编码及状态",
-    "sql": "SELECT service_area_name AS 服务区名称, service_area_no AS 服务区编码, service_state AS 服务区状态 FROM public.bss_service_area a WHERE a.delete_ts IS NULL AND NOT EXISTS (SELECT 1 FROM public.bss_section_route_area_link l WHERE l.service_area_id = a.id);",
-    "domain": "服务区基础资产与地理拓扑"
+    "question": "找出尚未关联任何公司的服务区（即company_id为空或不匹配bss_company表中有效id的服务区）",
+    "sql": "SELECT sa.service_area_name AS 服务区名称, sa.service_area_no AS 服务区编码, sa.company_id AS 公司ID FROM public.bss_service_area sa WHERE sa.company_id IS NULL OR sa.company_id NOT IN (SELECT id FROM public.bss_company WHERE delete_ts IS NULL) AND sa.delete_ts IS NULL;",
+    "domain": "服务区基础资产与组织管理"
   },
   {
-    "question": "按服务区类型分组，统计各类型下处于‘开放’状态且已更新过至少一次的服务区数量及最新更新时间",
-    "sql": "SELECT service_area_type AS 服务区类型, COUNT(*) AS 开放服务区数量, MAX(update_ts) AS 最新更新时间 FROM public.bss_service_area WHERE service_state = '开放' AND update_ts IS NOT NULL AND delete_ts IS NULL GROUP BY service_area_type ORDER BY 开放服务区数量 DESC;",
-    "domain": "服务区基础资产与地理拓扑"
+    "question": "按服务区类型分组统计各类别下的服务区总数、平均创建时间及最新更新时间",
+    "sql": "SELECT sa.service_area_type AS 服务区类型, COUNT(*) AS 数量, TO_CHAR(AVG(EXTRACT(EPOCH FROM sa.create_ts)), 'FM999999999') AS 平均创建时间戳秒数, MAX(sa.update_ts) AS 最新更新时间 FROM public.bss_service_area sa WHERE sa.delete_ts IS NULL GROUP BY sa.service_area_type ORDER BY 数量 DESC;",
+    "domain": "服务区基础资产与组织管理"
   },
   {
-    "question": "获取每条路线所覆盖的唯一服务区数量、最早和最晚创建的服务区名称",
-    "sql": "SELECT r.route_name AS 路线名称, COUNT(DISTINCT a.id) AS 覆盖服务区数, MIN(a.service_area_name) AS 最早创建服务区名称, MAX(a.service_area_name) AS 最晚创建服务区名称 FROM public.bss_section_route r JOIN public.bss_section_route_area_link l ON r.id = l.section_route_id JOIN public.bss_service_area a ON l.service_area_id = a.id WHERE a.delete_ts IS NULL GROUP BY r.route_name ORDER BY 覆盖服务区数 DESC;",
-    "domain": "服务区基础资产与地理拓扑"
+    "question": "查询上饶分公司和宜春分公司各自管理的服务区数量，并以公司名称和数量两列呈现",
+    "sql": "SELECT c.company_name AS 公司名称, COUNT(sa.id) AS 管理的服务区数量 FROM public.bss_company c LEFT JOIN public.bss_service_area sa ON c.id = sa.company_id AND sa.delete_ts IS NULL WHERE c.company_name IN ('上饶分公司', '宜春分公司') AND c.delete_ts IS NULL GROUP BY c.company_name;",
+    "domain": "服务区基础资产与组织管理"
   },
   {
-    "question": "查询在2021年7月之后创建或更新过的所有服务区信息，包括名称、编码、类型、状态及最近操作时间（取create_ts和update_ts中较晚者）",
-    "sql": "SELECT service_area_name AS 服务区名称, service_area_no AS 服务区编码, service_area_type AS 服务区类型, service_state AS 服务区状态, GREATEST(create_ts, COALESCE(update_ts, create_ts)) AS 最近操作时间 FROM public.bss_service_area WHERE delete_ts IS NULL AND GREATEST(create_ts, COALESCE(update_ts, create_ts)) > '2021-07-01'::timestamp;",
-    "domain": "服务区基础资产与地理拓扑"
+    "question": "获取最近30天内被逻辑删除的服务区列表，包括名称、编码、删除人、删除时间及所属公司名称",
+    "sql": "SELECT sa.service_area_name AS 服务区名称, sa.service_area_no AS 服务区编码, sa.deleted_by AS 删除人, sa.delete_ts AS 删除时间, c.company_name AS 所属公司名称 FROM public.bss_service_area sa JOIN public.bss_company c ON sa.company_id = c.id WHERE sa.delete_ts >= CURRENT_DATE - INTERVAL '30 days' AND sa.delete_ts IS NOT NULL AND c.delete_ts IS NULL ORDER BY sa.delete_ts DESC;",
+    "domain": "服务区基础资产与组织管理"
   },
   {
-    "question": "查询所有未被逻辑删除的公司名称及其编码，并按创建时间倒序排列",
-    "sql": "SELECT company_name AS 公司名称, company_no AS 公司编码, create_ts AS 创建时间 FROM public.bss_company WHERE delete_ts IS NULL ORDER BY create_ts DESC;",
-    "domain": "经营主体与组织架构"
+    "question": "查询每个路线所包含的路段数量，并按数量降序排列",
+    "sql": "SELECT route_name AS 路线名称, COUNT(*) AS 路段数量 FROM public.bss_section_route WHERE delete_ts IS NULL GROUP BY route_name ORDER BY 路段数量 DESC;",
+    "domain": "路段-路线-服务区拓扑关系"
   },
   {
-    "question": "统计每个公司的下属经营网点数量，并只显示网点数大于2的公司",
-    "sql": "SELECT c.company_name AS 公司名称, COUNT(b.id) AS 网点数量 FROM public.bss_company c JOIN public.bss_branch b ON c.id = b.company_id WHERE c.delete_ts IS NULL AND b.delete_ts IS NULL GROUP BY c.id, c.company_name HAVING COUNT(b.id) > 2 ORDER BY 网点数量 DESC;",
-    "domain": "经营主体与组织架构"
+    "question": "找出尚未关联任何服务区的路段路由记录（即在bss_section_route_area_link中无对应section_route_id）",
+    "sql": "SELECT sr.id AS 记录ID, sr.section_name AS 路段名称, sr.route_name AS 路线名称 FROM public.bss_section_route sr LEFT JOIN public.bss_section_route_area_link sral ON sr.id = sral.section_route_id WHERE sral.section_route_id IS NULL AND sr.delete_ts IS NULL;",
+    "domain": "路段-路线-服务区拓扑关系"
   },
   {
-    "question": "列出所有餐饮类别的经营网点名称、所属公司名称及方向信息，按公司名称和方向排序",
-    "sql": "SELECT b.branch_name AS 档口名称, c.company_name AS 所属公司, b.direction AS 方向 FROM public.bss_branch b JOIN public.bss_company c ON b.company_id = c.id WHERE b.classify = '餐饮' AND b.delete_ts IS NULL AND c.delete_ts IS NULL ORDER BY c.company_name, b.direction;",
-    "domain": "经营主体与组织架构"
+    "question": "统计每个服务区关联的路段-路线组合数量，并筛选出关联数超过2个的服务区",
+    "sql": "SELECT sa.id AS 服务区ID, COUNT(sral.section_route_id) AS 关联路段路由数 FROM public.bss_section_route_area_link sral JOIN public.bss_section_route sr ON sral.section_route_id = sr.id JOIN (SELECT DISTINCT id FROM public.bss_service_area) sa ON sral.service_area_id = sa.id WHERE sr.delete_ts IS NULL GROUP BY sa.id HAVING COUNT(sral.section_route_id) > 2;",
+    "domain": "路段-路线-服务区拓扑关系"
   },
   {
-    "question": "查询上饶分公司和宜春分公司各自拥有的经营网点总数及平均创建时间",
-    "sql": "SELECT c.company_name AS 公司名称, COUNT(b.id) AS 网点总数, AVG(EXTRACT(EPOCH FROM b.create_ts)) AS 平均创建时间戳秒数 FROM public.bss_company c LEFT JOIN public.bss_branch b ON c.id = b.company_id WHERE c.company_name IN ('上饶分公司', '宜春分公司') AND c.delete_ts IS NULL GROUP BY c.id, c.company_name;",
-    "domain": "经营主体与组织架构"
+    "question": "列出昌韶路线下的所有路段名称及其对应的服务区名称（需关联服务区基础表，假设服务区表为public.bss_service_area且含name字段）",
+    "sql": "SELECT sr.section_name AS 路段名称, sr.route_name AS 路线名称, sa.name AS 服务区名称 FROM public.bss_section_route sr JOIN public.bss_section_route_area_link sral ON sr.id = sral.section_route_id JOIN public.bss_service_area sa ON sral.service_area_id = sa.id WHERE sr.route_name = '昌韶' AND sr.delete_ts IS NULL;",
+    "domain": "路段-路线-服务区拓扑关系"
   },
   {
-    "question": "找出创建时间最早和最晚的两个公司（未删除），返回其名称、编码和创建时间",
-    "sql": "SELECT company_name AS 公司名称, company_no AS 公司编码, create_ts AS 创建时间 FROM public.bss_company WHERE delete_ts IS NULL ORDER BY create_ts LIMIT 1 UNION ALL SELECT company_name AS 公司名称, company_no AS 公司编码, create_ts AS 创建时间 FROM public.bss_company WHERE delete_ts IS NULL ORDER BY create_ts DESC LIMIT 1;",
-    "domain": "经营主体与组织架构"
+    "question": "查询2021年10月创建的路段-路线关联记录总数及平均版本号",
+    "sql": "SELECT COUNT(*) AS 记录总数, AVG(version) AS 平均版本号 FROM public.bss_section_route WHERE delete_ts IS NULL AND EXTRACT(YEAR FROM create_ts) = 2021 AND EXTRACT(MONTH FROM create_ts) = 10;",
+    "domain": "路段-路线-服务区拓扑关系"
   },
   {
-    "question": "查询每个公司名下不同品牌（product_brand）的经营网点数量，并按公司名和品牌分组排序",
-    "sql": "SELECT c.company_name AS 公司名称, b.product_brand AS 品牌, COUNT(*) AS 网点数量 FROM public.bss_company c JOIN public.bss_branch b ON c.id = b.company_id WHERE c.delete_ts IS NULL AND b.delete_ts IS NULL GROUP BY c.company_name, b.product_brand ORDER BY c.company_name, 网点数量 DESC;",
-    "domain": "经营主体与组织架构"
+    "question": "按路段名称分组，统计各路段所属的不同路线数量，仅显示属于多条路线的路段",
+    "sql": "SELECT section_name AS 路段名称, COUNT(DISTINCT route_name) AS 所属路线数 FROM public.bss_section_route WHERE delete_ts IS NULL GROUP BY section_name HAVING COUNT(DISTINCT route_name) > 1;",
+    "domain": "路段-路线-服务区拓扑关系"
   },
   {
-    "question": "对比各公司经营网点中‘手工录入’与‘系统自动’的数据比例（以百分比表示）",
-    "sql": "SELECT c.company_name AS 公司名称, ROUND(AVG(CASE WHEN b.is_manual_entry = 1 THEN 100.0 ELSE 0.0 END), 2) AS 手工录入占比, ROUND(AVG(CASE WHEN b.is_manual_entry = 0 THEN 100.0 ELSE 0.0 END), 2) AS 系统自动占比 FROM public.bss_company c JOIN public.bss_branch b ON c.id = b.company_id WHERE c.delete_ts IS NULL AND b.delete_ts IS NULL GROUP BY c.company_name;",
-    "domain": "经营主体与组织架构"
+    "question": "获取编号以'SR00'开头的前5条有效路段-路线记录，按创建时间倒序排列",
+    "sql": "SELECT id AS 记录ID, section_name AS 路段名称, route_name AS 路线名称, code AS 编号, create_ts AS 创建时间 FROM public.bss_section_route WHERE code LIKE 'SR00%' AND delete_ts IS NULL ORDER BY create_ts DESC LIMIT 5;",
+    "domain": "路段-路线-服务区拓扑关系"
   },
   {
-    "question": "查询合作单位为‘江西驿美餐饮管理有限责任公司’的所有档口名称、所属服务区ID及方向",
-    "sql": "SELECT branch_name AS 档口名称, service_area_id AS 服务区ID, direction AS 方向 FROM public.bss_branch WHERE co_company = '江西驿美餐饮管理有限责任公司' AND delete_ts IS NULL;",
-    "domain": "经营主体与组织架构"
+    "question": "对比昌栗路线与昌韶路线各自关联的服务区数量，并以路线名称和数量两列返回",
+    "sql": "SELECT route_name AS 路线名称, COUNT(DISTINCT sral.service_area_id) AS 关联服务区数量 FROM public.bss_section_route sr JOIN public.bss_section_route_area_link sral ON sr.id = sral.section_route_id WHERE sr.route_name IN ('昌栗', '昌韶') AND sr.delete_ts IS NULL GROUP BY route_name;",
+    "domain": "路段-路线-服务区拓扑关系"
   },
   {
-    "question": "获取每个公司最近一次更新其下属网点的时间（取最大update_ts），并关联公司名称和编码",
-    "sql": "SELECT c.company_name AS 公司名称, c.company_no AS 公司编码, MAX(b.update_ts) AS 最近网点更新时间 FROM public.bss_company c JOIN public.bss_branch b ON c.id = b.company_id WHERE c.delete_ts IS NULL AND b.delete_ts IS NULL GROUP BY c.id, c.company_name, c.company_no ORDER BY 最近网点更新时间 DESC;",
-    "domain": "经营主体与组织架构"
+    "question": "查询创建人是admin且未被删除的所有路段-路线记录中，路段名称出现频次最高的前3名",
+    "sql": "SELECT section_name AS 路段名称, COUNT(*) AS 出现次数 FROM public.bss_section_route WHERE created_by = 'admin' AND delete_ts IS NULL GROUP BY section_name ORDER BY 出现次数 DESC LIMIT 3;",
+    "domain": "路段-路线-服务区拓扑关系"
   },
   {
-    "question": "列出所有存在多个同名档口（branch_name）的公司名称及其重复档口数量",
-    "sql": "SELECT c.company_name AS 公司名称, b.branch_name AS 档口名称, COUNT(*) AS 重复次数 FROM public.bss_company c JOIN public.bss_branch b ON c.id = b.company_id WHERE c.delete_ts IS NULL AND b.delete_ts IS NULL GROUP BY c.company_name, b.branch_name HAVING COUNT(*) > 1 ORDER BY 重复次数 DESC;",
-    "domain": "经营主体与组织架构"
+    "question": "找出同时出现在昌栗路线和昌韶路线中的路段名称（即跨路线路段）",
+    "sql": "SELECT section_name AS 跨路线路段名称 FROM public.bss_section_route WHERE delete_ts IS NULL AND route_name IN ('昌栗', '昌韶') GROUP BY section_name HAVING COUNT(DISTINCT route_name) = 2;",
+    "domain": "路段-路线-服务区拓扑关系"
   },
   {
-    "question": "查询2023年4月1日各服务区微信支付金额排名前5的档口名称及对应金额",
-    "sql": "SELECT branch_name AS 档口名称, wx AS 微信支付金额 FROM public.bss_business_day_data WHERE oper_date = '2023-04-01' AND wx IS NOT NULL ORDER BY wx DESC LIMIT 5;",
-    "domain": "日度经营与客流分析"
+    "question": "查询2023年4月1日各餐饮分支网点的微信支付金额、订单数及总支付金额，并按总支付金额降序排列",
+    "sql": "SELECT branch_name AS 档口名称, wx AS 微信支付金额, wx_order AS 微信订单数, pay_sum AS 总支付金额 FROM public.bss_business_day_data WHERE oper_date = '2023-04-01' AND branch_no IN (SELECT branch_no FROM public.bss_branch WHERE classify = '餐饮') ORDER BY pay_sum DESC;",
+    "domain": "服务区分支网点运营"
   },
   {
-    "question": "统计2023年4月全月各服务区总支付金额（pay_sum）及订单总数（order_sum），按金额降序排列",
-    "sql": "SELECT service_name AS 服务区名称, SUM(pay_sum) AS 总支付金额, SUM(order_sum) AS 总订单数 FROM public.bss_business_day_data WHERE oper_date >= '2023-04-01' AND oper_date <= '2023-04-30' GROUP BY service_name ORDER BY 总支付金额 DESC;",
-    "domain": "日度经营与客流分析"
+    "question": "统计每个服务区方向（如南区、西区）下餐饮类分支网点的数量，并仅显示网点数超过2个的方向",
+    "sql": "SELECT direction AS 服务区方向, COUNT(*) AS 餐饮网点数量 FROM public.bss_branch WHERE classify = '餐饮' AND delete_ts IS NULL GROUP BY direction HAVING COUNT(*) > 2;",
+    "domain": "服务区分支网点运营"
   },
   {
-    "question": "对比分析2023年4月1日与4月2日庐山服务区的现金支付金额（rmb）和订单数（rmb_order）变化情况",
-    "sql": "SELECT oper_date AS 统计日期, rmb AS 现金支付金额, rmb_order AS 现金订单数 FROM public.bss_business_day_data WHERE service_name = '庐山服务区' AND oper_date IN ('2023-04-01', '2023-04-02') ORDER BY oper_date;",
-    "domain": "日度经营与客流分析"
+    "question": "列出所有手工录入的餐饮分支网点信息，包括档口名称、品牌、合作单位及创建时间，按创建时间倒序排列",
+    "sql": "SELECT branch_name AS 档口名称, product_brand AS 品牌, co_company AS 合作单位, create_ts AS 创建时间 FROM public.bss_branch WHERE is_manual_entry = 1 AND classify = '餐饮' AND delete_ts IS NULL ORDER BY create_ts DESC;",
+    "domain": "服务区分支网点运营"
   },
   {
-    "question": "查询2023年4月1日微信支付金额超过5000元且支付宝订单数大于10的所有档口明细，包含服务区名称、档口名称、微信金额、支付宝订单数",
-    "sql": "SELECT service_name AS 服务区名称, branch_name AS 档口名称, wx AS 微信支付金额, zf_order AS 支付宝订单数 FROM public.bss_business_day_data WHERE oper_date = '2023-04-01' AND wx > 5000.0 AND zf_order > 10;",
-    "domain": "日度经营与客流分析"
+    "question": "对比2023年4月1日与2023年4月2日庐山服务区各分支网点的总支付金额差异，显示档口名称、两日金额及差额",
+    "sql": "SELECT a.branch_name AS 档口名称, a.pay_sum AS 4月1日总支付金额, b.pay_sum AS 4月2日总支付金额, COALESCE(b.pay_sum, 0) - COALESCE(a.pay_sum, 0) AS 支付金额差额 FROM public.bss_business_day_data a LEFT JOIN public.bss_business_day_data b ON a.branch_no = b.branch_no AND b.oper_date = '2023-04-02' WHERE a.oper_date = '2023-04-01' AND a.service_name = '庐山服务区';",
+    "domain": "服务区分支网点运营"
   },
   {
-    "question": "统计2023年4月各支付渠道（微信、支付宝、现金、信用卡、京东）在全网的总交易金额，并按金额从高到低排序",
-    "sql": "SELECT '微信' AS 支付渠道, SUM(wx) AS 总金额 FROM public.bss_business_day_data WHERE oper_date >= '2023-04-01' AND oper_date <= '2023-04-30' UNION ALL SELECT '支付宝' AS 支付渠道, SUM(zfb) AS 总金额 FROM public.bss_business_day_data WHERE oper_date >= '2023-04-01' AND oper_date <= '2023-04-30' UNION ALL SELECT '现金' AS 支付渠道, SUM(rmb) AS 总金额 FROM public.bss_business_day_data WHERE oper_date >= '2023-04-01' AND oper_date <= '2023-04-30' UNION ALL SELECT '信用卡' AS 支付渠道, SUM(xs) AS 总金额 FROM public.bss_business_day_data WHERE oper_date >= '2023-04-01' AND oper_date <= '2023-04-30' UNION ALL SELECT '京东' AS 支付渠道, SUM(jd) AS 总金额 FROM public.bss_business_day_data WHERE oper_date >= '2023-04-01' AND oper_date <= '2023-04-30' ORDER BY 总金额 DESC;",
-    "domain": "日度经营与客流分析"
+    "question": "查询2023年4月全月各餐饮分支网点的日均订单总数和日均总支付金额，按日均支付金额降序取前10名",
+    "sql": "SELECT b.branch_name AS 档口名称, AVG(d.order_sum) AS 日均订单总数, AVG(d.pay_sum) AS 日均总支付金额 FROM public.bss_branch b JOIN public.bss_business_day_data d ON b.branch_no = d.branch_no WHERE b.classify = '餐饮' AND b.delete_ts IS NULL AND d.oper_date >= '2023-04-01' AND d.oper_date <= '2023-04-30' GROUP BY b.branch_name ORDER BY AVG(d.pay_sum) DESC LIMIT 10;",
+    "domain": "服务区分支网点运营"
   },
   {
-    "question": "查询2022年3月2日各车型（car_type）在所有服务区的车辆总数（customer_count），仅显示总数超200的车型",
-    "sql": "SELECT car_type AS 车型, SUM(customer_count) AS 车辆总数 FROM public.bss_car_day_count WHERE count_date = '2022-03-02' GROUP BY car_type HAVING SUM(customer_count) > 200;",
-    "domain": "日度经营与客流分析"
+    "question": "找出在2023年4月有连续3天以上总支付金额超过5000元的餐饮分支网点名称及其最高单日支付金额",
+    "sql": "SELECT branch_name AS 档口名称, MAX(pay_sum) AS 最高单日支付金额 FROM public.bss_business_day_data WHERE branch_no IN (SELECT branch_no FROM public.bss_branch WHERE classify = '餐饮' AND delete_ts IS NULL) AND oper_date >= '2023-04-01' AND oper_date <= '2023-04-30' AND pay_sum > 5000 GROUP BY branch_name HAVING COUNT(*) >= 3;",
+    "domain": "服务区分支网点运营"
   },
   {
-    "question": "联合分析2023年4月1日宜春服务区档口经营数据与当日该服务区各车型车流数据（需关联服务区编码映射），展示档口名称、微信金额、车型、车辆数",
-    "sql": "SELECT b.branch_name AS 档口名称, b.wx AS 微信金额, c.car_type AS 车型, c.customer_count AS 车辆数 FROM public.bss_business_day_data b LEFT JOIN public.bss_car_day_count c ON b.service_no = c.service_area_id WHERE b.oper_date = '2023-04-01' AND b.service_name = '宜春服务区' AND c.count_date = '2023-04-01';",
-    "domain": "日度经营与客流分析"
+    "question": "汇总分析2023年4月各支付渠道（微信、支付宝、现金、信用卡、京东）在餐饮分支网点中的总交易金额和总订单数",
+    "sql": "SELECT SUM(wx) AS 微信总金额, SUM(zfb) AS 支付宝总金额, SUM(rmb) AS 现金总金额, SUM(xs) AS 信用卡总金额, SUM(jd) AS 京东总金额, SUM(wx_order) AS 微信总订单数, SUM(zf_order) AS 支付宝总订单数, SUM(rmb_order) AS 现金总订单数, SUM(xs_order) AS 信用卡总订单数, SUM(jd_order) AS 京东总订单数 FROM public.bss_business_day_data d JOIN public.bss_branch b ON d.branch_no = b.branch_no WHERE b.classify = '餐饮' AND b.delete_ts IS NULL AND d.oper_date >= '2023-04-01' AND d.oper_date <= '2023-04-30';",
+    "domain": "服务区分支网点运营"
   },
   {
-    "question": "计算2023年4月每日全网总支付金额（pay_sum）与总车流数（customer_count）的比值（即单辆车平均消费金额），要求按日期升序排列",
-    "sql": "SELECT d.oper_date AS 日期, COALESCE(SUM(d.pay_sum), 0) / NULLIF(SUM(c.customer_count), 0) AS 单车平均消费金额 FROM public.bss_business_day_data d LEFT JOIN public.bss_car_day_count c ON d.service_no = c.service_area_id AND d.oper_date = c.count_date WHERE d.oper_date >= '2023-04-01' AND d.oper_date <= '2023-04-30' GROUP BY d.oper_date ORDER BY 日期 ASC;",
-    "domain": "日度经营与客流分析"
+    "question": "查询所有未被逻辑删除且属于‘驿美餐饮’品牌的分支网点，展示其档口名称、编码、所属公司ID及服务区ID",
+    "sql": "SELECT branch_name AS 档口名称, branch_no AS 档口编码, company_id AS 所属公司ID, service_area_id AS 服务区ID FROM public.bss_branch WHERE product_brand = '驿美餐饮' AND delete_ts IS NULL;",
+    "domain": "服务区分支网点运营"
   },
   {
-    "question": "找出2023年4月订单总数（order_sum）日均值最高的前3个服务区，并返回其名称及日均订单数",
-    "sql": "SELECT service_name AS 服务区名称, AVG(order_sum) AS 日均订单数 FROM public.bss_business_day_data WHERE oper_date >= '2023-04-01' AND oper_date <= '2023-04-30' GROUP BY service_name ORDER BY 日均订单数 DESC LIMIT 3;",
-    "domain": "日度经营与客流分析"
+    "question": "统计2023年4月各品类（餐饮、零售等）分支网点的平均单日总支付金额，并按品类分组排序",
+    "sql": "SELECT b.classify AS 品类, AVG(d.pay_sum) AS 平均单日总支付金额 FROM public.bss_branch b JOIN public.bss_business_day_data d ON b.branch_no = d.branch_no WHERE b.delete_ts IS NULL AND d.oper_date >= '2023-04-01' AND d.oper_date <= '2023-04-30' GROUP BY b.classify ORDER BY 平均单日总支付金额 DESC;",
+    "domain": "服务区分支网点运营"
   },
   {
-    "question": "查询2023年4月存在至少一天微信支付金额为0但支付宝支付金额大于0的服务区名称列表",
-    "sql": "SELECT DISTINCT service_name AS 服务区名称 FROM public.bss_business_day_data WHERE oper_date >= '2023-04-01' AND oper_date <= '2023-04-30' AND wx = 0.0 AND zfb > 0.0;",
-    "domain": "日度经营与客流分析"
+    "question": "列出2023年4月1日总支付金额排名前5的分支网点详细信息，包括档口名称、编码、品类、品牌、方向及当日支付金额",
+    "sql": "SELECT b.branch_name AS 档口名称, b.branch_no AS 档口编码, b.classify AS 品类, b.product_brand AS 品牌, b.direction AS 方向, d.pay_sum AS 当日总支付金额 FROM public.bss_branch b JOIN public.bss_business_day_data d ON b.branch_no = d.branch_no WHERE d.oper_date = '2023-04-01' AND b.delete_ts IS NULL ORDER BY d.pay_sum DESC LIMIT 5;",
+    "domain": "服务区分支网点运营"
   },
   {
-    "question": "查询所有主题中属于‘交易分析’分类标签的元数据记录，并按更新时间倒序排列，仅显示主题编码、主题名称和更新时间",
-    "sql": "SELECT topic_code AS 主题编码, topic_name AS 主题名称, update_ts AS 更新时间 FROM public.highway_metadata WHERE theme_tag = '交易分析' ORDER BY update_ts DESC;",
-    "domain": "数据治理与元信息管理"
+    "question": "查询2022年3月所有服务区中，各类车型的日均车流量排名前5的车型及其平均车辆数",
+    "sql": "SELECT car_type AS 车型, ROUND(AVG(customer_count), 0) AS 日均车辆数 FROM public.bss_car_day_count WHERE count_date >= '2022-03-01' AND count_date <= '2022-03-31' AND delete_ts IS NULL GROUP BY car_type ORDER BY 日均车辆数 DESC LIMIT 5;",
+    "domain": "交通流量与车型分析"
   },
   {
-    "question": "统计每个主题分类标签（theme_tag）下关联的表数量总和，并只保留关联表数大于2的主题分类",
-    "sql": "SELECT theme_tag AS 分类标签, SUM(ARRAY_LENGTH(related_tables, 1)) AS 关联表总数 FROM public.highway_metadata WHERE related_tables IS NOT NULL GROUP BY theme_tag HAVING SUM(ARRAY_LENGTH(related_tables, 1)) > 2;",
-    "domain": "数据治理与元信息管理"
+    "question": "统计2022年3月2日各服务区的总车流量，并按流量从高到低排序，仅显示前10名",
+    "sql": "SELECT service_area_id AS 服务区ID, SUM(customer_count) AS 当日总车流量 FROM public.bss_car_day_count WHERE count_date = '2022-03-02' AND delete_ts IS NULL GROUP BY service_area_id ORDER BY 当日总车流量 DESC LIMIT 10;",
+    "domain": "交通流量与车型分析"
   },
   {
-    "question": "列出关键词包含‘车流’或‘车型’的所有主题元数据，返回主题名称、描述及关键词数组，并按主题名称升序排序",
-    "sql": "SELECT topic_name AS 主题名称, description AS 描述, keywords AS 关键词 FROM public.highway_metadata WHERE '车流' = ANY(keywords) OR '车型' = ANY(keywords) ORDER BY topic_name ASC;",
-    "domain": "数据治理与元信息管理"
+    "question": "对比分析2022年3月1日与3月2日‘小型客车’车型在各服务区的车流变化量（差值），仅显示变化量绝对值大于100的服务区",
+    "sql": "SELECT a.service_area_id AS 服务区ID, (b.customer_count - a.customer_count) AS 车流变化量 FROM public.bss_car_day_count a JOIN public.bss_car_day_count b ON a.service_area_id = b.service_area_id AND a.car_type = b.car_type WHERE a.count_date = '2022-03-01' AND b.count_date = '2022-03-02' AND a.car_type = '小型客车' AND b.car_type = '小型客车' AND a.delete_ts IS NULL AND b.delete_ts IS NULL HAVING ABS(b.customer_count - a.customer_count) > 100;",
+    "domain": "交通流量与车型分析"
   },
   {
-    "question": "查找最近7天内更新的元数据记录中，问题字段（questions）非空且至少包含2个常见问题的主题，显示主题名称、问题数量和更新时间",
-    "sql": "SELECT topic_name AS 主题名称, JSONB_ARRAY_LENGTH(questions) AS 问题数量, update_ts AS 更新时间 FROM public.highway_metadata WHERE update_ts >= NOW() - INTERVAL '7 days' AND questions IS NOT NULL AND JSONB_ARRAY_LENGTH(questions) >= 2;",
-    "domain": "数据治理与元信息管理"
+    "question": "查询2022年3月期间，每日‘货车’车型在所有服务区的汇总车流量，并按日期升序排列",
+    "sql": "SELECT count_date AS 统计日期, SUM(customer_count) AS 货车总车流量 FROM public.bss_car_day_count WHERE count_date >= '2022-03-01' AND count_date <= '2022-03-31' AND car_type = '货车' AND delete_ts IS NULL GROUP BY count_date ORDER BY 统计日期 ASC;",
+    "domain": "交通流量与车型分析"
   },
   {
-    "question": "获取所有主题中关联表名包含‘traffic’或‘transaction’的元数据，去重后按主题编码升序返回主题编码、主题名称和关联表数组",
-    "sql": "SELECT DISTINCT topic_code AS 主题编码, topic_name AS 主题名称, related_tables AS 关联表 FROM public.highway_metadata WHERE related_tables @> ARRAY['traffic_daily'] OR related_tables @> ARRAY['transaction_daily'] OR 'traffic_hourly' = ANY(related_tables) OR 'transaction_summary' = ANY(related_tables) ORDER BY topic_code ASC;",
-    "domain": "数据治理与元信息管理"
+    "question": "列出2022年3月车流量最高的单日记录（含车型、服务区ID、车辆数、统计日期）",
+    "sql": "SELECT car_type AS 车型, service_area_id AS 服务区ID, customer_count AS 车辆数, count_date AS 统计日期 FROM public.bss_car_day_count WHERE count_date >= '2022-03-01' AND count_date <= '2022-03-31' AND delete_ts IS NULL ORDER BY customer_count DESC LIMIT 1;",
+    "domain": "交通流量与车型分析"
   },
   {
-    "question": "对比‘日营收’和‘车流量’两个主题的关键词重合度：列出它们共有的关键词，并统计出现频次",
-    "sql": "SELECT UNNEST(k1.keywords) AS 共有关键词, COUNT(*) AS 出现频次 FROM (SELECT keywords FROM public.highway_metadata WHERE topic_code = 'daily_revenue') AS k1 CROSS JOIN (SELECT keywords FROM public.highway_metadata WHERE topic_code = 'traffic_volume') AS k2 WHERE UNNEST(k1.keywords) = ANY(k2.keywords) GROUP BY UNNEST(k1.keywords);",
-    "domain": "数据治理与元信息管理"
+    "question": "统计2022年3月各车型在所有服务区的出现天数（去重统计count_date）及总车流量，按出现天数降序排列",
+    "sql": "SELECT car_type AS 车型, COUNT(DISTINCT count_date) AS 出现天数, SUM(customer_count) AS 总车流量 FROM public.bss_car_day_count WHERE count_date >= '2022-03-01' AND count_date <= '2022-03-31' AND delete_ts IS NULL GROUP BY car_type ORDER BY 出现天数 DESC;",
+    "domain": "交通流量与车型分析"
   },
   {
-    "question": "查询每个主题名称下最常见的关键词（即在该主题keywords数组中出现次数最多的单个词），仅返回主题名称和最高频关键词",
-    "sql": "SELECT topic_name AS 主题名称, (SELECT UNNEST(keywords) AS kw GROUP BY kw ORDER BY COUNT(*) DESC LIMIT 1) AS 最高频关键词 FROM public.highway_metadata WHERE keywords IS NOT NULL AND ARRAY_LENGTH(keywords, 1) > 0;",
-    "domain": "数据治理与元信息管理"
+    "question": "查询2022年3月‘小型客车’和‘大型客车’两类车型每日车流量之和，并筛选出合计超过5000的日期",
+    "sql": "SELECT count_date AS 统计日期, SUM(customer_count) AS 两类客车总车流量 FROM public.bss_car_day_count WHERE count_date >= '2022-03-01' AND count_date <= '2022-03-31' AND car_type IN ('小型客车', '大型客车') AND delete_ts IS NULL GROUP BY count_date HAVING SUM(customer_count) > 5000 ORDER BY 统计日期;",
+    "domain": "交通流量与车型分析"
   },
   {
-    "question": "找出描述字段中包含‘同比’或‘环比’字样的主题元数据，返回主题编码、主题名称、描述摘要（前100字符）和更新时间",
-    "sql": "SELECT topic_code AS 主题编码, topic_name AS 主题名称, SUBSTRING(description FROM 1 FOR 100) AS 描述摘要, update_ts AS 更新时间 FROM public.highway_metadata WHERE description ~* '同比|环比';",
-    "domain": "数据治理与元信息管理"
+    "question": "获取2022年3月每个服务区的‘其他’车型车流量明细（含日期、车辆数），按服务区ID和日期排序",
+    "sql": "SELECT service_area_id AS 服务区ID, count_date AS 统计日期, customer_count AS 车辆数 FROM public.bss_car_day_count WHERE count_date >= '2022-03-01' AND count_date <= '2022-03-31' AND car_type = '其他' AND delete_ts IS NULL ORDER BY 服务区ID, 统计日期;",
+    "domain": "交通流量与车型分析"
   },
   {
-    "question": "按主题分类标签分组，统计各组下元数据记录数、平均关联表数量以及含问题字段的比例（问题字段非空则计1），结果按记录数降序排列",
-    "sql": "SELECT theme_tag AS 分类标签, COUNT(*) AS 记录数, ROUND(AVG(ARRAY_LENGTH(related_tables, 1)), 2) AS 平均关联表数, ROUND(SUM(CASE WHEN questions IS NOT NULL THEN 1 ELSE 0 END)::DECIMAL / COUNT(*), 4) AS 含问题比例 FROM public.highway_metadata GROUP BY theme_tag ORDER BY 记录数 DESC;",
-    "domain": "数据治理与元信息管理"
+    "question": "分析2022年3月各车型车流量占比（占当月全部车流比例），结果保留两位小数并按占比降序排列",
+    "sql": "SELECT car_type AS 车型, ROUND(SUM(customer_count) * 100.0 / (SELECT SUM(customer_count) FROM public.bss_car_day_count WHERE count_date >= '2022-03-01' AND count_date <= '2022-03-31' AND delete_ts IS NULL), 2) AS 占比百分比 FROM public.bss_car_day_count WHERE count_date >= '2022-03-01' AND count_date <= '2022-03-31' AND delete_ts IS NULL GROUP BY car_type ORDER BY 占比百分比 DESC;",
+    "domain": "交通流量与车型分析"
   },
   {
-    "question": "查询所有主题中关联了超过3张源表且关键词包含‘智能’的主题，返回主题名称、关联表数量、关键词列表，并按关联表数量降序排列",
-    "sql": "SELECT topic_name AS 主题名称, ARRAY_LENGTH(related_tables, 1) AS 关联表数量, keywords AS 关键词列表 FROM public.highway_metadata WHERE ARRAY_LENGTH(related_tables, 1) > 3 AND '智能' = ANY(keywords) ORDER BY 关联表数量 DESC;",
-    "domain": "数据治理与元信息管理"
+    "question": "查询2022年3月存在数据但未被逻辑删除的所有记录总数、总车流量、平均单日车流量（四舍五入取整）",
+    "sql": "SELECT COUNT(*) AS 记录总数, SUM(customer_count) AS 总车流量, ROUND(AVG(customer_count), 0) AS 平均单日车流量 FROM public.bss_car_day_count WHERE count_date >= '2022-03-01' AND count_date <= '2022-03-31' AND delete_ts IS NULL;",
+    "domain": "交通流量与车型分析"
   },
   {
-    "question": "查询所有未被逻辑删除的服务区映射记录，按创建时间倒序排列，显示服务区名称、编码、来源系统类型和创建人",
-    "sql": "SELECT service_name AS 服务区名称, service_no AS 服务区编码, source_system_type AS 来源系统类型, created_by AS 创建人 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL ORDER BY create_ts DESC;",
-    "domain": "跨系统服务对象主数据映射"
+    "question": "查询所有未被逻辑删除的服务区映射记录，按创建时间倒序排列，仅显示服务区名称、来源系统类型和创建人",
+    "sql": "SELECT service_name AS 服务区名称, source_system_type AS 来源系统类型, created_by AS 创建人 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL ORDER BY create_ts DESC;",
+    "domain": "跨系统服务标识治理"
   },
   {
-    "question": "统计各来源系统类型（source_system_type）下映射的服务区数量，并按数量降序排列",
-    "sql": "SELECT source_system_type AS 来源系统类型, COUNT(*) AS 映射服务区数量 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL GROUP BY source_system_type ORDER BY 映射服务区数量 DESC;",
-    "domain": "跨系统服务对象主数据映射"
+    "question": "统计每个来源系统类型（source_system_type）下映射的服务区数量，并按数量降序排列",
+    "sql": "SELECT source_system_type AS 来源系统类型, COUNT(*) AS 映射数量 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL GROUP BY source_system_type ORDER BY 映射数量 DESC;",
+    "domain": "跨系统服务标识治理"
   },
   {
-    "question": "找出被多个不同来源系统类型映射的同一服务区（service_area_id），列出该服务区ID、名称及关联的系统类型列表",
-    "sql": "SELECT service_area_id AS 服务区唯一ID, MAX(service_name) AS 服务区名称, STRING_AGG(DISTINCT source_system_type, ', ') AS 关联来源系统类型 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL GROUP BY service_area_id HAVING COUNT(DISTINCT source_system_type) > 1;",
-    "domain": "跨系统服务对象主数据映射"
+    "question": "找出在‘驿美’和‘驿购’两个系统中均存在映射记录的服务区名称（即双系统覆盖的服务区）",
+    "sql": "SELECT service_name AS 服务区名称 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL AND source_system_type = '驿美' INTERSECT SELECT service_name AS 服务区名称 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL AND source_system_type = '驿购';",
+    "domain": "跨系统服务标识治理"
   },
   {
-    "question": "查询最新更新时间在2023年之后的所有映射记录，仅返回服务区名称、编码、来源系统类型及最后更新时间",
-    "sql": "SELECT service_name AS 服务区名称, service_no AS 服务区编码, source_system_type AS 来源系统类型, update_ts AS 最后更新时间 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL AND update_ts > '2023-01-01' ORDER BY update_ts DESC;",
-    "domain": "跨系统服务对象主数据映射"
+    "question": "查询最新更新时间晚于2023-01-15且未被删除的所有映射记录，返回服务区名称、编码、来源系统类型及最后更新时间",
+    "sql": "SELECT service_name AS 服务区名称, service_no AS 服务区编码, source_system_type AS 来源系统类型, update_ts AS 最后更新时间 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL AND update_ts > '2023-01-15' ORDER BY update_ts DESC;",
+    "domain": "跨系统服务标识治理"
   },
   {
-    "question": "对比‘驿美’和‘驿购’两个来源系统的映射记录数，输出系统类型名称及对应记录数",
-    "sql": "SELECT source_system_type AS 来源系统类型, COUNT(*) AS 记录数 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL AND source_system_type IN ('驿美', '驿购') GROUP BY source_system_type;",
-    "domain": "跨系统服务对象主数据映射"
+    "question": "按服务区ID（service_area_id）分组，筛选出映射记录数大于1的多源系统服务区，并统计其映射系统类型列表",
+    "sql": "SELECT service_area_id AS 服务区ID, STRING_AGG(DISTINCT source_system_type, ', ') AS 映射系统类型列表, COUNT(*) AS 映射总数 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL GROUP BY service_area_id HAVING COUNT(*) > 1;",
+    "domain": "跨系统服务标识治理"
   },
   {
-    "question": "查询每个服务区编码（service_no）下映射的服务区名称是否唯一；若存在同编码多名称情况，列出编码、所有对应名称及数量",
-    "sql": "SELECT service_no AS 服务区编码, STRING_AGG(DISTINCT service_name, '; ') AS 对应服务区名称列表, COUNT(DISTINCT service_name) AS 名称数量 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL GROUP BY service_no HAVING COUNT(DISTINCT service_name) > 1;",
-    "domain": "跨系统服务对象主数据映射"
+    "question": "对比‘驿美’与‘驿购’系统中各自映射的服务区数量差异（驿美数量减去驿购数量）",
+    "sql": "SELECT (SELECT COUNT(*) FROM public.bss_service_area_mapper WHERE delete_ts IS NULL AND source_system_type = '驿美') - (SELECT COUNT(*) FROM public.bss_service_area_mapper WHERE delete_ts IS NULL AND source_system_type = '驿购') AS 系统映射数量差;",
+    "domain": "跨系统服务标识治理"
   },
   {
-    "question": "获取创建人是‘admin’且未被删除的映射记录中，按来源系统类型分组的服务区平均版本号（version）",
-    "sql": "SELECT source_system_type AS 来源系统类型, ROUND(AVG(version), 2) AS 平均版本号 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL AND created_by = 'admin' GROUP BY source_system_type;",
-    "domain": "跨系统服务对象主数据映射"
+    "question": "查询创建人是admin且版本号大于1的所有逻辑未删除映射记录，按服务区编码升序排列，限制返回前10条",
+    "sql": "SELECT service_name AS 服务区名称, service_no AS 服务区编码, source_system_type AS 来源系统类型, version AS 版本号 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL AND created_by = 'admin' AND version > 1 ORDER BY service_no ASC LIMIT 10;",
+    "domain": "跨系统服务标识治理"
   },
   {
-    "question": "列出最近7天内新增的映射记录（按create_ts判断），显示服务区名称、编码、来源系统类型、创建时间和创建人",
-    "sql": "SELECT service_name AS 服务区名称, service_no AS 服务区编码, source_system_type AS 来源系统类型, create_ts AS 创建时间, created_by AS 创建人 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL AND create_ts >= CURRENT_DATE - INTERVAL '7 days' ORDER BY create_ts DESC;",
-    "domain": "跨系统服务对象主数据映射"
+    "question": "统计每类数据来源类别ID（source_type）对应的服务区映射总数，并仅保留映射数超过5条的类别",
+    "sql": "SELECT source_type AS 数据来源类别ID, COUNT(*) AS 映射总数 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL GROUP BY source_type HAVING COUNT(*) > 5;",
+    "domain": "跨系统服务标识治理"
   },
   {
-    "question": "查询所有存在逻辑删除记录（delete_ts非空）的服务区映射信息，包括服务区名称、编码、删除时间、删除人，并按删除时间倒序排列",
-    "sql": "SELECT service_name AS 服务区名称, service_no AS 服务区编码, delete_ts AS 删除时间, deleted_by AS 删除人 FROM public.bss_service_area_mapper WHERE delete_ts IS NOT NULL ORDER BY delete_ts DESC;",
-    "domain": "跨系统服务对象主数据映射"
+    "question": "查询最近7天内新增的映射记录（基于create_ts），列出服务区名称、来源系统类型、创建时间和创建人",
+    "sql": "SELECT service_name AS 服务区名称, source_system_type AS 来源系统类型, create_ts AS 创建时间, created_by AS 创建人 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL AND create_ts >= CURRENT_DATE - INTERVAL '7 days' ORDER BY create_ts DESC;",
+    "domain": "跨系统服务标识治理"
   },
   {
-    "question": "统计每种数据来源类别ID（source_type）下有效映射记录数，并筛选出记录数超过5条的类别，按数量降序输出类别ID和记录数",
-    "sql": "SELECT source_type AS 来源类别ID, COUNT(*) AS 有效映射记录数 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL GROUP BY source_type HAVING COUNT(*) > 5 ORDER BY 有效映射记录数 DESC;",
-    "domain": "跨系统服务对象主数据映射"
+    "question": "找出所有存在重复服务区名称（service_name）但来源系统类型不同的映射记录（即同名异源），并按服务区名称分组展示映射系统类型集合",
+    "sql": "SELECT service_name AS 服务区名称, STRING_AGG(DISTINCT source_system_type, ', ') AS 涉及系统类型 FROM public.bss_service_area_mapper WHERE delete_ts IS NULL GROUP BY service_name HAVING COUNT(DISTINCT source_system_type) > 1;",
+    "domain": "跨系统服务标识治理"
+  },
+  {
+    "question": "近30天日均营业收入最高的前5个服务区是哪些？",
+    "sql": "SELECT s.service_area_name AS 服务区名称, AVG(b.pay_sum) AS 日均营业收入 FROM bss_business_day_data b JOIN bss_service_area s ON b.service_area_id = s.id WHERE b.oper_date >= CURRENT_DATE - INTERVAL '30 days' GROUP BY s.service_area_name ORDER BY 日均营业收入 DESC LIMIT 5;",
+    "domain": "业务分析主题元数据"
+  },
+  {
+    "question": "餐饮类档口中，平均订单金额超过200元的有哪些？",
+    "sql": "SELECT br.branch_name AS 档口名称, AVG(b.pay_sum / NULLIF(b.order_sum, 0)) AS 平均订单金额 FROM bss_business_day_data b JOIN bss_branch br ON b.branch_id = br.id WHERE br.branch_type = '餐饮' AND b.order_sum > 0 GROUP BY br.branch_name HAVING AVG(b.pay_sum / NULLIF(b.order_sum, 0)) > 200 ORDER BY 平均订单金额 DESC;",
+    "domain": "业务分析主题元数据"
+  },
+  {
+    "question": "昨日各支付方式（微信、支付宝、现金、刷卡、京东）收入占比分别是多少？",
+    "sql": "SELECT SUM(wx) * 100.0 / SUM(pay_sum) AS 微信占比, SUM(zfb) * 100.0 / SUM(pay_sum) AS 支付宝占比, SUM(rmb) * 100.0 / SUM(pay_sum) AS 现金占比, SUM(xs) * 100.0 / SUM(pay_sum) AS 刷卡占比, SUM(jd) * 100.0 / SUM(pay_sum) AS 京东占比 FROM bss_business_day_data WHERE oper_date = CURRENT_DATE - INTERVAL '1 day';",
+    "domain": "业务分析主题元数据"
+  },
+  {
+    "question": "车流量主题下，近7天小客车流量TOP10的服务区及其总车次",
+    "sql": "SELECT s.service_area_name AS 服务区名称, SUM(c.customer_count) AS 小客车总车次 FROM bss_car_day_count c JOIN bss_service_area s ON c.service_area_id = s.id WHERE c.car_type = '小客车' AND c.count_date >= CURRENT_DATE - INTERVAL '7 days' GROUP BY s.service_area_name ORDER BY 小客车总车次 DESC LIMIT 10;",
+    "domain": "业务分析主题元数据"
+  },
+  {
+    "question": "对比分析：今日与昨日鄱阳湖服务区的总车流量变化率",
+    "sql": "WITH today AS (SELECT SUM(customer_count) AS total FROM bss_car_day_count WHERE service_area_id = (SELECT id FROM bss_service_area WHERE service_area_name = '鄱阳湖服务区') AND count_date = CURRENT_DATE), yesterday AS (SELECT SUM(customer_count) AS total FROM bss_car_day_count WHERE service_area_id = (SELECT id FROM bss_service_area WHERE service_area_name = '鄱阳湖服务区') AND count_date = CURRENT_DATE - INTERVAL '1 day') SELECT ROUND((t.total::numeric / NULLIF(y.total, 0) - 1) * 100, 2) AS 变化率 FROM today t, yesterday y;",
+    "domain": "业务分析主题元数据"
+  },
+  {
+    "question": "哪些服务区在近一周内存在连续3天以上日营收低于5万元的情况？",
+    "sql": "SELECT s.service_area_name AS 服务区名称 FROM bss_service_area s WHERE s.id IN (SELECT service_area_id FROM bss_business_day_data WHERE oper_date >= CURRENT_DATE - INTERVAL '7 days' GROUP BY service_area_id HAVING COUNT(*) FILTER (WHERE pay_sum < 50000) >= 3);",
+    "domain": "业务分析主题元数据"
+  },
+  {
+    "question": "按车辆类型统计本月各服务区车流量分布，并只显示总车次超1万的服务区",
+    "sql": "SELECT s.service_area_name AS 服务区名称, c.car_type AS 车辆类型, SUM(c.customer_count) AS 总车次 FROM bss_car_day_count c JOIN bss_service_area s ON c.service_area_id = s.id WHERE c.count_date >= DATE_TRUNC('month', CURRENT_DATE) GROUP BY s.service_area_name, c.car_type HAVING SUM(c.customer_count) > 10000 ORDER BY 服务区名称, 总车次 DESC;",
+    "domain": "业务分析主题元数据"
+  },
+  {
+    "question": "今日各档口订单数排名及对应所属服务区",
+    "sql": "SELECT br.branch_name AS 档口名称, s.service_area_name AS 所属服务区, b.order_sum AS 订单数量 FROM bss_business_day_data b JOIN bss_branch br ON b.branch_id = br.id JOIN bss_service_area s ON b.service_area_id = s.id WHERE b.oper_date = CURRENT_DATE ORDER BY 订单数量 DESC LIMIT 20;",
+    "domain": "业务分析主题元数据"
+  },
+  {
+    "question": "交易分析主题中，哪些关键词同时出现在‘日营收’和‘车流量’两个主题下？",
+    "sql": "SELECT k.keyword FROM (SELECT UNNEST(keywords) AS keyword FROM public.highway_metadata WHERE topic_code = 'daily_revenue') k INTERSECT SELECT k2.keyword FROM (SELECT UNNEST(keywords) AS keyword FROM public.highway_metadata WHERE topic_code = 'vehicle_flow') k2;",
+    "domain": "业务分析主题元数据"
+  },
+  {
+    "question": "列出所有主题中关联表数量最多的前3个主题及其关联表清单",
+    "sql": "SELECT topic_name AS 主题名称, ARRAY_LENGTH(related_tables, 1) AS 关联表数量, related_tables AS 关联表清单 FROM public.highway_metadata ORDER BY 关联表数量 DESC LIMIT 3;",
+    "domain": "业务分析主题元数据"
   }
 ]

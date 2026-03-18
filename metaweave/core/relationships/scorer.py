@@ -55,6 +55,8 @@ class RelationshipScorer:
         # 采样配置（评分阶段从数据库取样的行数上限）
         self.sample_size = config.get("sample_size", 1000)
 
+        self.query_count = 0
+
         logger.info(f"关系评分器已初始化（4维度评分体系）:")
         logger.info(f"  - sample_size={self.sample_size}")
         logger.info(f"  - weights={self.weights}")
@@ -273,6 +275,7 @@ class RelationshipScorer:
                 LIMIT %s
             '''
             source_rows = self.connector.execute_query(source_sql, (self.sample_size,))
+            self.query_count += 1
 
             # 采样目标表
             target_col_expr = ", ".join([f'"{col}"' for col in target_columns])
@@ -282,6 +285,7 @@ class RelationshipScorer:
                 LIMIT %s
             '''
             target_rows = self.connector.execute_query(target_sql, (self.sample_size,))
+            self.query_count += 1
 
             if not source_rows or not target_rows:
                 logger.warning(f"采样数据为空: {source_schema}.{source_table} 或 {target_schema}.{target_table}")
@@ -392,6 +396,7 @@ class RelationshipScorer:
             '''
 
             result = self.connector.execute_query(join_sql, (self.sample_size,))
+            self.query_count += 1
             join_count = result[0].get('join_count', 0) if result else 0
 
             # 计算倍率：使用传入的 source_valid_count 作为分母

@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-17T23:00:21.801972",
+  "generated_timestamp": "2026-03-18T06:59:36.735900",
   "table_info": {
     "database": "highway_db",
     "schema_name": "public",
     "table_name": "bss_section_route",
     "table_type": "table",
-    "comment": "路段与路线关联表，存储路段名称、所属路线及唯一编码",
+    "comment": "路段与路线关联表，存储路段名称、所属路线及唯一编码信息",
     "comment_source": "ddl",
     "total_rows": 54,
     "total_columns": 11
@@ -25,9 +25,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 54,
-        "unique_count": 54,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 54,
         "uniqueness": 1.0,
         "avg_length": 32.0,
         "min_length": 32,
@@ -82,9 +82,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 54,
-        "unique_count": 2,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 2,
         "uniqueness": 0.037,
         "min": "0",
         "max": "1",
@@ -134,9 +134,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 54,
-        "unique_count": 11,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 11,
         "uniqueness": 0.2037
       },
       "semantic_analysis": {
@@ -179,9 +179,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 54,
-        "unique_count": 1,
         "null_count": 8,
         "null_rate": 0.1481,
+        "unique_count": 1,
         "uniqueness": 0.0185,
         "avg_length": 5.0,
         "min_length": 5,
@@ -232,9 +232,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 54,
-        "unique_count": 0,
         "null_count": 54,
         "null_rate": 1.0,
+        "unique_count": 0,
         "uniqueness": 0.0,
         "value_distribution": {}
       },
@@ -278,9 +278,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 54,
-        "unique_count": 0,
         "null_count": 54,
         "null_rate": 1.0,
+        "unique_count": 0,
         "uniqueness": 0.0,
         "value_distribution": {}
       },
@@ -324,9 +324,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 54,
-        "unique_count": 0,
         "null_count": 54,
         "null_rate": 1.0,
+        "unique_count": 0,
         "uniqueness": 0.0,
         "value_distribution": {}
       },
@@ -370,9 +370,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 54,
-        "unique_count": 0,
         "null_count": 54,
         "null_rate": 1.0,
+        "unique_count": 0,
         "uniqueness": 0.0,
         "value_distribution": {}
       },
@@ -416,9 +416,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 54,
-        "unique_count": 45,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 45,
         "uniqueness": 0.8333,
         "avg_length": 2.02,
         "min_length": 2,
@@ -461,9 +461,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 54,
-        "unique_count": 32,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 32,
         "uniqueness": 0.5926,
         "avg_length": 2.13,
         "min_length": 1,
@@ -506,9 +506,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 54,
-        "unique_count": 52,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 52,
         "uniqueness": 0.963,
         "avg_length": 6.0,
         "min_length": 6,
@@ -653,5 +653,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-17T23:00:34.459056"
+  "llm_enhanced_at": "2026-03-18T06:59:48.610398"
 }

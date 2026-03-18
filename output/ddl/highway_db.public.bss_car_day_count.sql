@@ -2,7 +2,7 @@
 -- Database: highway_db
 -- Table: public.bss_car_day_count
 -- Comment: 按日统计各车型在服务区域的客户使用数量
--- Generated: 2026-03-17 23:00:01
+-- Generated: 2026-03-18 06:59:15
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_car_day_count (

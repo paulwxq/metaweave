@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: highway_db
 -- Table: public.qa_feedback
--- Comment: 用户对SQL查询结果的反馈记录，包含问题、生成SQL、点赞状态及是否用于训练数据
--- Generated: 2026-03-17 23:00:08
+-- Comment: 用户对SQL查询结果的反馈记录，包含问题、生成SQL、点赞状态及训练数据标记
+-- Generated: 2026-03-18 06:59:23
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.qa_feedback (
@@ -22,7 +22,7 @@ COMMENT ON COLUMN public.qa_feedback.id IS '反馈记录唯一标识ID';
 COMMENT ON COLUMN public.qa_feedback.question IS '用户提出的自然语言问题';
 COMMENT ON COLUMN public.qa_feedback.sql IS '系统生成的对应SQL查询语句';
 COMMENT ON COLUMN public.qa_feedback.is_thumb_up IS '用户是否点赞（True-是，False-否）';
-COMMENT ON COLUMN public.qa_feedback.user_id IS '提交反馈的用户账号标识';
+COMMENT ON COLUMN public.qa_feedback.user_id IS '提交反馈的用户标识符';
 COMMENT ON COLUMN public.qa_feedback.create_time IS '反馈记录创建时间戳';
 COMMENT ON COLUMN public.qa_feedback.is_in_training_data IS '是否已纳入训练数据集（True-是，False-否）';
 COMMENT ON COLUMN public.qa_feedback.update_time IS '反馈记录最后更新时间戳';
@@ -34,7 +34,7 @@ CREATE INDEX idx_qa_feedback_is_thumb_up ON public.qa_feedback(is_thumb_up);
 CREATE INDEX idx_qa_feedback_user_id ON public.qa_feedback(user_id);
 
 -- Table Comment
-COMMENT ON TABLE public.qa_feedback IS '用户对SQL查询结果的反馈记录，包含问题、生成SQL、点赞状态及是否用于训练数据';
+COMMENT ON TABLE public.qa_feedback IS '用户对SQL查询结果的反馈记录，包含问题、生成SQL、点赞状态及训练数据标记';
 
 /* SAMPLE_RECORDS
 {

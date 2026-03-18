@@ -146,14 +146,21 @@ class RelationshipWriter:
         # 计算统计数据（v3.2口径）
         stats = self._calculate_statistics_v32(relations, suppressed)
 
+        # 从 extra_statistics 提取顶层字段，其余归入 statistics（不修改原字典）
+        db_queries = 0
+        nested_extra = {}
+        if extra_statistics:
+            db_queries = extra_statistics.get("database_queries_executed", 0)
+            nested_extra = {k: v for k, v in extra_statistics.items() if k != "database_queries_executed"}
+
         # 构建JSON数据（v3.2格式）
         data = {
             "generated_by": generated_by,
             "database": self.database_name,
             "metadata_source": "json_files",
             "json_metadata_version": "2.0",
-            "json_files_loaded": stats.get("json_files_loaded", 0),
-            "database_queries_executed": stats.get("database_queries_executed", 0),
+            "json_files_loaded": stats["json_files_loaded"],
+            "database_queries_executed": db_queries,
             "generated_timestamp": datetime.now().isoformat(),
 
             "statistics": {
@@ -169,9 +176,9 @@ class RelationshipWriter:
             "relationships": relationships_v32
         }
 
-        # 合并额外的统计项
-        if extra_statistics:
-            data["statistics"].update(extra_statistics)
+        # 合并额外的统计项（不含已提取的顶层字段）
+        if nested_extra:
+            data["statistics"].update(nested_extra)
 
         # 写入文件（使用配置的粒度，当前仅支持 global）
         json_file = self.rel_dir / f"{self.database_name}.relationships_{self.rel_granularity}.json"
@@ -570,10 +577,6 @@ class RelationshipWriter:
             if r.inference_method and "dynamic_same_name" in r.inference_method and r.is_composite
         ])
 
-        # TODO: 从 JSON 文件计数（暂时使用占位符）
-        json_files_loaded = 0
-        database_queries_executed = 0
-
         return {
             "total_relationships_found": total,
             "foreign_key_relationships": foreign_key_count,
@@ -582,8 +585,7 @@ class RelationshipWriter:
             "total_suppressed_single_relations": suppressed_single_count,
             "active_search_discoveries": active_search_count,
             "dynamic_composite_discoveries": dynamic_composite_count,
-            "json_files_loaded": json_files_loaded,
-            "database_queries_executed": database_queries_executed,
+            "json_files_loaded": len(self.tables),
         }
 
     def _write_markdown(self, relations: List[Relation], generated_by: str) -> Path:

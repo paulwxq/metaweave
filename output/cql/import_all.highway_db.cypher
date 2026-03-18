@@ -1,6 +1,6 @@
 // import_all.highway_db.cypher
 // Neo4j 元数据导入脚本（global 模式，包含所有表和关系）
-// 生成时间: 2026-03-17T23:00:53.624173
+// 生成时间: 2026-03-18T07:00:07.881025
 // 统计: 10 张表, 124 个列, 0 个关系
 
 // =====================================================================
@@ -23,7 +23,7 @@
     "full_name": "public.bss_branch",
     "schema": "public",
     "name": "bss_branch",
-    "comment": "高速公路服务区经营网点信息表，存储各餐饮、小吃等品牌分支网点的基本属性与归属关系",
+    "comment": "高速公路服务区餐饮及小吃分支网点信息表",
     "pk": [],
     "uk": [],
     "fk": [],
@@ -46,7 +46,7 @@
       ]
     ],
     "table_domains": [
-      "经营主体与组织架构"
+      "服务区分支网点运营"
     ],
     "table_category": "dim"
   },
@@ -56,7 +56,7 @@
     "full_name": "public.bss_business_day_data",
     "schema": "public",
     "name": "bss_business_day_data",
-    "comment": "服务区各营业网点按日统计的多渠道（微信、支付宝、现金等）交易金额与订单数明细",
+    "comment": "服务区每日经营数据表，记录各服务区分支的分渠道交易笔数、金额及汇总信息",
     "pk": [
       "id"
     ],
@@ -74,7 +74,7 @@
       ]
     ],
     "table_domains": [
-      "日度经营与客流分析"
+      "服务区分支网点运营"
     ],
     "table_category": "fact"
   },
@@ -99,7 +99,7 @@
       ]
     ],
     "table_domains": [
-      "日度经营与客流分析"
+      "交通流量与车型分析"
     ],
     "table_category": "fact"
   },
@@ -120,7 +120,7 @@
     "logic_uk": [],
     "indexes": [],
     "table_domains": [
-      "经营主体与组织架构"
+      "服务区基础资产与组织管理"
     ],
     "table_category": "dim"
   },
@@ -130,7 +130,7 @@
     "full_name": "public.bss_section_route",
     "schema": "public",
     "name": "bss_section_route",
-    "comment": "路段与路线关联表，存储路段名称、所属路线及唯一编码",
+    "comment": "路段与路线关联表，存储路段名称、所属路线及唯一编码信息",
     "pk": [
       "id"
     ],
@@ -141,7 +141,7 @@
     "logic_uk": [],
     "indexes": [],
     "table_domains": [
-      "服务区基础资产与地理拓扑"
+      "路段-路线-服务区拓扑关系"
     ],
     "table_category": "bridge"
   },
@@ -151,7 +151,7 @@
     "full_name": "public.bss_section_route_area_link",
     "schema": "public",
     "name": "bss_section_route_area_link",
-    "comment": "路段路由与服务区的关联关系表",
+    "comment": "路段路由与服务区的关联关系表，记录路段路由所属的服务区",
     "pk": [
       "section_route_id",
       "service_area_id"
@@ -167,7 +167,7 @@
       ]
     ],
     "table_domains": [
-      "服务区基础资产与地理拓扑"
+      "路段-路线-服务区拓扑关系"
     ],
     "table_category": "bridge"
   },
@@ -192,7 +192,7 @@
       ]
     ],
     "table_domains": [
-      "服务区基础资产与地理拓扑"
+      "服务区基础资产与组织管理"
     ],
     "table_category": "dim"
   },
@@ -202,7 +202,7 @@
     "full_name": "public.bss_service_area_mapper",
     "schema": "public",
     "name": "bss_service_area_mapper",
-    "comment": "服务区信息映射表，关联不同来源系统中的服务区名称、编号与唯一标识",
+    "comment": "服务区与业务系统映射关系表，记录服务区在不同源系统中的名称、编号及标识信息",
     "pk": [
       "id"
     ],
@@ -217,7 +217,7 @@
       ]
     ],
     "table_domains": [
-      "跨系统服务对象主数据映射"
+      "跨系统服务标识治理"
     ],
     "table_category": "dim"
   },
@@ -227,7 +227,7 @@
     "full_name": "public.highway_metadata",
     "schema": "public",
     "name": "highway_metadata",
-    "comment": "高速公路元数据表，存储高速公路主题数据的描述、关联表、问题及关键词等元信息",
+    "comment": "高速公路业务主题元数据表，存储各分析主题的定义、关联表、典型问题及关键词等元信息",
     "pk": [
       "id"
     ],
@@ -238,7 +238,7 @@
     "logic_uk": [],
     "indexes": [],
     "table_domains": [
-      "数据治理与元信息管理"
+      "业务分析主题元数据"
     ],
     "table_category": "dim"
   },
@@ -248,7 +248,7 @@
     "full_name": "public.qa_feedback",
     "schema": "public",
     "name": "qa_feedback",
-    "comment": "用户对SQL查询结果的反馈记录，包含问题、生成SQL、点赞状态及是否用于训练数据",
+    "comment": "用户对SQL查询结果的反馈记录，包含问题、生成SQL、点赞状态及训练数据标记",
     "pk": [
       "id"
     ],
@@ -784,7 +784,7 @@
     "schema": "public",
     "table": "bss_business_day_data",
     "name": "delete_ts",
-    "comment": "逻辑删除时间戳（为空表示未删除）",
+    "comment": "逻辑删除时间戳（NULL表示未删除）",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -1943,7 +1943,7 @@
     "schema": "public",
     "table": "bss_service_area",
     "name": "delete_ts",
-    "comment": "逻辑删除时间戳（NULL表示未删除）",
+    "comment": "逻辑删除时间戳（为空表示未删除）",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -2427,7 +2427,7 @@
     "is_time": false,
     "is_measure": false,
     "pk_position": 0,
-    "uniqueness": 0.0,
+    "uniqueness": 1.0,
     "null_rate": 0.0
   },
   {
@@ -2437,7 +2437,7 @@
     "schema": "public",
     "table": "highway_metadata",
     "name": "questions",
-    "comment": "常见业务问题及对应SQL查询语句",
+    "comment": "常见业务问题及对应SQL查询示例",
     "data_type": "jsonb",
     "semantic_role": "complex",
     "is_pk": false,
@@ -2446,7 +2446,7 @@
     "is_time": false,
     "is_measure": false,
     "pk_position": 0,
-    "uniqueness": 0.0,
+    "uniqueness": 1.0,
     "null_rate": 0.0
   },
   {
@@ -2465,7 +2465,7 @@
     "is_time": false,
     "is_measure": false,
     "pk_position": 0,
-    "uniqueness": 0.0,
+    "uniqueness": 1.0,
     "null_rate": 0.0
   },
   {
@@ -2494,7 +2494,7 @@
     "schema": "public",
     "table": "highway_metadata",
     "name": "update_ts",
-    "comment": "元数据最后更新时间",
+    "comment": "元数据最后更新时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -2589,7 +2589,7 @@
     "schema": "public",
     "table": "qa_feedback",
     "name": "user_id",
-    "comment": "提交反馈的用户账号标识",
+    "comment": "提交反馈的用户标识符",
     "data_type": "character varying",
     "semantic_role": "identifier",
     "is_pk": false,

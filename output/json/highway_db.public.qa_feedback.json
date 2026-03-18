@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-17T23:00:21.884668",
+  "generated_timestamp": "2026-03-18T06:59:36.828968",
   "table_info": {
     "database": "highway_db",
     "schema_name": "public",
     "table_name": "qa_feedback",
     "table_type": "table",
-    "comment": "用户对SQL查询结果的反馈记录，包含问题、生成SQL、点赞状态及是否用于训练数据",
+    "comment": "用户对SQL查询结果的反馈记录，包含问题、生成SQL、点赞状态及训练数据标记",
     "comment_source": "ddl",
     "total_rows": 20,
     "total_columns": 8
@@ -25,9 +25,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 20,
-        "unique_count": 20,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 20,
         "uniqueness": 1.0,
         "min": "1",
         "max": "21",
@@ -80,9 +80,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 20,
-        "unique_count": 16,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 16,
         "uniqueness": 0.8,
         "avg_length": 7.8,
         "min_length": 5,
@@ -125,9 +125,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 20,
-        "unique_count": 16,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 16,
         "uniqueness": 0.8,
         "avg_length": 61.65,
         "min_length": 17,
@@ -177,9 +177,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 20,
-        "unique_count": 2,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 2,
         "uniqueness": 0.1,
         "min": "False",
         "max": "True",
@@ -235,13 +235,13 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "提交反馈的用户账号标识",
+      "comment": "提交反馈的用户标识符",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 20,
-        "unique_count": 18,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 18,
         "uniqueness": 0.9,
         "avg_length": 6.7,
         "min_length": 5,
@@ -296,9 +296,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 20,
-        "unique_count": 20,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 20,
         "uniqueness": 1.0
       },
       "semantic_analysis": {
@@ -347,9 +347,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 20,
-        "unique_count": 2,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 2,
         "uniqueness": 0.1,
         "min": "False",
         "max": "True",
@@ -409,9 +409,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 20,
-        "unique_count": 2,
         "null_count": 16,
         "null_rate": 0.8,
+        "unique_count": 2,
         "uniqueness": 0.1,
         "value_distribution": {
           "2025-06-24 13:05:00.792156": 3,
@@ -580,5 +580,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-17T23:00:50.155353"
+  "llm_enhanced_at": "2026-03-18T07:00:04.101714"
 }

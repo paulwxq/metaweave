@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: highway_db
 -- Table: public.bss_section_route
--- Comment: 路段与路线关联表，存储路段名称、所属路线及唯一编码
--- Generated: 2026-03-17 23:00:04
+-- Comment: 路段与路线关联表，存储路段名称、所属路线及唯一编码信息
+-- Generated: 2026-03-18 06:59:19
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_section_route (
@@ -34,7 +34,7 @@ COMMENT ON COLUMN public.bss_section_route.route_name IS '路线名称';
 COMMENT ON COLUMN public.bss_section_route.code IS '编号';
 
 -- Table Comment
-COMMENT ON TABLE public.bss_section_route IS '路段与路线关联表，存储路段名称、所属路线及唯一编码';
+COMMENT ON TABLE public.bss_section_route IS '路段与路线关联表，存储路段名称、所属路线及唯一编码信息';
 
 /* SAMPLE_RECORDS
 {

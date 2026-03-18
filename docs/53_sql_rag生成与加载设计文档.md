@@ -357,7 +357,7 @@ def validate_batch(self, sqls: List[str]) -> List[ValidationResult]:
 
 #### 4.2.7 校验报告
 
-输出路径：`output/sql/sql_validation_{timestamp}_summary.log`
+输出路径：`output/sql/sql_validation_summary_{timestamp}.log`
 
 报告格式参照 data_pipeline 的验证报告，包含以下段落：
 

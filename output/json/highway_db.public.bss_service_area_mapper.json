@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-17T23:00:21.851746",
+  "generated_timestamp": "2026-03-18T06:59:36.810433",
   "table_info": {
     "database": "highway_db",
     "schema_name": "public",
     "table_name": "bss_service_area_mapper",
     "table_type": "table",
-    "comment": "服务区信息映射表，关联不同来源系统中的服务区名称、编号与唯一标识",
+    "comment": "服务区与业务系统映射关系表，记录服务区在不同源系统中的名称、编号及标识信息",
     "comment_source": "ddl",
     "total_rows": 317,
     "total_columns": 13
@@ -25,9 +25,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 317,
-        "unique_count": 317,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 317,
         "uniqueness": 1.0,
         "avg_length": 32.0,
         "min_length": 32,
@@ -82,9 +82,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 317,
-        "unique_count": 3,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 3,
         "uniqueness": 0.0095,
         "min": "0",
         "max": "2",
@@ -135,9 +135,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 317,
-        "unique_count": 196,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 196,
         "uniqueness": 0.6183
       },
       "semantic_analysis": {
@@ -180,9 +180,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 317,
-        "unique_count": 2,
         "null_count": 34,
         "null_rate": 0.1073,
+        "unique_count": 2,
         "uniqueness": 0.0063,
         "avg_length": 6.17,
         "min_length": 5,
@@ -234,9 +234,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 317,
-        "unique_count": 114,
         "null_count": 30,
         "null_rate": 0.0946,
+        "unique_count": 114,
         "uniqueness": 0.3596
       },
       "semantic_analysis": {
@@ -279,9 +279,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 317,
-        "unique_count": 1,
         "null_count": 231,
         "null_rate": 0.7287,
+        "unique_count": 1,
         "uniqueness": 0.0032,
         "avg_length": 5.0,
         "min_length": 5,
@@ -332,9 +332,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 317,
-        "unique_count": 0,
         "null_count": 317,
         "null_rate": 1.0,
+        "unique_count": 0,
         "uniqueness": 0.0,
         "value_distribution": {}
       },
@@ -378,9 +378,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 317,
-        "unique_count": 0,
         "null_count": 317,
         "null_rate": 1.0,
+        "unique_count": 0,
         "uniqueness": 0.0,
         "value_distribution": {}
       },
@@ -424,9 +424,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 317,
-        "unique_count": 124,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 124,
         "uniqueness": 0.3912,
         "avg_length": 5.46,
         "min_length": 5,
@@ -469,9 +469,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 317,
-        "unique_count": 299,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 299,
         "uniqueness": 0.9432,
         "avg_length": 4.11,
         "min_length": 1,
@@ -520,9 +520,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 317,
-        "unique_count": 119,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 119,
         "uniqueness": 0.3754,
         "avg_length": 32.0,
         "min_length": 32,
@@ -577,9 +577,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 317,
-        "unique_count": 5,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 5,
         "uniqueness": 0.0158,
         "avg_length": 3.31,
         "min_length": 2,
@@ -634,9 +634,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 317,
-        "unique_count": 5,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 5,
         "uniqueness": 0.0158,
         "min": "0",
         "max": "5",
@@ -806,5 +806,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-17T23:00:42.698547"
+  "llm_enhanced_at": "2026-03-18T06:59:57.236466"
 }

@@ -199,7 +199,7 @@ class TestValidateFile:
         assert stats["success_rate"] == 100.0
 
         # 报告文件已写入
-        report_files = list(tmp_path.glob("sql_validation_*_summary.log"))
+        report_files = list(tmp_path.glob("sql_validation_summary_*.log"))
         assert len(report_files) == 1
 
     def test_validate_file_without_repair_keeps_invalid_sqls(self, tmp_path):

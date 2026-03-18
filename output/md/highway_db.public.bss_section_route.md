@@ -1,4 +1,4 @@
-# public.bss_section_route（路段与路线关联表，存储路段名称、所属路线及唯一编码）
+# public.bss_section_route（路段与路线关联表，存储路段名称、所属路线及唯一编码信息）
 ## 字段列表：
 - id (character varying(32)) - 路段路由记录唯一标识ID [示例: 04ri3j67a806uw2c6o6dwdtz4knexczh, 0g5mnefxxtukql2cq6acul7phgskowy7]
 - version (integer(32)) - 数据版本号，用于乐观锁控制 [示例: 1, 1]

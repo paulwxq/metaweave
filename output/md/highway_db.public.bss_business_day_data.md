@@ -1,4 +1,4 @@
-# public.bss_business_day_data（服务区各营业网点按日统计的多渠道（微信、支付宝、现金等）交易金额与订单数明细）
+# public.bss_business_day_data（服务区每日经营数据表，记录各服务区分支的分渠道交易笔数、金额及汇总信息）
 ## 字段列表：
 - id (character varying(32)) - 业务日数据记录唯一标识ID [示例: 00827DFF993D415488EA1F07CAE6C440, 00e799048b8cbb8ee758eac9c8b4b820]
 - version (integer(32)) - 数据版本号，用于乐观锁控制 [示例: 1, 1]
@@ -6,7 +6,7 @@
 - created_by (character varying(50)) - 创建人用户名 [示例: xingba, xingba]
 - update_ts (timestamp without time zone) - 记录最后更新时间戳 [示例: 2023-04-02 08:31:51, 2023-04-02 02:30:08]
 - updated_by (character varying(50)) - 最后更新人用户名 [示例: null]
-- delete_ts (timestamp without time zone) - 逻辑删除时间戳（为空表示未删除） [示例: null]
+- delete_ts (timestamp without time zone) - 逻辑删除时间戳（NULL表示未删除） [示例: null]
 - deleted_by (character varying(50)) - 逻辑删除人用户名 [示例: null]
 - oper_date (date) - 统计日期 [示例: 2023-04-01, 2023-04-01]
 - service_no (character varying(255)) - 服务区编码 [示例: 1028, H0501]

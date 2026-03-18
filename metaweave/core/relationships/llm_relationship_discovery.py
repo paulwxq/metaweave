@@ -647,7 +647,8 @@ class LLMRelationshipDiscovery:
 
         extra_statistics = {
             "llm_assisted_relationships": llm_assisted_count,
-            "rejected_low_confidence": len(rejected_relations)
+            "rejected_low_confidence": len(rejected_relations),
+            "database_queries_executed": self.scorer.query_count,
         }
 
         return all_relations, len(rejected_relations), extra_statistics

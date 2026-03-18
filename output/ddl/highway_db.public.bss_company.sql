@@ -2,7 +2,7 @@
 -- Database: highway_db
 -- Table: public.bss_company
 -- Comment: 公司信息表，存储企业分公司名称、编号及基础审计信息
--- Generated: 2026-03-17 23:00:01
+-- Generated: 2026-03-18 06:59:15
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_company (

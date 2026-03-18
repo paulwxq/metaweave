@@ -1,0 +1,104 @@
+SQL验证报告
+==================================================
+
+输入文件: output/sql/qs_highway_db_pair.json
+验证时间: 2026-03-18T07:03:19.595729
+验证耗时: 0.07秒
+
+验证结果摘要:
+  总SQL数量: 63
+  有效SQL: 55
+  无效SQL: 8
+  成功率: 87.30%
+  平均耗时: 0.005秒
+  重试次数: 0
+
+SQL修复统计:
+  尝试修复: 8
+  修复成功: 7
+  修复失败: 1
+  修复成功率: 87.50%
+
+修复结果回写统计:
+  替换的SQL: 7
+  删除的无效项: 1
+  回写失败: 0
+
+错误详情（共1个）:
+==================================================
+
+1. 问题: 查询创建时间最早和最晚的两个服务区信息（包括名称、编码、创建人和创建时间）
+   错误: 语法错误 在 "UNION" 或附近的
+LINE 1: ...HERE delete_ts IS NULL ORDER BY create_ts LIMIT 1 UNION ALL ...
+                                                             ^
+   LLM修复尝试: 失败
+   修复失败原因: 语法错误 在 "UNION" 或附近的
+LINE 1: ... delete_ts IS NULL ORDER BY create_ts ASC LIMIT 1 UNION ALL ...
+                                                             ^
+   完整SQL:
+   SELECT service_area_name AS 服务区名称, service_area_no AS 服务区编码, created_by AS 创建人, create_ts AS 创建时间 FROM public.bss_service_area WHERE delete_ts IS NULL ORDER BY create_ts LIMIT 1 UNION ALL SELECT service_area_name AS 服务区名称, service_area_no AS 服务区编码, created_by AS 创建人, create_ts AS 创建时间 FROM public.bss_service_area WHERE delete_ts IS NULL ORDER BY create_ts DESC LIMIT 1;
+----------------------------------------
+
+
+成功修复的SQL（共7个）:
+==================================================
+
+1. 问题: 列出昌韶路线下的所有路段名称及其对应的服务区名称（需关联服务区基础表，假设服务区表为public.bss_service_area且含name字段）
+   原始错误: 字段 sa.name 不存在
+LINE 1: ...tion_name AS 路段名称, sr.route_name AS 路线名称, sa.name AS...
+                                                             ^
+   修复后SQL:
+   SELECT sr.section_name AS 路段名称, sr.route_name AS 路线名称, sa.service_area_name AS 服务区名称 FROM public.bss_section_route sr JOIN public.bss_section_route_area_link sral ON sr.id = sral.section_route_id JOIN public.bss_service_area sa ON sral.service_area_id = sa.id WHERE sr.route_name = '昌韶' AND sr.delete_ts IS NULL;
+----------------------------------------
+
+2. 问题: 对比2023年4月1日与2023年4月2日庐山服务区各分支网点的总支付金额差异，显示档口名称、两日金额及差额
+   原始错误: trailing junk after numeric literal 在 "4月1日总支付金额" 或附近的
+LINE 1: ...IN SELECT a.branch_name AS 档口名称, a.pay_sum AS 4月1日总支...
+                                                             ^
+   修复后SQL:
+   SELECT a.branch_name AS "档口名称", a.pay_sum AS "4月1日总支付金额", b.pay_sum AS "4月2日总支付金额", COALESCE(b.pay_sum, 0) - COALESCE(a.pay_sum, 0) AS "支付金额差额" FROM public.bss_business_day_data a LEFT JOIN public.bss_business_day_data b ON a.branch_no = b.branch_no AND b.oper_date = '2023-04-02' WHERE a.oper_date = '2023-04-01' AND a.service_name = '庐山服务区';
+----------------------------------------
+
+3. 问题: 对比分析2022年3月1日与3月2日‘小型客车’车型在各服务区的车流变化量（差值），仅显示变化量绝对值大于100的服务区
+   原始错误: 字段 "a.service_area_id" 必须出现在 GROUP BY 子句中或者在聚合函数中使用
+LINE 1: EXPLAIN SELECT a.service_area_id AS 服务区ID, (b.customer_co...
+                       ^
+   修复后SQL:
+   SELECT a.service_area_id AS 服务区ID, (b.customer_count - a.customer_count) AS 车流变化量 FROM public.bss_car_day_count a JOIN public.bss_car_day_count b ON a.service_area_id = b.service_area_id AND a.car_type = b.car_type WHERE a.count_date = '2022-03-01' AND b.count_date = '2022-03-02' AND a.car_type = '小型客车' AND b.car_type = '小型客车' AND a.delete_ts IS NULL AND b.delete_ts IS NULL AND ABS(b.customer_count - a.customer_count) > 100;
+----------------------------------------
+
+4. 问题: 近30天日均营业收入最高的前5个服务区是哪些？
+   原始错误: 字段 b.service_area_id 不存在
+LINE 1: ...ss_business_day_data b JOIN bss_service_area s ON b.service_...
+                                                             ^
+HINT:  也许您想要引用列"s.service_area_no"。
+   修复后SQL:
+   SELECT s.service_area_name AS 服务区名称, AVG(b.pay_sum) AS 日均营业收入 FROM bss_business_day_data b JOIN bss_service_area s ON b.service_no = s.service_area_no WHERE b.oper_date >= CURRENT_DATE - INTERVAL '30 days' GROUP BY s.service_area_name ORDER BY 日均营业收入 DESC LIMIT 5;
+----------------------------------------
+
+5. 问题: 餐饮类档口中，平均订单金额超过200元的有哪些？
+   原始错误: 字段 b.branch_id 不存在
+LINE 1: ...ROM bss_business_day_data b JOIN bss_branch br ON b.branch_i...
+                                                             ^
+HINT:  也许您想要引用列"b.branch_no"。
+   修复后SQL:
+   SELECT br.branch_name AS 档口名称, AVG(b.pay_sum / NULLIF(b.order_sum, 0)) AS 平均订单金额 FROM bss_business_day_data b JOIN bss_branch br ON b.branch_no = br.branch_no WHERE br.classify = '餐饮' AND b.order_sum > 0 GROUP BY br.branch_name HAVING AVG(b.pay_sum / NULLIF(b.order_sum, 0)) > 200 ORDER BY 平均订单金额 DESC;
+----------------------------------------
+
+6. 问题: 哪些服务区在近一周内存在连续3天以上日营收低于5万元的情况？
+   原始错误: 字段 "service_area_id" 不存在
+LINE 1: ...称 FROM bss_service_area s WHERE s.id IN (SELECT service_ar...
+                                                            ^
+HINT:  也许您想要引用列"s.service_area_no"。
+   修复后SQL:
+   SELECT s.service_area_name AS 服务区名称 FROM bss_service_area s WHERE s.service_area_no IN (SELECT service_no FROM bss_business_day_data WHERE oper_date >= CURRENT_DATE - INTERVAL '7 days' GROUP BY service_no HAVING COUNT(*) FILTER (WHERE pay_sum < 50000) >= 3);
+----------------------------------------
+
+7. 问题: 今日各档口订单数排名及对应所属服务区
+   原始错误: 字段 b.branch_id 不存在
+LINE 1: ...ROM bss_business_day_data b JOIN bss_branch br ON b.branch_i...
+                                                             ^
+HINT:  也许您想要引用列"b.branch_no"。
+   修复后SQL:
+   SELECT br.branch_name AS 档口名称, s.service_area_name AS 所属服务区, b.order_sum AS 订单数量 FROM bss_business_day_data b JOIN bss_branch br ON b.branch_no = br.branch_no JOIN bss_service_area s ON br.service_area_id = s.id WHERE b.oper_date = CURRENT_DATE ORDER BY b.order_sum DESC LIMIT 20;
+----------------------------------------

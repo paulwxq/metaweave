@@ -198,6 +198,10 @@ is_complex_col = (not is_bytes_col) and any(_is_complex_value(v) for v in non_nu
 
 > **列类型一致性假设**：本方案默认同一列的非空值在数据库层面类型一致（PostgreSQL 强类型约束保证这一点）。若某列同时混有 `bytes` 和 `list/dict`，当前检测会将其整体归入 BYTEA 路径。这类混合列不作为支持目标，不在本方案的兼容范围内。
 
+> **ARRAY 有序性假设**：PostgreSQL `ARRAY` 是有序类型，`'{1,2}'::int[]` 和 `'{2,1}'::int[]` 是两个不同值。本方案在哈希标准化（`_normalize_for_hash`）时**保留 `list`/`tuple` 的元素顺序**，只对 Python `set`（无序集合）排序后归一化。这确保 `unique_count`、`uniqueness`、`value_distribution` 与数据库实际语义一致。若业务上需要将数组视为无序标签集合（如不关心 `[1,2]` 与 `[2,1]` 的区别），需在此处显式修改归一化策略，而非默认生效。
+
+> **JSONB 对象键序无关假设**：PostgreSQL `JSONB` 在存储时不保留对象键的插入顺序，`'{"a":1,"b":2}'::jsonb` 和 `'{"b":2,"a":1}'::jsonb` 是同一个值。本方案在哈希标准化时对所有 `dict`（包括数组内嵌套的 `dict`）统一使用 `sort_keys=True` 递归归一化键顺序，确保键序差异不影响 `unique_count`、`uniqueness` 和 `value_distribution`。若业务上反而需要按原始键序区分（通常仅对 `JSON` 类型有意义，`JSONB` 不适用），需显式移除 `sort_keys=True`。
+
 **为什么不能只看第一个非空值**：`object` 列中各行 Python 类型可以不一致，例如 ARRAY 列前几行可能是 `None`（数据库 NULL），通过 `dropna()` 后首行才是 `list`。若只取 `iloc[0]`，在首行恰好是标量的罕见情况下，`is_complex_col` 为 `False`，`nunique()` 仍会被调用并抛出 `unhashable` 错误，修复失效。全列扫描（`any()`）在样本量有限时（`sample_size` 默认 1000 行）开销可接受，且能确保检测不遗漏。
 
 > **BYTEA 专项说明**：`bytes` 值若用固定占位 `"<binary>"` 标准化后参与 `nunique/value_counts`，会把所有非空二进制值压成同一个常量，导致 `unique_count` 恒为 1、`uniqueness` 被严重低估、`value_distribution` 完全失真。  

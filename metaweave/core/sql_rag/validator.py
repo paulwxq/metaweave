@@ -592,6 +592,6 @@ class SQLValidator:
     def _write_report(self, report: str, output_dir: Path) -> None:
         """写入校验报告"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        report_file = output_dir / f"sql_validation_{timestamp}_summary.log"
+        report_file = output_dir / f"sql_validation_summary_{timestamp}.log"
         report_file.write_text(report, encoding="utf-8")
         logger.info("校验报告已写入 %s", report_file)

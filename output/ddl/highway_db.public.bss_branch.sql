@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: highway_db
 -- Table: public.bss_branch
--- Comment: 高速公路服务区经营网点信息表，存储各餐饮、小吃等品牌分支网点的基本属性与归属关系
--- Generated: 2026-03-17 23:00:01
+-- Comment: 高速公路服务区餐饮及小吃分支网点信息表
+-- Generated: 2026-03-18 06:59:16
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_branch (
@@ -54,7 +54,7 @@ CREATE INDEX idx_brach_no ON public.bss_branch(branch_no);
 CREATE INDEX idx_company_id ON public.bss_branch(company_id);
 
 -- Table Comment
-COMMENT ON TABLE public.bss_branch IS '高速公路服务区经营网点信息表，存储各餐饮、小吃等品牌分支网点的基本属性与归属关系';
+COMMENT ON TABLE public.bss_branch IS '高速公路服务区餐饮及小吃分支网点信息表';
 
 /* SAMPLE_RECORDS
 {

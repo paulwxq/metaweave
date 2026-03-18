@@ -187,7 +187,10 @@ class RelationshipDiscoveryPipeline:
             all_relations = fk_relations + inferred_relations
             result.total_relations = len(all_relations)
 
-            output_files = self.writer.write_results(all_relations, suppressed, self.config, tables)
+            output_files = self.writer.write_results(
+                all_relations, suppressed, self.config, tables,
+                extra_statistics={"database_queries_executed": self.scorer.query_count},
+            )
             for file_path in output_files:
                 result.add_output_file(file_path)
                 logger.debug("输出文件: %s", file_path)

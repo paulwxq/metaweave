@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-17T23:00:21.809407",
+  "generated_timestamp": "2026-03-18T06:59:36.745327",
   "table_info": {
     "database": "highway_db",
     "schema_name": "public",
     "table_name": "bss_section_route_area_link",
     "table_type": "table",
-    "comment": "路段路由与服务区的关联关系表",
+    "comment": "路段路由与服务区的关联关系表，记录路段路由所属的服务区",
     "comment_source": "ddl",
     "total_rows": 80,
     "total_columns": 2
@@ -25,9 +25,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 80,
-        "unique_count": 42,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 42,
         "uniqueness": 0.525,
         "avg_length": 32.0,
         "min_length": 32,
@@ -85,9 +85,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 80,
-        "unique_count": 80,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 80,
         "uniqueness": 1.0,
         "avg_length": 32.0,
         "min_length": 32,
@@ -214,5 +214,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-17T23:00:37.125648"
+  "llm_enhanced_at": "2026-03-18T06:59:51.158111"
 }

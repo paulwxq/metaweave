@@ -3,9 +3,9 @@
   "database": "highway_db",
   "metadata_source": "json_files",
   "json_metadata_version": "2.0",
-  "json_files_loaded": 0,
+  "json_files_loaded": 10,
   "database_queries_executed": 0,
-  "generated_timestamp": "2026-03-17T23:00:53.515616",
+  "generated_timestamp": "2026-03-18T07:00:07.796679",
   "statistics": {
     "total_relationships_found": 0,
     "foreign_key_relationships": 0,

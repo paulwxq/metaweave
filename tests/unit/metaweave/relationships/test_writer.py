@@ -103,6 +103,8 @@ class TestRelationshipWriter:
         assert data["generated_timestamp"].endswith("Z") is False
         assert "create_timestamp" not in data
         assert "analysis_timestamp" not in data
+        assert data["json_files_loaded"] == 0  # 未传 tables，默认为空
+        assert data["database_queries_executed"] == 0  # 未传 extra_statistics
         assert "statistics" in data
         assert "relationships" in data  # 不是 relations
 
@@ -232,6 +234,9 @@ class TestRelationshipWriter:
         with open(json_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
+        assert data["json_files_loaded"] == 0  # 未传 tables
+        assert data["database_queries_executed"] == 0  # 未传 extra_statistics
+
         stats = data["statistics"]
         # v3.2格式统计字段（完整7个字段）
         assert stats["total_relationships_found"] == 2
@@ -241,6 +246,45 @@ class TestRelationshipWriter:
         assert stats["total_suppressed_single_relations"] == 0
         assert "active_search_discoveries" in stats
         assert "dynamic_composite_discoveries" in stats
+
+    def test_json_files_loaded_and_db_queries(self, writer, sample_relations, config):
+        """测试 json_files_loaded 和 database_queries_executed 反映真实值"""
+        tables = {
+            "public.users": {"table_info": {"table_name": "users"}},
+            "public.orders": {"table_info": {"table_name": "orders"}},
+            "public.products": {"table_info": {"table_name": "products"}},
+        }
+        extra_statistics = {"database_queries_executed": 15}
+
+        output_files = writer.write_results(
+            sample_relations, [], config,
+            tables=tables,
+            extra_statistics=extra_statistics,
+        )
+
+        json_file = Path(output_files[0])
+        with open(json_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        assert data["json_files_loaded"] == 3
+        assert data["database_queries_executed"] == 15
+        assert "database_queries_executed" not in data["statistics"]
+
+    def test_write_results_does_not_mutate_extra_statistics(self, writer, sample_relations, config):
+        """write_results() 不应修改调用方传入的 extra_statistics 字典"""
+        extra_statistics = {
+            "database_queries_executed": 9,
+            "llm_assisted_relationships": 3,
+            "rejected_low_confidence": 1,
+        }
+        original = extra_statistics.copy()
+
+        writer.write_results(
+            sample_relations, [], config,
+            extra_statistics=extra_statistics,
+        )
+
+        assert extra_statistics == original
 
     def test_output_directory_creation(self, sample_relations, tmp_path, config):
         """测试输出目录自动创建"""

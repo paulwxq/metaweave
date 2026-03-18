@@ -6,7 +6,7 @@
 - created_by (character varying(50)) - 创建人用户名 [示例: admin, admin]
 - update_ts (timestamp without time zone) - 记录最后更新时间戳 [示例: 2021-07-10 15:41:28.795000, 2021-07-11 09:33:08.455000]
 - updated_by (character varying(50)) - 最后更新人用户名 [示例: admin, admin]
-- delete_ts (timestamp without time zone) - 逻辑删除时间戳（NULL表示未删除） [示例: null]
+- delete_ts (timestamp without time zone) - 逻辑删除时间戳（为空表示未删除） [示例: null]
 - deleted_by (character varying(50)) - 逻辑删除操作人用户名 [示例: null]
 - service_area_name (character varying(255)) - 服务区名称 [示例: 白鹭湖停车区, 南昌南服务区]
 - service_area_no (character varying(255)) - 服务区编码 [示例: H0814, H0105]

@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-17T23:00:22.190123",
+  "generated_timestamp": "2026-03-18T06:59:37.147082",
   "table_info": {
     "database": "highway_db",
     "schema_name": "public",
     "table_name": "bss_branch",
     "table_type": "table",
-    "comment": "高速公路服务区经营网点信息表，存储各餐饮、小吃等品牌分支网点的基本属性与归属关系",
+    "comment": "高速公路服务区餐饮及小吃分支网点信息表",
     "comment_source": "ddl",
     "total_rows": 1331,
     "total_columns": 19
@@ -25,9 +25,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 1000,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 1000,
         "uniqueness": 1.0,
         "avg_length": 32.0,
         "min_length": 32,
@@ -76,9 +76,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 3,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 3,
         "uniqueness": 0.003,
         "min": "0",
         "max": "2",
@@ -129,9 +129,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 417,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 417,
         "uniqueness": 0.417
       },
       "semantic_analysis": {
@@ -174,9 +174,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 5,
         "null_count": 21,
         "null_rate": 0.021,
+        "unique_count": 5,
         "uniqueness": 0.005,
         "avg_length": 8.74,
         "min_length": 5,
@@ -231,9 +231,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 68,
         "null_count": 116,
         "null_rate": 0.116,
+        "unique_count": 68,
         "uniqueness": 0.068
       },
       "semantic_analysis": {
@@ -276,9 +276,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 3,
         "null_count": 460,
         "null_rate": 0.46,
+        "unique_count": 3,
         "uniqueness": 0.003,
         "avg_length": 19.19,
         "min_length": 0,
@@ -331,9 +331,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 0,
         "null_count": 1000,
         "null_rate": 1.0,
+        "unique_count": 0,
         "uniqueness": 0.0,
         "value_distribution": {}
       },
@@ -377,9 +377,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 1,
         "null_count": 981,
         "null_rate": 0.981,
+        "unique_count": 1,
         "uniqueness": 0.001,
         "avg_length": 0.0,
         "min_length": 0,
@@ -430,9 +430,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 803,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 803,
         "uniqueness": 0.803,
         "avg_length": 7.06,
         "min_length": 2,
@@ -475,9 +475,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 955,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 955,
         "uniqueness": 0.955,
         "avg_length": 7.26,
         "min_length": 1,
@@ -532,9 +532,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 89,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 89,
         "uniqueness": 0.089,
         "avg_length": 32.0,
         "min_length": 32,
@@ -589,9 +589,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 8,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 8,
         "uniqueness": 0.008,
         "avg_length": 32.0,
         "min_length": 32,
@@ -656,9 +656,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 5,
         "null_count": 1,
         "null_rate": 0.001,
+        "unique_count": 5,
         "uniqueness": 0.005,
         "avg_length": 2.13,
         "min_length": 2,
@@ -708,9 +708,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 195,
         "null_count": 1,
         "null_rate": 0.001,
+        "unique_count": 195,
         "uniqueness": 0.195,
         "avg_length": 3.75,
         "min_length": 2,
@@ -753,9 +753,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 38,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 38,
         "uniqueness": 0.038,
         "avg_length": 2.56,
         "min_length": 1,
@@ -798,9 +798,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 45,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 45,
         "uniqueness": 0.045,
         "avg_length": 32.0,
         "min_length": 32,
@@ -849,9 +849,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 6,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 6,
         "uniqueness": 0.006,
         "avg_length": 1.96,
         "min_length": 0,
@@ -902,9 +902,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 2,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 2,
         "uniqueness": 0.002,
         "min": "0",
         "max": "1",
@@ -958,9 +958,9 @@
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
-        "unique_count": 106,
         "null_count": 0,
         "null_rate": 0.0,
+        "unique_count": 106,
         "uniqueness": 0.106,
         "avg_length": 13.79,
         "min_length": 2,
@@ -1175,5 +1175,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-17T23:00:53.331750"
+  "llm_enhanced_at": "2026-03-18T07:00:07.620073"
 }

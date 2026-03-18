@@ -1,4 +1,4 @@
-# public.bss_branch（高速公路服务区经营网点信息表，存储各餐饮、小吃等品牌分支网点的基本属性与归属关系）
+# public.bss_branch（高速公路服务区餐饮及小吃分支网点信息表）
 ## 字段列表：
 - id (character varying(32)) - 分支机构唯一标识ID [示例: 00904903cae681aab7a494c3e88e5acd, 01a3df15b454fa7b5f176125af0c57d8]
 - version (integer(32)) - 数据版本号，用于乐观锁控制 [示例: 1, 1]
