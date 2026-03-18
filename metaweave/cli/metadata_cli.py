@@ -316,8 +316,14 @@ def metadata_command(
         if generate_domains:
             from metaweave.core.metadata.domain_generator import DomainGenerator
             from services.config_loader import load_config
+            from metaweave.services.llm_config_resolver import (
+                _validate_declared_module_llm_paths,
+                _validate_nonstandard_llm_paths,
+            )
 
             config = load_config(config_path)
+            _validate_declared_module_llm_paths(config)
+            _validate_nonstandard_llm_paths(config)
             md_dir = _resolve_md_context_dir(config, md_context_dir)
 
             generator = DomainGenerator(
@@ -337,8 +343,14 @@ def metadata_command(
         # 阶段 2.5: 加载配置（供后续所有分支复用）
         from services.config_loader import load_config
         from metaweave.core.domains import DomainResolver
+        from metaweave.services.llm_config_resolver import (
+            _validate_declared_module_llm_paths,
+            _validate_nonstandard_llm_paths,
+        )
 
         loaded_config = load_config(config_path)
+        _validate_declared_module_llm_paths(loaded_config)
+        _validate_nonstandard_llm_paths(loaded_config)
 
         # 阶段 3: CLI > yaml > null 合并
         effective_domain, effective_cross_domain = _resolve_domain_params(

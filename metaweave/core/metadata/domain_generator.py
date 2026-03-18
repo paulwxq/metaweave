@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
+from metaweave.services.llm_config_resolver import resolve_module_llm_config
 from metaweave.services.llm_service import LLMService
 
 logger = logging.getLogger("metaweave.domain_generator")
@@ -39,13 +40,8 @@ class DomainGenerator:
         self.config = config
         self.yaml_path = Path(yaml_path)
 
-        # 专属 LLM 配置：domain_generation.llm > 全局 llm
-        domain_gen_config = config.get("domain_generation", {}) or {}
-        dedicated_llm = domain_gen_config.get("llm")
-        if dedicated_llm and isinstance(dedicated_llm, dict) and dedicated_llm:
-            llm_config = {**config.get("llm", {}), **dedicated_llm}
-        else:
-            llm_config = config.get("llm", {})
+        # 专属 LLM 配置：通过统一解析器深合并 domain_generation.llm > 全局 llm
+        llm_config = resolve_module_llm_config(config, "domain_generation.llm")
         self.llm_service = LLMService(llm_config)
 
         self.db_config = self._load_yaml()
@@ -55,6 +51,7 @@ class DomainGenerator:
         self.md_context_mode = md_context_mode
 
         # md_context_limit 优先级：CLI 参数 > 配置文件 > 默认 100
+        domain_gen_config = config.get("domain_generation", {}) or {}
         config_limit = domain_gen_config.get("md_context_limit")
         if md_context_limit is not None:
             self.md_context_limit = max(1, md_context_limit)

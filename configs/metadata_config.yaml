@@ -413,9 +413,15 @@ decision:
 domain_generation:
   # 送入 LLM 的 MD 文件数量上限（优先级：CLI --md-limit > 此值 > 默认 100）
   md_context_limit: 100
-  # 为 Domain 生成指定专属 LLM（仅覆盖需要变更的字段，其余继承全局 llm）
-  llm:
-    model_name: qwen-max
+  # 为 Domain 生成指定专属 LLM（深合并覆盖，其余字段继承全局 llm）
+  # 示例1：切换到 qwen-max 模型
+  # llm:
+  #   providers:
+  #     qwen:
+  #       model: qwen-max
+  # 示例2：切换到 deepseek provider
+  # llm:
+  #   active: deepseek
 
 # ============================================================
 # 数据加载配置（原 loader_config.yaml）

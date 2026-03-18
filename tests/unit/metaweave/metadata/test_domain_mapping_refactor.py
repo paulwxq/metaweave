@@ -1,7 +1,7 @@
 """Domain 映射机制重构 — 单元测试
 
 覆盖设计文档 docs/20_db_domains_mapping_refactor_design.md 中的全部改造点：
-- DomainGenerator: 专属 LLM 配置、md_context_limit 配置优先级、
+- DomainGenerator: 专属 LLM 配置（深合并）、md_context_limit 配置优先级、
   prompt 升级（tables 分配）、tables 解析/写入、_未分类_ tables 合并
 - TableProfile: table_domains 字段及序列化
 - MetadataGenerator: db_domains.yaml 反向索引构建
@@ -15,6 +15,27 @@ import pytest
 import yaml
 
 from metaweave.core.metadata.domain_generator import DomainGenerator
+
+
+# ---------------------------------------------------------------------------
+# 公共 helpers
+# ---------------------------------------------------------------------------
+
+def _make_config(active="qwen", model="qwen-plus", domain_llm=None):
+    """构造合法的标准格式配置字典"""
+    cfg = {
+        "llm": {
+            "active": active,
+            "providers": {
+                "qwen": {"model": model, "api_key": "k", "api_base": "http://q"},
+                "deepseek": {"model": "deepseek-chat", "api_key": "k", "api_base": "http://d"},
+            },
+            "langchain_config": {"use_async": False},
+        }
+    }
+    if domain_llm is not None:
+        cfg["domain_generation"] = {"llm": domain_llm}
+    return cfg
 
 
 # ---------------------------------------------------------------------------
@@ -57,41 +78,70 @@ def _write_md(md_dir: Path) -> None:
 
 
 # ===========================================================================
-# Task 3: 专属 LLM 配置 + md_context_limit 配置化
+# Task 3: 专属 LLM 配置（深合并）+ md_context_limit 配置化
 # ===========================================================================
 
 class TestDomainGeneratorLLMConfig:
 
-    def test_uses_dedicated_llm_config_when_present(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(
-            "metaweave.core.metadata.domain_generator.LLMService", _CaptureLLMService
-        )
-        config = {
-            "llm": {"provider": "qwen", "model_name": "qwen-plus"},
-            "domain_generation": {
-                "llm": {"provider": "openai", "model_name": "gpt-4o", "temperature": 0.1},
-            },
-        }
-        DomainGenerator(config=config, yaml_path=str(tmp_path / "d.yaml"))
-        assert _CaptureLLMService.captured_config["provider"] == "openai"
-        assert _CaptureLLMService.captured_config["model_name"] == "gpt-4o"
-
     def test_falls_back_to_global_llm_when_no_dedicated(self, tmp_path, monkeypatch):
+        """无 domain_generation.llm 时使用全局 llm"""
         monkeypatch.setattr(
             "metaweave.core.metadata.domain_generator.LLMService", _CaptureLLMService
         )
-        config = {"llm": {"provider": "qwen", "model_name": "qwen-plus"}}
+        config = _make_config(active="qwen", model="qwen-plus")
         DomainGenerator(config=config, yaml_path=str(tmp_path / "d.yaml"))
-        assert _CaptureLLMService.captured_config["provider"] == "qwen"
+        assert _CaptureLLMService.captured_config["active"] == "qwen"
+        assert _CaptureLLMService.captured_config["providers"]["qwen"]["model"] == "qwen-plus"
+
+    def test_override_active_via_domain_llm(self, tmp_path, monkeypatch):
+        """domain_generation.llm.active 覆盖全局 active"""
+        monkeypatch.setattr(
+            "metaweave.core.metadata.domain_generator.LLMService", _CaptureLLMService
+        )
+        config = _make_config(active="qwen", domain_llm={"active": "deepseek"})
+        DomainGenerator(config=config, yaml_path=str(tmp_path / "d.yaml"))
+        assert _CaptureLLMService.captured_config["active"] == "deepseek"
+        # 全局 providers 不丢失
+        assert "qwen" in _CaptureLLMService.captured_config["providers"]
+        assert "deepseek" in _CaptureLLMService.captured_config["providers"]
+
+    def test_deep_merge_providers_model(self, tmp_path, monkeypatch):
+        """providers.qwen.model 覆盖，api_key 等其他字段保留"""
+        monkeypatch.setattr(
+            "metaweave.core.metadata.domain_generator.LLMService", _CaptureLLMService
+        )
+        config = _make_config(
+            domain_llm={"providers": {"qwen": {"model": "qwen-max"}}}
+        )
+        DomainGenerator(config=config, yaml_path=str(tmp_path / "d.yaml"))
+        qwen_cfg = _CaptureLLMService.captured_config["providers"]["qwen"]
+        assert qwen_cfg["model"] == "qwen-max"
+        assert qwen_cfg["api_key"] == "k"  # 保留
+
+    def test_illegal_model_name_raises(self, tmp_path, monkeypatch):
+        """domain_generation.llm.model_name 是非法旧字段，应立即报错"""
+        monkeypatch.setattr(
+            "metaweave.core.metadata.domain_generator.LLMService", _CaptureLLMService
+        )
+        config = _make_config(domain_llm={"model_name": "qwen-max"})
+        with pytest.raises(ValueError, match="model_name"):
+            DomainGenerator(config=config, yaml_path=str(tmp_path / "d.yaml"))
+
+    def test_illegal_provider_raises(self, tmp_path, monkeypatch):
+        """domain_generation.llm.provider 是非法旧字段，应立即报错"""
+        monkeypatch.setattr(
+            "metaweave.core.metadata.domain_generator.LLMService", _CaptureLLMService
+        )
+        config = _make_config(domain_llm={"provider": "openai"})
+        with pytest.raises(ValueError, match="provider"):
+            DomainGenerator(config=config, yaml_path=str(tmp_path / "d.yaml"))
 
     def test_md_context_limit_from_config(self, tmp_path, monkeypatch):
         monkeypatch.setattr(
             "metaweave.core.metadata.domain_generator.LLMService", _CaptureLLMService
         )
-        config = {
-            "llm": {},
-            "domain_generation": {"md_context_limit": 200},
-        }
+        config = _make_config()
+        config["domain_generation"] = {"md_context_limit": 200}
         gen = DomainGenerator(config=config, yaml_path=str(tmp_path / "d.yaml"))
         assert gen.md_context_limit == 200
 
@@ -99,10 +149,8 @@ class TestDomainGeneratorLLMConfig:
         monkeypatch.setattr(
             "metaweave.core.metadata.domain_generator.LLMService", _CaptureLLMService
         )
-        config = {
-            "llm": {},
-            "domain_generation": {"md_context_limit": 200},
-        }
+        config = _make_config()
+        config["domain_generation"] = {"md_context_limit": 200}
         gen = DomainGenerator(
             config=config,
             yaml_path=str(tmp_path / "d.yaml"),
@@ -114,7 +162,7 @@ class TestDomainGeneratorLLMConfig:
         monkeypatch.setattr(
             "metaweave.core.metadata.domain_generator.LLMService", _CaptureLLMService
         )
-        gen = DomainGenerator(config={"llm": {}}, yaml_path=str(tmp_path / "d.yaml"))
+        gen = DomainGenerator(config=_make_config(), yaml_path=str(tmp_path / "d.yaml"))
         assert gen.md_context_limit == 100
 
 
@@ -135,7 +183,7 @@ class TestDomainGeneratorTables:
         md_dir = tmp_path / "md"
         _write_md(md_dir)
         gen = DomainGenerator(
-            config={"llm": {}},
+            config=_make_config(),
             yaml_path=str(tmp_path / "d.yaml"),
             md_context_dir=str(md_dir),
         )
@@ -148,7 +196,7 @@ class TestDomainGeneratorTables:
         monkeypatch.setattr(
             "metaweave.core.metadata.domain_generator.LLMService", _CaptureLLMService
         )
-        gen = DomainGenerator(config={"llm": {}}, yaml_path=str(tmp_path / "d.yaml"))
+        gen = DomainGenerator(config=_make_config(), yaml_path=str(tmp_path / "d.yaml"))
         payload = gen._parse_response(
             '{"database": {"name": "X", "description": "x"}, '
             '"domains": [{"name": "A", "description": "a", '
@@ -160,7 +208,7 @@ class TestDomainGeneratorTables:
         monkeypatch.setattr(
             "metaweave.core.metadata.domain_generator.LLMService", _CaptureLLMService
         )
-        gen = DomainGenerator(config={"llm": {}}, yaml_path=str(tmp_path / "d.yaml"))
+        gen = DomainGenerator(config=_make_config(), yaml_path=str(tmp_path / "d.yaml"))
         payload = gen._parse_response(
             '{"database": {"name": "X", "description": "x"}, '
             '"domains": [{"name": "A", "description": "a"}]}'
@@ -172,7 +220,7 @@ class TestDomainGeneratorTables:
             "metaweave.core.metadata.domain_generator.LLMService", _CaptureLLMService
         )
         yaml_path = tmp_path / "d.yaml"
-        gen = DomainGenerator(config={"llm": {}}, yaml_path=str(yaml_path))
+        gen = DomainGenerator(config=_make_config(), yaml_path=str(yaml_path))
         gen.write_to_yaml({
             "database": {"name": "DB", "description": "d"},
             "domains": [
@@ -188,7 +236,7 @@ class TestDomainGeneratorTables:
             "metaweave.core.metadata.domain_generator.LLMService", _CaptureLLMService
         )
         yaml_path = tmp_path / "d.yaml"
-        gen = DomainGenerator(config={"llm": {}}, yaml_path=str(yaml_path))
+        gen = DomainGenerator(config=_make_config(), yaml_path=str(yaml_path))
         gen.write_to_yaml({
             "database": {"name": "DB", "description": "d"},
             "domains": [
@@ -208,7 +256,7 @@ class TestDomainGeneratorTables:
             "metaweave.core.metadata.domain_generator.LLMService", _CaptureLLMService
         )
         yaml_path = tmp_path / "d.yaml"
-        gen = DomainGenerator(config={"llm": {}}, yaml_path=str(yaml_path))
+        gen = DomainGenerator(config=_make_config(), yaml_path=str(yaml_path))
         gen.write_to_yaml({
             "database": {"name": "DB", "description": "d"},
             "domains": [

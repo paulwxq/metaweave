@@ -574,6 +574,10 @@ def pipeline_generate(
 ):
     """生成全部产物（9 步串行）"""
     from services.config_loader import ConfigLoader
+    from metaweave.services.llm_config_resolver import (
+        _validate_declared_module_llm_paths,
+        _validate_nonstandard_llm_paths,
+    )
 
     if debug:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -581,6 +585,8 @@ def pipeline_generate(
     project_root = get_project_root()
     config_path = _resolve(config, project_root)
     loaded_config = ConfigLoader(str(config_path)).load()
+    _validate_declared_module_llm_paths(loaded_config)
+    _validate_nonstandard_llm_paths(loaded_config)
 
     ctx = _PipelineContext(
         project_root=project_root,
