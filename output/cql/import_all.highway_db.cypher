@@ -1,7 +1,7 @@
 // import_all.highway_db.cypher
 // Neo4j 元数据导入脚本（global 模式，包含所有表和关系）
-// 生成时间: 2026-03-19T18:04:11.235038
-// 统计: 10 张表, 124 个列, 20 个关系
+// 生成时间: 2026-03-20T01:22:17.482731
+// 统计: 8 张表, 107 个列, 18 个关系
 
 // =====================================================================
 // 1. 创建唯一约束
@@ -46,7 +46,7 @@
       ]
     ],
     "table_domains": [
-      "服务区餐饮及零售"
+      "餐饮服务"
     ],
     "table_category": "dim"
   },
@@ -56,7 +56,7 @@
     "full_name": "public.bss_business_day_data",
     "schema": "public",
     "name": "bss_business_day_data",
-    "comment": "服务区每日经营数据表，记录各服务区分支的支付渠道交易笔数与金额汇总",
+    "comment": "服务区日营业数据表，记录各服务区按支付渠道（微信、支付宝等）划分的订单量与收款金额",
     "pk": [
       "id"
     ],
@@ -74,7 +74,7 @@
       ]
     ],
     "table_domains": [
-      "服务区经营分析"
+      "商业运营"
     ],
     "table_category": "fact"
   },
@@ -99,7 +99,7 @@
       ]
     ],
     "table_domains": [
-      "车辆流量统计"
+      "交通流量分析"
     ],
     "table_category": "fact"
   },
@@ -120,7 +120,7 @@
     "logic_uk": [],
     "indexes": [],
     "table_domains": [
-      "服务区基本信息"
+      "企业组织结构"
     ],
     "table_category": "dim"
   },
@@ -141,7 +141,7 @@
     "logic_uk": [],
     "indexes": [],
     "table_domains": [
-      "路段与路线管理"
+      "地理信息"
     ],
     "table_category": "bridge"
   },
@@ -151,7 +151,7 @@
     "full_name": "public.bss_section_route_area_link",
     "schema": "public",
     "name": "bss_section_route_area_link",
-    "comment": "路段路由与服务区域的关联关系表",
+    "comment": "路段路由与服务区的关联关系表，记录路段路由所属的服务区ID",
     "pk": [
       "section_route_id",
       "service_area_id"
@@ -167,7 +167,7 @@
       ]
     ],
     "table_domains": [
-      "路段与路线管理"
+      "地理信息"
     ],
     "table_category": "bridge"
   },
@@ -192,7 +192,7 @@
       ]
     ],
     "table_domains": [
-      "服务区基本信息"
+      "服务区管理"
     ],
     "table_category": "dim"
   },
@@ -202,7 +202,7 @@
     "full_name": "public.bss_service_area_mapper",
     "schema": "public",
     "name": "bss_service_area_mapper",
-    "comment": "服务区信息映射表，关联不同来源系统中的服务区名称、编号与唯一标识",
+    "comment": "服务区与业务系统映射关系表，记录服务区在不同源系统中的唯一标识及类型信息",
     "pk": [
       "id"
     ],
@@ -216,63 +216,10 @@
         "service_area_id"
       ]
     ],
-    "table_domains": [],
-    "table_category": "dim"
-  },
-  {
-    "id": "highway_db.public.highway_metadata",
-    "database": "highway_db",
-    "full_name": "public.highway_metadata",
-    "schema": "public",
-    "name": "highway_metadata",
-    "comment": "高速公路业务主题元数据表，存储各分析主题的定义、关联表、典型问题及关键词等元信息",
-    "pk": [
-      "id"
-    ],
-    "uk": [],
-    "fk": [],
-    "logic_pk": [],
-    "logic_fk": [],
-    "logic_uk": [],
-    "indexes": [],
     "table_domains": [
-      "元数据管理"
+      "服务区管理"
     ],
     "table_category": "dim"
-  },
-  {
-    "id": "highway_db.public.qa_feedback",
-    "database": "highway_db",
-    "full_name": "public.qa_feedback",
-    "schema": "public",
-    "name": "qa_feedback",
-    "comment": "用户对SQL查询结果的反馈记录，包含问题、生成SQL、点赞状态及是否用于训练数据",
-    "pk": [
-      "id"
-    ],
-    "uk": [],
-    "fk": [],
-    "logic_pk": [],
-    "logic_fk": [],
-    "logic_uk": [],
-    "indexes": [
-      [
-        "create_time"
-      ],
-      [
-        "is_in_training_data"
-      ],
-      [
-        "is_thumb_up"
-      ],
-      [
-        "user_id"
-      ]
-    ],
-    "table_domains": [
-      "用户反馈"
-    ],
-    "table_category": "fact"
   }
 ] AS t
 	MERGE (n:Table {full_name: t.full_name})
@@ -1504,7 +1451,7 @@
     "schema": "public",
     "table": "bss_company",
     "name": "delete_ts",
-    "comment": "逻辑删除时间戳（为空表示未删除）",
+    "comment": "逻辑删除时间戳（NULL表示未删除）",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -1523,7 +1470,7 @@
     "schema": "public",
     "table": "bss_company",
     "name": "deleted_by",
-    "comment": "逻辑删除人用户名",
+    "comment": "逻辑删除操作人用户名",
     "data_type": "character varying",
     "semantic_role": "audit",
     "is_pk": false,
@@ -2112,7 +2059,7 @@
     "schema": "public",
     "table": "bss_service_area_mapper",
     "name": "version",
-    "comment": "记录版本号，用于乐观锁控制",
+    "comment": "数据版本号，用于乐观锁控制",
     "data_type": "integer",
     "semantic_role": "audit",
     "is_pk": false,
@@ -2332,329 +2279,6 @@
     "pk_position": 0,
     "uniqueness": 0.0158,
     "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.highway_metadata.id",
-    "database": "highway_db",
-    "full_name": "public.highway_metadata.id",
-    "schema": "public",
-    "table": "highway_metadata",
-    "name": "id",
-    "comment": "元数据记录唯一标识ID",
-    "data_type": "integer",
-    "semantic_role": "identifier",
-    "is_pk": true,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 1,
-    "uniqueness": 1.0,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.highway_metadata.topic_code",
-    "database": "highway_db",
-    "full_name": "public.highway_metadata.topic_code",
-    "schema": "public",
-    "table": "highway_metadata",
-    "name": "topic_code",
-    "comment": "主题编码（如日营收、车流量等）",
-    "data_type": "character varying",
-    "semantic_role": "identifier",
-    "is_pk": false,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 0,
-    "uniqueness": 1.0,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.highway_metadata.topic_name",
-    "database": "highway_db",
-    "full_name": "public.highway_metadata.topic_name",
-    "schema": "public",
-    "table": "highway_metadata",
-    "name": "topic_name",
-    "comment": "主题中文名称",
-    "data_type": "character varying",
-    "semantic_role": "attribute",
-    "is_pk": false,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 0,
-    "uniqueness": 1.0,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.highway_metadata.description",
-    "database": "highway_db",
-    "full_name": "public.highway_metadata.description",
-    "schema": "public",
-    "table": "highway_metadata",
-    "name": "description",
-    "comment": "主题业务描述与分析口径说明",
-    "data_type": "text",
-    "semantic_role": "description",
-    "is_pk": false,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 0,
-    "uniqueness": 1.0,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.highway_metadata.related_tables",
-    "database": "highway_db",
-    "full_name": "public.highway_metadata.related_tables",
-    "schema": "public",
-    "table": "highway_metadata",
-    "name": "related_tables",
-    "comment": "关联的源数据表名数组",
-    "data_type": "array",
-    "semantic_role": "complex",
-    "is_pk": false,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 0,
-    "uniqueness": 1.0,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.highway_metadata.questions",
-    "database": "highway_db",
-    "full_name": "public.highway_metadata.questions",
-    "schema": "public",
-    "table": "highway_metadata",
-    "name": "questions",
-    "comment": "常见业务问题及对应SQL查询示例",
-    "data_type": "jsonb",
-    "semantic_role": "complex",
-    "is_pk": false,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 0,
-    "uniqueness": 1.0,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.highway_metadata.keywords",
-    "database": "highway_db",
-    "full_name": "public.highway_metadata.keywords",
-    "schema": "public",
-    "table": "highway_metadata",
-    "name": "keywords",
-    "comment": "主题关联的核心业务关键词数组",
-    "data_type": "array",
-    "semantic_role": "complex",
-    "is_pk": false,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 0,
-    "uniqueness": 1.0,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.highway_metadata.theme_tag",
-    "database": "highway_db",
-    "full_name": "public.highway_metadata.theme_tag",
-    "schema": "public",
-    "table": "highway_metadata",
-    "name": "theme_tag",
-    "comment": "主题所属分析大类标签",
-    "data_type": "character varying",
-    "semantic_role": "identifier",
-    "is_pk": false,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 0,
-    "uniqueness": 1.0,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.highway_metadata.update_ts",
-    "database": "highway_db",
-    "full_name": "public.highway_metadata.update_ts",
-    "schema": "public",
-    "table": "highway_metadata",
-    "name": "update_ts",
-    "comment": "元数据最后更新时间戳",
-    "data_type": "timestamp without time zone",
-    "semantic_role": "audit",
-    "is_pk": false,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 0,
-    "uniqueness": 1.0,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.qa_feedback.id",
-    "database": "highway_db",
-    "full_name": "public.qa_feedback.id",
-    "schema": "public",
-    "table": "qa_feedback",
-    "name": "id",
-    "comment": "反馈记录唯一标识ID",
-    "data_type": "integer",
-    "semantic_role": "identifier",
-    "is_pk": true,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 1,
-    "uniqueness": 1.0,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.qa_feedback.question",
-    "database": "highway_db",
-    "full_name": "public.qa_feedback.question",
-    "schema": "public",
-    "table": "qa_feedback",
-    "name": "question",
-    "comment": "用户提出的自然语言问题",
-    "data_type": "text",
-    "semantic_role": "attribute",
-    "is_pk": false,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 0,
-    "uniqueness": 0.8,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.qa_feedback.sql",
-    "database": "highway_db",
-    "full_name": "public.qa_feedback.sql",
-    "schema": "public",
-    "table": "qa_feedback",
-    "name": "sql",
-    "comment": "生成的对应SQL查询语句",
-    "data_type": "text",
-    "semantic_role": "description",
-    "is_pk": false,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 0,
-    "uniqueness": 0.8,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.qa_feedback.is_thumb_up",
-    "database": "highway_db",
-    "full_name": "public.qa_feedback.is_thumb_up",
-    "schema": "public",
-    "table": "qa_feedback",
-    "name": "is_thumb_up",
-    "comment": "用户是否点赞（True-点赞，False-未点赞）",
-    "data_type": "boolean",
-    "semantic_role": "enum",
-    "is_pk": false,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 0,
-    "uniqueness": 0.1,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.qa_feedback.user_id",
-    "database": "highway_db",
-    "full_name": "public.qa_feedback.user_id",
-    "schema": "public",
-    "table": "qa_feedback",
-    "name": "user_id",
-    "comment": "提交反馈的用户ID",
-    "data_type": "character varying",
-    "semantic_role": "identifier",
-    "is_pk": false,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 0,
-    "uniqueness": 0.9,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.qa_feedback.create_time",
-    "database": "highway_db",
-    "full_name": "public.qa_feedback.create_time",
-    "schema": "public",
-    "table": "qa_feedback",
-    "name": "create_time",
-    "comment": "反馈创建时间戳",
-    "data_type": "timestamp without time zone",
-    "semantic_role": "audit",
-    "is_pk": false,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 0,
-    "uniqueness": 1.0,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.qa_feedback.is_in_training_data",
-    "database": "highway_db",
-    "full_name": "public.qa_feedback.is_in_training_data",
-    "schema": "public",
-    "table": "qa_feedback",
-    "name": "is_in_training_data",
-    "comment": "是否已纳入训练数据集（True-是，False-否）",
-    "data_type": "boolean",
-    "semantic_role": "enum",
-    "is_pk": false,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 0,
-    "uniqueness": 0.1,
-    "null_rate": 0.0
-  },
-  {
-    "id": "highway_db.public.qa_feedback.update_time",
-    "database": "highway_db",
-    "full_name": "public.qa_feedback.update_time",
-    "schema": "public",
-    "table": "qa_feedback",
-    "name": "update_time",
-    "comment": "反馈最后更新时间戳",
-    "data_type": "timestamp without time zone",
-    "semantic_role": "audit",
-    "is_pk": false,
-    "is_uk": false,
-    "is_fk": false,
-    "is_time": false,
-    "is_measure": false,
-    "pk_position": 0,
-    "uniqueness": 0.1,
-    "null_rate": 0.8
   }
 ] AS c
 	MERGE (n:Column {full_name: c.full_name})
@@ -3107,74 +2731,6 @@ UNWIND [
   {
     "table_full_name": "public.bss_service_area_mapper",
     "column_full_name": "public.bss_service_area_mapper.source_type"
-  },
-  {
-    "table_full_name": "public.highway_metadata",
-    "column_full_name": "public.highway_metadata.id"
-  },
-  {
-    "table_full_name": "public.highway_metadata",
-    "column_full_name": "public.highway_metadata.topic_code"
-  },
-  {
-    "table_full_name": "public.highway_metadata",
-    "column_full_name": "public.highway_metadata.topic_name"
-  },
-  {
-    "table_full_name": "public.highway_metadata",
-    "column_full_name": "public.highway_metadata.description"
-  },
-  {
-    "table_full_name": "public.highway_metadata",
-    "column_full_name": "public.highway_metadata.related_tables"
-  },
-  {
-    "table_full_name": "public.highway_metadata",
-    "column_full_name": "public.highway_metadata.questions"
-  },
-  {
-    "table_full_name": "public.highway_metadata",
-    "column_full_name": "public.highway_metadata.keywords"
-  },
-  {
-    "table_full_name": "public.highway_metadata",
-    "column_full_name": "public.highway_metadata.theme_tag"
-  },
-  {
-    "table_full_name": "public.highway_metadata",
-    "column_full_name": "public.highway_metadata.update_ts"
-  },
-  {
-    "table_full_name": "public.qa_feedback",
-    "column_full_name": "public.qa_feedback.id"
-  },
-  {
-    "table_full_name": "public.qa_feedback",
-    "column_full_name": "public.qa_feedback.question"
-  },
-  {
-    "table_full_name": "public.qa_feedback",
-    "column_full_name": "public.qa_feedback.sql"
-  },
-  {
-    "table_full_name": "public.qa_feedback",
-    "column_full_name": "public.qa_feedback.is_thumb_up"
-  },
-  {
-    "table_full_name": "public.qa_feedback",
-    "column_full_name": "public.qa_feedback.user_id"
-  },
-  {
-    "table_full_name": "public.qa_feedback",
-    "column_full_name": "public.qa_feedback.create_time"
-  },
-  {
-    "table_full_name": "public.qa_feedback",
-    "column_full_name": "public.qa_feedback.is_in_training_data"
-  },
-  {
-    "table_full_name": "public.qa_feedback",
-    "column_full_name": "public.qa_feedback.update_time"
   }
 ] AS hc
 MATCH (t:Table {full_name: hc.table_full_name})
@@ -3256,28 +2812,14 @@ UNWIND [
     "cardinality": "N:1",
     "constraint_name": null,
     "join_type": "INNER JOIN",
-    "on": "SRC.service_area_id = DST.service_area_id",
+    "on": "SRC.section_route_id = DST.section_route_id AND SRC.service_area_id = DST.service_area_id",
     "source_columns": [
+      "section_route_id",
       "service_area_id"
     ],
     "target_columns": [
+      "section_route_id",
       "service_area_id"
-    ],
-    "src_full_name": "public.bss_branch",
-    "dst_full_name": "public.bss_section_route_area_link"
-  },
-  {
-    "source_table": "public.bss_branch",
-    "target_table": "public.bss_section_route_area_link",
-    "cardinality": "M:N",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.section_route_id = DST.section_route_id",
-    "source_columns": [
-      "section_route_id"
-    ],
-    "target_columns": [
-      "section_route_id"
     ],
     "src_full_name": "public.bss_branch",
     "dst_full_name": "public.bss_section_route_area_link"
@@ -3358,22 +2900,6 @@ UNWIND [
     ],
     "target_columns": [
       "service_no"
-    ],
-    "src_full_name": "public.bss_business_day_data",
-    "dst_full_name": "public.bss_service_area_mapper"
-  },
-  {
-    "source_table": "public.bss_business_day_data",
-    "target_table": "public.bss_service_area_mapper",
-    "cardinality": "M:N",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.service_name = DST.service_name",
-    "source_columns": [
-      "service_name"
-    ],
-    "target_columns": [
-      "service_name"
     ],
     "src_full_name": "public.bss_business_day_data",
     "dst_full_name": "public.bss_service_area_mapper"

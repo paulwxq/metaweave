@@ -8,6 +8,7 @@ from difflib import SequenceMatcher
 
 from metaweave.core.metadata.connector import DatabaseConnector
 from metaweave.core.relationships.name_similarity import NameSimilarityService
+from metaweave.core.relationships.type_compatibility import get_type_compatibility_score
 from metaweave.utils.logger import get_metaweave_logger
 
 logger = get_metaweave_logger("relationships.scorer")
@@ -619,56 +620,8 @@ class RelationshipScorer:
             src_type = src_profile.get("data_type", "")
             tgt_type = tgt_profile.get("data_type", "")
 
-            compat = self._get_type_compatibility(src_type, tgt_type)
+            compat = get_type_compatibility_score(src_type, tgt_type)
             total_compat += compat
 
         return total_compat / len(source_columns)
 
-    def _get_type_compatibility(self, type1: str, type2: str) -> float:
-        """计算两个类型的兼容性
-
-        Returns:
-            1.0 (完全兼容) | 0.5 (部分兼容) | 0.0 (不兼容)
-        """
-        # 标准化类型
-        t1 = self._normalize_type(type1)
-        t2 = self._normalize_type(type2)
-
-        # 完全相同
-        if t1 == t2:
-            return 1.0
-
-        # 整数类型族
-        int_types = {"integer", "int", "int4", "bigint", "int8", "smallint", "int2", "serial", "bigserial"}
-        if t1 in int_types and t2 in int_types:
-            return 1.0
-
-        # 字符串类型族
-        str_types = {"varchar", "character varying", "char", "character", "text", "bpchar"}
-        if t1 in str_types and t2 in str_types:
-            return 0.5  # 部分兼容（长度可能不同）
-
-        # 数值类型族
-        num_types = {"numeric", "decimal", "real", "double precision", "float", "float4", "float8"}
-        if t1 in num_types and t2 in num_types:
-            return 0.8
-
-        # 整数与数值类型可以部分兼容
-        if (t1 in int_types and t2 in num_types) or (t1 in num_types and t2 in int_types):
-            return 0.6
-
-        return 0.0
-
-    def _normalize_type(self, data_type: str) -> str:
-        """标准化数据类型"""
-        if not data_type:
-            return ""
-
-        # 转小写并去除空格
-        normalized = data_type.lower().strip()
-
-        # 移除precision/scale（如 numeric(10,2) -> numeric）
-        if "(" in normalized:
-            normalized = normalized.split("(")[0].strip()
-
-        return normalized

@@ -1,4 +1,4 @@
-# public.bss_business_day_data（服务区每日经营数据表，记录各服务区分支的支付渠道交易笔数与金额汇总）
+# public.bss_business_day_data（服务区日营业数据表，记录各服务区按支付渠道（微信、支付宝等）划分的订单量与收款金额）
 ## 字段列表：
 - id (character varying(32)) - 业务日数据记录唯一标识ID [示例: 00827DFF993D415488EA1F07CAE6C440, 00e799048b8cbb8ee758eac9c8b4b820]
 - version (integer(32)) - 数据版本号，用于乐观锁控制 [示例: 1, 1]

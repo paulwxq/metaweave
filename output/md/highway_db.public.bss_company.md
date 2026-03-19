@@ -6,8 +6,8 @@
 - created_by (character varying(50)) - 创建人用户名 [示例: admin, admin]
 - update_ts (timestamp without time zone) - 记录最后更新时间戳 [示例: 2021-05-20 09:51:58.718000, 2021-05-20 09:42:03.341000]
 - updated_by (character varying(50)) - 最后更新人用户名 [示例: admin]
-- delete_ts (timestamp without time zone) - 逻辑删除时间戳（为空表示未删除） [示例: null]
-- deleted_by (character varying(50)) - 逻辑删除人用户名 [示例: null]
+- delete_ts (timestamp without time zone) - 逻辑删除时间戳（NULL表示未删除） [示例: null]
+- deleted_by (character varying(50)) - 逻辑删除操作人用户名 [示例: null]
 - company_name (character varying(255)) - 公司名称 [示例: 上饶分公司, 宜春分公司]
 - company_no (character varying(255)) - 公司编码 [示例: H03, H02]
 ## 字段补充说明：

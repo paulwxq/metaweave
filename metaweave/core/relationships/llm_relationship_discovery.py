@@ -19,6 +19,7 @@ from metaweave.core.relationships.models import Relation
 from metaweave.core.relationships.repository import MetadataRepository
 from metaweave.core.relationships.scorer import RelationshipScorer
 from metaweave.core.relationships.name_similarity import NameSimilarityService
+from metaweave.core.relationships.type_compatibility import get_type_compatibility_score
 from metaweave.services.llm_service import LLMService
 from metaweave.utils.file_utils import get_project_root
 from metaweave.utils.logger import get_metaweave_logger
@@ -462,37 +463,89 @@ class LLMRelationshipDiscovery:
             "请改用 await discovery.discover_async() 或在 CLI 层调用 asyncio.run()."
         )
 
+
+    def _canonicalize_candidate_identifiers(
+        self, candidates: list[dict], tables: dict[str, dict]
+    ) -> list[dict]:
+        """将候选关系中的大小写漂移的表名和列名规范化为元数据中的标准名称。
+        
+        Args:
+            candidates: LLM返回的原始候选列表
+            tables: 元数据，用于构建大小写不敏感映射
+            
+        Returns:
+            规范化后的候选列表（原地修改）
+        """
+        table_canonical_map = {}
+        column_canonical_maps = {}
+        
+        for table_key, table_info in tables.items():
+            tk_lower = table_key.lower()
+            info = table_info.get("table_info", {})
+            real_schema = info.get("schema_name", "")
+            real_table = info.get("table_name", "")
+            table_canonical_map[tk_lower] = (real_schema, real_table)
+            
+            col_map = {}
+            for col_name in table_info.get("column_profiles", {}).keys():
+                col_map[col_name.lower()] = col_name
+            column_canonical_maps[tk_lower] = col_map
+            
+        for c in candidates:
+            ft = c.get("from_table", {})
+            from_schema = ft.get("schema", "")
+            from_table = ft.get("table", "")
+            ft_key_lower = f"{from_schema}.{from_table}".lower()
+            
+            if ft_key_lower in table_canonical_map:
+                ft["schema"], ft["table"] = table_canonical_map[ft_key_lower]
+                
+            tt = c.get("to_table", {})
+            to_schema = tt.get("schema", "")
+            to_table = tt.get("table", "")
+            tt_key_lower = f"{to_schema}.{to_table}".lower()
+            
+            if tt_key_lower in table_canonical_map:
+                tt["schema"], tt["table"] = table_canonical_map[tt_key_lower]
+                
+            c_type = c.get("type", "single_column")
+            if c_type == "single_column":
+                from_col = c.get("from_column", "")
+                if from_col and ft_key_lower in column_canonical_maps and from_col.lower() in column_canonical_maps[ft_key_lower]:
+                    c["from_column"] = column_canonical_maps[ft_key_lower][from_col.lower()]
+                    
+                to_col = c.get("to_column", "")
+                if to_col and tt_key_lower in column_canonical_maps and to_col.lower() in column_canonical_maps[tt_key_lower]:
+                    c["to_column"] = column_canonical_maps[tt_key_lower][to_col.lower()]
+            else:
+                from_cols = c.get("from_columns", [])
+                if from_cols and ft_key_lower in column_canonical_maps:
+                    c["from_columns"] = [
+                        column_canonical_maps[ft_key_lower].get(col.lower(), col) 
+                        for col in from_cols
+                    ]
+                
+                to_cols = c.get("to_columns", [])
+                if to_cols and tt_key_lower in column_canonical_maps:
+                    c["to_columns"] = [
+                        column_canonical_maps[tt_key_lower].get(col.lower(), col) 
+                        for col in to_cols
+                    ]
+
+        return candidates
+
     def _filter_by_semantic_roles(
         self,
-        candidates: List[Dict],
-        tables: Dict[str, Dict]
-    ) -> List[Dict]:
-        """按语义角色过滤候选关系
-
-        过滤范围说明：
-        - 源列（from_cols）：过滤 semantic_role == "complex" 的列（array/json 等不可哈希类型）
-        - 目标列（to_cols）：按完整语义角色规则过滤（与 rel 一致）
-
-        过滤规则（优先级从高到低）：
-        0. 源列 complex 类型：永远过滤（不可哈希，无法参与集合比较）
-        1. 物理约束目标列（PK/UK/索引）：不过滤语义角色
-        2. 非物理约束目标列中，Complex 类型列：永远过滤（即使同名）
-        3. 非物理约束目标列中，同名列：不过滤其他语义角色
-        4. 其他目标列：按 exclude_semantic_roles 配置过滤
-
-        Args:
-            candidates: LLM 返回的候选关系
-            tables: 表元数据字典（schema.table -> table_json）
-
-        Returns:
-            过滤后的候选关系
-        """
-        # 建立大小写不敏感的表key映射（避免LLM返回大小写不一致导致误判元数据缺失）
-        # 假设前提：同一数据库内 schema.table 组合大小写不敏感且无冲突（PostgreSQL 标识符不区分大小写）
-        # 已知限制：如果存在 "Public"."Foo" 和 "public"."foo" 两个不同表（极少见但理论可能），lower() 键会发生覆盖
-        # 本次实现：不处理该极端情况（直接使用 lower() 映射）
-        table_key_map = {
-            table_key.lower(): table_json
+        candidates: list[dict],
+        tables: dict[str, dict]
+    ) -> list[dict]:
+        """按语义角色过滤候选关系"""
+        table_json_map = {table_key.lower(): table_json for table_key, table_json in tables.items()}
+        column_profile_maps = {
+            table_key.lower(): {
+                col_name.lower(): col_profile
+                for col_name, col_profile in (table_json.get("column_profiles", {}) or {}).items()
+            }
             for table_key, table_json in tables.items()
         }
 
@@ -501,117 +554,47 @@ class LLMRelationshipDiscovery:
 
         for candidate in candidates:
             candidate_type = candidate["type"]
+            from_table_key = f"{candidate['from_table']['schema']}.{candidate['from_table']['table']}"
+            to_table_key = f"{candidate['to_table']['schema']}.{candidate['to_table']['table']}"
+            from_table_key_lower = from_table_key.lower()
+            to_table_key_lower = to_table_key.lower()
 
-            # 根据候选类型选择过滤规则
+            from_table_json = table_json_map.get(from_table_key_lower)
+            to_table_json = table_json_map.get(to_table_key_lower)
+
+            if not from_table_json or not to_table_json:
+                logger.debug(f"[filter_semantic_roles] 警告: 表元数据缺失，保守放行候选 {from_table_key} -> {to_table_key}")
+                filtered.append(candidate)
+                continue
+
+            from_col_profiles = column_profile_maps.get(from_table_key_lower, {})
+            to_col_profiles = column_profile_maps.get(to_table_key_lower, {})
+
             if candidate_type == "single_column":
                 from_cols = [candidate["from_column"]]
                 to_cols = [candidate["to_column"]]
-                exclude_roles = self.single_exclude_roles
+                exclude_roles = getattr(self, "single_exclude_roles", {"complex", "boolean", "ordinal"})
             else:  # composite
                 from_cols = candidate["from_columns"]
                 to_cols = candidate["to_columns"]
-                exclude_roles = self.composite_exclude_roles
+                exclude_roles = getattr(self, "composite_exclude_roles", {"complex", "boolean", "ordinal"})
 
-            # --- 源列复杂类型预过滤 ---
-            # 源列如果是 complex 类型（array/json/jsonb 等），评分阶段会因不可哈希
-            # 值触发异常。在此处直接过滤，复用已有画像的 semantic_role。
-            from_table_key = f"{candidate['from_table']['schema']}.{candidate['from_table']['table']}"
-            from_table_json = table_key_map.get(from_table_key.lower())
+            should_skip = False
 
-            if from_table_json:
-                from_col_profile_map = {
-                    col_name.lower(): col_profile
-                    for col_name, col_profile in from_table_json.get("column_profiles", {}).items()
-                }
-                source_has_complex = False
-                for from_col in from_cols:
-                    fcp = from_col_profile_map.get(from_col.lower())
-                    if fcp:
-                        from_role = fcp.get("semantic_analysis", {}).get("semantic_role")
-                        if from_role == "complex":
-                            logger.debug(
-                                "[filter_semantic_roles] 跳过候选（源列 %s 语义角色为 complex）: "
-                                "%s → %s",
-                                from_col,
-                                from_table_key,
-                                f"{candidate['to_table']['schema']}.{candidate['to_table']['table']}",
-                            )
-                            source_has_complex = True
-                            break
-                if source_has_complex:
-                    skipped_count += 1
+            for from_col, to_col in zip(from_cols, to_cols):
+                fcp = from_col_profiles.get(from_col.lower())
+                tcp = to_col_profiles.get(to_col.lower())
+
+                if not fcp or not tcp:
                     continue
 
-            # 检查目标列（仅过滤目标列，与 rel 一致）
-            should_skip = False
-            to_table_key = f"{candidate['to_table']['schema']}.{candidate['to_table']['table']}"
-            # 使用大小写不敏感查找（避免LLM返回大小写不一致导致误判）
-            to_table_json = table_key_map.get(to_table_key.lower())
+                from_role = fcp.get("semantic_analysis", {}).get("semantic_role")
+                to_role = tcp.get("semantic_analysis", {}).get("semantic_role")
 
-            if not to_table_json:
-                logger.warning(f"[filter_semantic_roles] 目标表 {to_table_key} 元数据缺失，跳过候选")
-                # 预期丢弃：元数据缺失的候选无法进行后续评分，此处提前过滤
-                continue
-
-            # 判断是否同名（大小写不敏感）
-            if candidate_type == "single_column":
-                is_same_name = (from_cols[0].lower() == to_cols[0].lower())
-            else:  # composite
-                # 复合键同名定义：对应位置逐列同名（大小写不敏感）
-                # 例如：["a","b"] vs ["A","B"] 是同名，但 ["a","b"] vs ["b","a"] 不是同名（位置不对应）
-                is_same_name = (
-                    len(from_cols) == len(to_cols) and
-                    all(f.lower() == t.lower() for f, t in zip(from_cols, to_cols))
-                )
-
-            # 建立大小写不敏感的列名映射（用于查找列画像）
-            # 注意：LLM 返回的列名大小写可能与 column_profiles 不一致
-            # 假设前提：同一表内列名大小写不敏感且无冲突（PostgreSQL 列名不区分大小写，极少出现 Foo/foo 同时存在）
-            # 已知限制：如果同表存在 "Foo" 和 "foo" 两列（极少见但理论可能），lower() 键会发生覆盖
-            # 本次实现：不处理该极端情况（直接使用 lower() 映射）
-            col_profile_map = {
-                col_name.lower(): col_profile
-                for col_name, col_profile in to_table_json.get("column_profiles", {}).items()
-            }
-
-            for to_col in to_cols:
-                # 获取目标列画像（大小写不敏感查找）
-                col_profile = col_profile_map.get(to_col.lower())
-                if not col_profile:
-                    # 目标列画像缺失：预期丢弃该候选
-                    # 原因：缺失画像会导致后续评分阶段 type_compatibility 误判（可能被算成 1.0）
+                if from_role in exclude_roles or to_role in exclude_roles:
                     logger.debug(
-                        f"[filter_semantic_roles] 跳过候选（目标列 {to_col} 画像缺失）: "
-                        f"{candidate['from_table']['schema']}.{candidate['from_table']['table']} → {to_table_key}"
-                    )
-                    should_skip = True
-                    skipped_count += 1
-                    break
-
-                # 优先级 1: 物理约束或索引列不过滤（强信号）
-                structure_flags = col_profile.get("structure_flags", {})
-                is_physical = (
-                    structure_flags.get("is_primary_key") or
-                    structure_flags.get("is_unique_constraint") or
-                    structure_flags.get("is_indexed") or
-                    structure_flags.get("is_composite_indexed_member")
-                )
-
-                if is_physical:
-                    continue  # 优先级1: 物理约束/索引列不过滤
-
-                # 获取语义角色
-                semantic_role = col_profile.get("semantic_analysis", {}).get("semantic_role")
-
-                # 优先级 2: 同名列不过滤（包括 complex）
-                if is_same_name:
-                    continue  # 同名列跳过语义角色检查
-
-                # 优先级 3: 按配置过滤（包括 complex）
-                if semantic_role in exclude_roles:
-                    logger.debug(
-                        f"[filter_semantic_roles] 优先级3: 跳过候选（外键表列 {to_col} 语义角色 {semantic_role} 被配置排除）: "
-                        f"{candidate['from_table']['schema']}.{candidate['from_table']['table']} → {to_table_key}"
+                        f"[filter_semantic_roles] 跳过候选: {from_table_key}.{from_col} "
+                        f"(role: {from_role}) -> {to_table_key}.{to_col} (role: {to_role})"
                     )
                     should_skip = True
                     skipped_count += 1
@@ -622,6 +605,89 @@ class LLMRelationshipDiscovery:
 
         logger.info(
             f"[filter_semantic_roles] 过滤前: {len(candidates)}, 过滤后: {len(filtered)}, "
+            f"跳过: {skipped_count}"
+        )
+        return filtered
+
+    def _filter_by_type_compatibility(
+        self,
+        candidates: list[dict],
+        tables: dict[str, dict]
+    ) -> list[dict]:
+        """按类型兼容性过滤候选关系"""
+        rel_config = self.rel_config or {}
+        single_threshold = rel_config.get("single_column", {}).get("min_type_compatibility", 0.8)
+        composite_threshold = rel_config.get("composite", {}).get("min_type_compatibility", 0.8)
+        table_json_map = {table_key.lower(): table_json for table_key, table_json in tables.items()}
+        column_profile_maps = {
+            table_key.lower(): {
+                col_name.lower(): col_profile
+                for col_name, col_profile in (table_json.get("column_profiles", {}) or {}).items()
+            }
+            for table_key, table_json in tables.items()
+        }
+
+        filtered = []
+        skipped_count = 0
+
+        for candidate in candidates:
+            candidate_type = candidate["type"]
+            if candidate_type == "single_column":
+                from_cols = [candidate["from_column"]]
+                to_cols = [candidate["to_column"]]
+                threshold = single_threshold
+            else:  # composite
+                from_cols = candidate["from_columns"]
+                to_cols = candidate["to_columns"]
+                threshold = composite_threshold
+
+            from_table_key = f"{candidate['from_table']['schema']}.{candidate['from_table']['table']}"
+            to_table_key = f"{candidate['to_table']['schema']}.{candidate['to_table']['table']}"
+            from_table_key_lower = from_table_key.lower()
+            to_table_key_lower = to_table_key.lower()
+
+            from_table_json = table_json_map.get(from_table_key_lower)
+            to_table_json = table_json_map.get(to_table_key_lower)
+
+            if not from_table_json or not to_table_json:
+                logger.debug(f"[filter_type_compat] 警告: 表元数据缺失，保守放行候选 {from_table_key} -> {to_table_key}")
+                filtered.append(candidate)
+                continue
+
+            from_col_profiles = column_profile_maps.get(from_table_key_lower, {})
+            to_col_profiles = column_profile_maps.get(to_table_key_lower, {})
+
+            should_skip = False
+            for from_col, to_col in zip(from_cols, to_cols):
+                fcp = from_col_profiles.get(from_col.lower())
+                tcp = to_col_profiles.get(to_col.lower())
+
+                if not fcp or not tcp:
+                    logger.debug(f"[filter_type_compat] 警告: 列元数据缺失({from_col}或{to_col})，保守放行候选")
+                    break
+                
+                src_type = fcp.get("data_type", "")
+                tgt_type = tcp.get("data_type", "")
+
+                if not src_type or not tgt_type:
+                    logger.debug(f"[filter_type_compat] 警告: data_type 缺失，保守放行")
+                    break
+
+                type_score = get_type_compatibility_score(src_type, tgt_type)
+                if type_score < threshold:
+                    logger.debug(
+                        f"[filter_type_compat] 跳过候选: {from_table_key}.{from_col} -> {to_table_key}.{to_col} "
+                        f"src_type={src_type}, tgt_type={tgt_type}, score={type_score:.2f}, threshold={threshold:.2f}"
+                    )
+                    should_skip = True
+                    skipped_count += 1
+                    break
+
+            if not should_skip:
+                filtered.append(candidate)
+
+        logger.info(
+            f"[filter_type_compat] 过滤前: {len(candidates)}, 过滤后: {len(filtered)}, "
             f"跳过: {skipped_count}"
         )
         return filtered
@@ -639,6 +705,10 @@ class LLMRelationshipDiscovery:
         Returns:
             (关系列表, 被拒绝数量, 额外统计信息)
         """
+        # 阶段 3.4: 规范化 LLM 候选关系标识符
+        logger.info("阶段 3.4: 规范化 LLM 候选关系标识符")
+        llm_candidates = self._canonicalize_candidate_identifiers(llm_candidates, tables)
+
         # 阶段 3.5: LLM 候选内部去重（节省后续评分开销）
         llm_candidates = self._dedup_llm_candidates(llm_candidates)
 
@@ -654,6 +724,10 @@ class LLMRelationshipDiscovery:
         # 新增：阶段 4.5: 按语义角色过滤
         logger.info("阶段4.5: 按语义角色过滤（exclude_semantic_roles）")
         filtered_candidates = self._filter_by_semantic_roles(filtered_candidates, tables)
+
+        # 新增：阶段 4.6: 按类型兼容性过滤
+        logger.info("阶段4.6: 按类型兼容性过滤")
+        filtered_candidates = self._filter_by_type_compatibility(filtered_candidates, tables)
 
         score_start = time.time()
         logger.info("阶段5: 对候选关联进行评分")
@@ -821,21 +895,23 @@ class LLMRelationshipDiscovery:
         Returns:
             过滤后的候选列表
         """
-        valid_tables = {table1_full, table2_full}
+        valid_tables = {table1_full.lower(), table2_full.lower()}
         filtered: List[Dict] = []
 
         for c in candidates:
             ft = c.get("from_table", {})
             tt = c.get("to_table", {})
-            from_full = f"{ft.get('schema', '')}.{ft.get('table', '')}"
-            to_full = f"{tt.get('schema', '')}.{tt.get('table', '')}"
+            from_full = f"{ft.get('schema', '')}.{ft.get('table', '')}".lower()
+            to_full = f"{tt.get('schema', '')}.{tt.get('table', '')}".lower()
 
             # 规则 1: 同表自环（同表 + 完全相同列）
             if from_full == to_full:
                 if c.get("type") == "single_column":
-                    same_cols = c.get("from_column") == c.get("to_column")
+                    same_cols = str(c.get("from_column", "")).lower() == str(c.get("to_column", "")).lower()
                 else:
-                    same_cols = c.get("from_columns") == c.get("to_columns")
+                    from_c = [str(n).lower() for n in c.get("from_columns", [])]
+                    to_c = [str(n).lower() for n in c.get("to_columns", [])]
+                    same_cols = sorted(from_c) == sorted(to_c)
                 if same_cols:
                     logger.warning(
                         "丢弃自环关系: %s.%s -> %s.%s（同表同列）",

@@ -1,0 +1,37 @@
+SQL验证报告
+==================================================
+
+输入文件: output/sql/qs_highway_db_pair.json
+验证时间: 2026-03-20T01:23:25.380414
+验证耗时: 0.03秒
+
+验证结果摘要:
+  总SQL数量: 21
+  有效SQL: 20
+  无效SQL: 1
+  成功率: 95.24%
+  平均耗时: 0.006秒
+  重试次数: 0
+
+SQL修复统计:
+  尝试修复: 1
+  修复成功: 1
+  修复失败: 0
+  修复成功率: 100.00%
+
+修复结果回写统计:
+  替换的SQL: 1
+  删除的无效项: 0
+  回写失败: 0
+
+成功修复的SQL（共1个）:
+==================================================
+
+1. 问题: 查询2023年4月1日各档口的现金支付金额及支付宝支付金额，并关联档口信息表（bss_branch）获取档口所属公司编号（假设bss_branch表包含company_no字段），仅返回有现金或支付宝交易的记录。
+   原始错误: 字段 bb.company_no 不存在
+LINE 1: ...b AS "现金支付金额", bdd.zfb AS "支付宝支付金额", bb.company...
+                                                             ^
+HINT:  也许您想要引用列"bb.company_id"。
+   修复后SQL:
+   SELECT bdd.branch_name AS "档口名称", bdd.rmb AS "现金支付金额", bdd.zfb AS "支付宝支付金额", bb.company_id AS "公司编号" FROM public.bss_business_day_data bdd JOIN public.bss_branch bb ON bdd.branch_no = bb.branch_no WHERE bdd.oper_date = '2023-04-01' AND (bdd.rmb > 0 OR bdd.zfb > 0);
+----------------------------------------

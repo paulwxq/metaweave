@@ -1,16 +1,16 @@
 # 表间关系发现报告
 database: highway_db
 生成方式: rel_llm
-生成时间: 2026-03-19 18:04:11
-关系总数: 20
+生成时间: 2026-03-20 01:22:17
+关系总数: 18
 
 ## 统计摘要
 - 外键直通: 0
-- 推断关系: 20
-- 复合键关系: 0
-- 单列关系: 20
-- 高置信度 (≥0.9): 16
-- 中置信度 (0.8-0.9): 3
+- 推断关系: 18
+- 复合键关系: 1
+- 单列关系: 17
+- 高置信度 (≥0.9): 13
+- 中置信度 (0.8-0.9): 4
 
 ## 关系详情
 ### 1. public.bss_business_day_data.branch_no → public.bss_branch.branch_no
@@ -65,33 +65,20 @@ database: highway_db
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 5. public.bss_branch.service_area_id → public.bss_section_route_area_link.service_area_id
-- **类型**: 单列
-- **源列**: `service_area_id`
-- **目标列**: `service_area_id`
+### 5. public.bss_branch.[section_route_id, service_area_id] → public.bss_section_route_area_link.[section_route_id, service_area_id]
+- **类型**: 复合键
+- **源列**: `section_route_id, service_area_id`
+- **目标列**: `section_route_id, service_area_id`
 - **关系类型**: inferred
-- **置信度**: 0.926 (高)
+- **置信度**: 0.882 (中)
 - **评分明细**:
-  - inclusion_rate: 0.888
-  - jaccard_index: 0.878
+  - inclusion_rate: 0.821
+  - jaccard_index: 0.804
   - name_similarity: 1.000
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 6. public.bss_branch.section_route_id → public.bss_section_route_area_link.section_route_id
-- **类型**: 单列
-- **源列**: `section_route_id`
-- **目标列**: `section_route_id`
-- **关系类型**: inferred
-- **置信度**: 0.924 (高)
-- **评分明细**:
-  - inclusion_rate: 0.889
-  - jaccard_index: 0.851
-  - name_similarity: 1.000
-  - type_compatibility: 1.000
-- **推断方法**: llm_assisted
-
-### 7. public.bss_branch.service_area_id → public.bss_service_area.id
+### 6. public.bss_branch.service_area_id → public.bss_service_area.id
 - **类型**: 单列
 - **源列**: `service_area_id`
 - **目标列**: `id`
@@ -104,7 +91,7 @@ database: highway_db
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 8. public.bss_branch.company_id → public.bss_service_area.company_id
+### 7. public.bss_branch.company_id → public.bss_service_area.company_id
 - **类型**: 单列
 - **源列**: `company_id`
 - **目标列**: `company_id`
@@ -117,7 +104,7 @@ database: highway_db
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 9. public.bss_branch.service_area_id → public.bss_service_area_mapper.service_area_id
+### 8. public.bss_branch.service_area_id → public.bss_service_area_mapper.service_area_id
 - **类型**: 单列
 - **源列**: `service_area_id`
 - **目标列**: `service_area_id`
@@ -130,7 +117,7 @@ database: highway_db
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 10. public.bss_business_day_data.service_no → public.bss_service_area.service_area_no
+### 9. public.bss_business_day_data.service_no → public.bss_service_area.service_area_no
 - **类型**: 单列
 - **源列**: `service_no`
 - **目标列**: `service_area_no`
@@ -143,7 +130,7 @@ database: highway_db
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 11. public.bss_business_day_data.service_no → public.bss_service_area_mapper.service_no
+### 10. public.bss_business_day_data.service_no → public.bss_service_area_mapper.service_no
 - **类型**: 单列
 - **源列**: `service_no`
 - **目标列**: `service_no`
@@ -156,20 +143,7 @@ database: highway_db
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 12. public.bss_business_day_data.service_name → public.bss_service_area_mapper.service_name
-- **类型**: 单列
-- **源列**: `service_name`
-- **目标列**: `service_name`
-- **关系类型**: inferred
-- **置信度**: 0.949 (高)
-- **评分明细**:
-  - inclusion_rate: 0.958
-  - jaccard_index: 0.719
-  - name_similarity: 1.000
-  - type_compatibility: 1.000
-- **推断方法**: llm_assisted
-
-### 13. public.bss_car_day_count.service_area_id → public.bss_section_route_area_link.service_area_id
+### 11. public.bss_car_day_count.service_area_id → public.bss_section_route_area_link.service_area_id
 - **类型**: 单列
 - **源列**: `service_area_id`
 - **目标列**: `service_area_id`
@@ -182,7 +156,7 @@ database: highway_db
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 14. public.bss_car_day_count.service_area_id → public.bss_service_area.id
+### 12. public.bss_car_day_count.service_area_id → public.bss_service_area.id
 - **类型**: 单列
 - **源列**: `service_area_id`
 - **目标列**: `id`
@@ -195,7 +169,7 @@ database: highway_db
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 15. public.bss_car_day_count.service_area_id → public.bss_service_area_mapper.service_area_id
+### 13. public.bss_car_day_count.service_area_id → public.bss_service_area_mapper.service_area_id
 - **类型**: 单列
 - **源列**: `service_area_id`
 - **目标列**: `service_area_id`
@@ -208,7 +182,7 @@ database: highway_db
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 16. public.bss_service_area.company_id → public.bss_company.id
+### 14. public.bss_service_area.company_id → public.bss_company.id
 - **类型**: 单列
 - **源列**: `company_id`
 - **目标列**: `id`
@@ -221,7 +195,7 @@ database: highway_db
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 17. public.bss_section_route_area_link.section_route_id → public.bss_section_route.id
+### 15. public.bss_section_route_area_link.section_route_id → public.bss_section_route.id
 - **类型**: 单列
 - **源列**: `section_route_id`
 - **目标列**: `id`
@@ -234,7 +208,7 @@ database: highway_db
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 18. public.bss_section_route_area_link.service_area_id → public.bss_service_area.id
+### 16. public.bss_section_route_area_link.service_area_id → public.bss_service_area.id
 - **类型**: 单列
 - **源列**: `service_area_id`
 - **目标列**: `id`
@@ -247,7 +221,7 @@ database: highway_db
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 19. public.bss_section_route_area_link.service_area_id → public.bss_service_area_mapper.service_area_id
+### 17. public.bss_section_route_area_link.service_area_id → public.bss_service_area_mapper.service_area_id
 - **类型**: 单列
 - **源列**: `service_area_id`
 - **目标列**: `service_area_id`
@@ -260,7 +234,7 @@ database: highway_db
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 20. public.bss_service_area_mapper.service_area_id → public.bss_service_area.id
+### 18. public.bss_service_area_mapper.service_area_id → public.bss_service_area.id
 - **类型**: 单列
 - **源列**: `service_area_id`
 - **目标列**: `id`

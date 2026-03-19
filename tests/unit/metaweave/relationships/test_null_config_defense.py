@@ -23,7 +23,10 @@ class TestLLMRelationshipDiscoveryNullConfig:
             "relationships": None,
             "sampling": None,
             "embedding": None,
-            "llm": {},
+            "llm": {
+                "active": "qwen",
+                "providers": {"qwen": {"api_key": "dummy", "model": "qwen-plus"}}
+            },
             "output": {"json_directory": "output/json"},
         }
         connector = MagicMock()
@@ -41,7 +44,10 @@ class TestLLMRelationshipDiscoveryNullConfig:
             "relationships": {},
             "sampling": {},
             "embedding": {},
-            "llm": {},
+            "llm": {
+                "active": "qwen",
+                "providers": {"qwen": {"api_key": "dummy", "model": "qwen-plus"}}
+            },
             "output": {"json_directory": "output/json"},
         }
         connector = MagicMock()

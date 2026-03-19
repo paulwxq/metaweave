@@ -3,19 +3,19 @@
   "database": "highway_db",
   "metadata_source": "json_files",
   "json_metadata_version": "2.0",
-  "json_files_loaded": 10,
-  "database_queries_executed": 73,
-  "generated_timestamp": "2026-03-19T18:04:11.093925",
+  "json_files_loaded": 8,
+  "database_queries_executed": 63,
+  "generated_timestamp": "2026-03-20T01:22:17.382705",
   "statistics": {
-    "total_relationships_found": 20,
+    "total_relationships_found": 18,
     "foreign_key_relationships": 0,
-    "composite_key_relationships": 0,
-    "single_column_relationships": 20,
+    "composite_key_relationships": 1,
+    "single_column_relationships": 17,
     "total_suppressed_single_relations": 0,
     "active_search_discoveries": 0,
     "dynamic_composite_discoveries": 0,
-    "llm_assisted_relationships": 20,
-    "rejected_low_confidence": 5
+    "llm_assisted_relationships": 18,
+    "rejected_low_confidence": 3
   },
   "relationships": [
     {
@@ -123,8 +123,8 @@
       "cardinality": "N:1"
     },
     {
-      "relationship_id": "rel_72126a780584",
-      "type": "single_column",
+      "relationship_id": "rel_2fbfce7eaaf3",
+      "type": "composite",
       "from_table": {
         "schema": "public",
         "table": "bss_branch"
@@ -133,46 +133,26 @@
         "schema": "public",
         "table": "bss_section_route_area_link"
       },
-      "from_column": "service_area_id",
-      "to_column": "service_area_id",
+      "from_columns": [
+        "section_route_id",
+        "service_area_id"
+      ],
+      "to_columns": [
+        "section_route_id",
+        "service_area_id"
+      ],
       "discovery_method": "llm_assisted",
       "target_source_type": "llm_inferred",
       "source_constraint": null,
-      "composite_score": 0.926,
-      "confidence_level": "high",
+      "composite_score": 0.882,
+      "confidence_level": "medium",
       "metrics": {
-        "inclusion_rate": 0.8876,
-        "jaccard_index": 0.8778,
+        "inclusion_rate": 0.8211,
+        "jaccard_index": 0.8041,
         "name_similarity": 1.0,
         "type_compatibility": 1.0
       },
       "cardinality": "N:1"
-    },
-    {
-      "relationship_id": "rel_a13964be2ea0",
-      "type": "single_column",
-      "from_table": {
-        "schema": "public",
-        "table": "bss_branch"
-      },
-      "to_table": {
-        "schema": "public",
-        "table": "bss_section_route_area_link"
-      },
-      "from_column": "section_route_id",
-      "to_column": "section_route_id",
-      "discovery_method": "llm_assisted",
-      "target_source_type": "llm_inferred",
-      "source_constraint": null,
-      "composite_score": 0.924,
-      "confidence_level": "high",
-      "metrics": {
-        "inclusion_rate": 0.8889,
-        "jaccard_index": 0.8511,
-        "name_similarity": 1.0,
-        "type_compatibility": 1.0
-      },
-      "cardinality": "M:N"
     },
     {
       "relationship_id": "rel_b889677e9a18",
@@ -299,32 +279,6 @@
       "metrics": {
         "inclusion_rate": 0.9765,
         "jaccard_index": 0.5479,
-        "name_similarity": 1.0,
-        "type_compatibility": 1.0
-      },
-      "cardinality": "M:N"
-    },
-    {
-      "relationship_id": "rel_eae4692379c7",
-      "type": "single_column",
-      "from_table": {
-        "schema": "public",
-        "table": "bss_business_day_data"
-      },
-      "to_table": {
-        "schema": "public",
-        "table": "bss_service_area_mapper"
-      },
-      "from_column": "service_name",
-      "to_column": "service_name",
-      "discovery_method": "llm_assisted",
-      "target_source_type": "llm_inferred",
-      "source_constraint": null,
-      "composite_score": 0.949,
-      "confidence_level": "high",
-      "metrics": {
-        "inclusion_rate": 0.9583,
-        "jaccard_index": 0.7188,
         "name_similarity": 1.0,
         "type_compatibility": 1.0
       },

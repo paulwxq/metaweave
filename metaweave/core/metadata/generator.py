@@ -321,23 +321,61 @@ class MetadataGenerator:
                 # 如果指定了表名列表，只处理列表中的表
                 if tables and table not in tables:
                     continue
-                
-                # 检查是否在排除列表中
-                excluded = False
-                for pattern in exclude_patterns:
-                    if pattern.endswith("*"):
-                        prefix = pattern[:-1]
-                        if table.startswith(prefix):
-                            excluded = True
-                            break
-                    elif table == pattern:
-                        excluded = True
-                        break
-                
-                if not excluded:
+
+                if not self._is_table_excluded(schema, table, exclude_patterns):
                     all_tables.append((schema, table))
         
         return all_tables
+
+    @staticmethod
+    def _match_prefix_or_exact(value: str, pattern: str) -> bool:
+        """仅支持精确匹配或以后缀 * 结尾的前缀匹配。"""
+        if pattern.endswith("*"):
+            return value.startswith(pattern[:-1])
+        return value == pattern
+
+    def _is_table_excluded(
+        self,
+        schema: str,
+        table: str,
+        exclude_patterns: List[str],
+    ) -> bool:
+        """判断表是否命中 exclude_tables。
+
+        支持：
+        - orders：跨 schema 精确匹配表名
+        - ord_*：跨 schema 表名前缀匹配
+        - public.orders：指定 schema 精确匹配
+        - public.ord_*：指定 schema 表名前缀匹配
+        - public.*：指定 schema 下全部表
+
+        暂不支持：
+        - db.schema.table
+        - *orders / *mid* / ord_*_bak 等任意位置通配
+        """
+        for raw_pattern in exclude_patterns:
+            pattern = str(raw_pattern).strip()
+            if not pattern:
+                continue
+
+            dot_count = pattern.count(".")
+            if dot_count == 0:
+                if self._match_prefix_or_exact(table, pattern):
+                    return True
+                continue
+
+            if dot_count == 1:
+                pattern_schema, pattern_table = pattern.split(".", 1)
+                if schema == pattern_schema and self._match_prefix_or_exact(table, pattern_table):
+                    return True
+                continue
+
+            logger.warning(
+                "exclude_tables 暂不支持三段式或多段模式，已忽略: %s",
+                pattern,
+            )
+
+        return False
     
     def _process_tables_sequential(
         self,

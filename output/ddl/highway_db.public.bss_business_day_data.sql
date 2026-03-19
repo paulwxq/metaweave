@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: highway_db
 -- Table: public.bss_business_day_data
--- Comment: 服务区每日经营数据表，记录各服务区分支的支付渠道交易笔数与金额汇总
--- Generated: 2026-03-19 18:02:42
+-- Comment: 服务区日营业数据表，记录各服务区按支付渠道（微信、支付宝等）划分的订单量与收款金额
+-- Generated: 2026-03-20 01:21:10
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_business_day_data (
@@ -68,7 +68,7 @@ CREATE INDEX idx_branch_no ON public.bss_business_day_data(branch_no);
 CREATE INDEX idx_oper_date ON public.bss_business_day_data(oper_date);
 
 -- Table Comment
-COMMENT ON TABLE public.bss_business_day_data IS '服务区每日经营数据表，记录各服务区分支的支付渠道交易笔数与金额汇总';
+COMMENT ON TABLE public.bss_business_day_data IS '服务区日营业数据表，记录各服务区按支付渠道（微信、支付宝等）划分的订单量与收款金额';
 
 /* SAMPLE_RECORDS
 {

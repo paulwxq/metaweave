@@ -28,3 +28,5 @@ databases:
         embedding_col: null
       public.bss_service_area_mapper:
         embedding_col: null
+      public.highway_metadata:
+        embedding_col: null

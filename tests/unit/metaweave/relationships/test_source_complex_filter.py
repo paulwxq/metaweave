@@ -40,6 +40,7 @@ def discovery():
     with patch.object(LLMRelationshipDiscovery, "__init__", lambda self, *a, **kw: None):
         d = object.__new__(LLMRelationshipDiscovery)
     d.config = config
+    d.rel_config = config.get("relationships", {})
     d.single_exclude_roles = {"complex", "boolean", "ordinal"}
     d.composite_exclude_roles = {"complex", "boolean", "ordinal"}
     return d

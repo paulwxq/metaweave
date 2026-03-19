@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-19T18:03:21.030117",
+  "generated_timestamp": "2026-03-20T01:21:33.657560",
   "table_info": {
     "database": "highway_db",
     "schema_name": "public",
@@ -1175,5 +1175,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-19T18:03:54.355414"
+  "llm_enhanced_at": "2026-03-20T01:21:58.262116"
 }

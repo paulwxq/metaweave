@@ -2,7 +2,7 @@
 -- Database: highway_db
 -- Table: public.bss_branch
 -- Comment: 高速公路服务区餐饮及小吃分支网点信息表
--- Generated: 2026-03-19 18:02:40
+-- Generated: 2026-03-20 01:21:08
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_branch (

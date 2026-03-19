@@ -2,7 +2,7 @@
 -- Database: highway_db
 -- Table: public.bss_section_route
 -- Comment: 路段与路线关联表，存储路段名称、所属路线及唯一编码信息
--- Generated: 2026-03-19 18:02:43
+-- Generated: 2026-03-20 01:21:11
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_section_route (

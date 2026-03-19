@@ -16,11 +16,19 @@ database:
   schemas:
     - public
   
-  # 排除的表（支持通配符 *）
+  # 排除的表，支持以下格式：
+  # - orders        : 跨所有 schema 精确匹配表名
+  # - ord_*         : 跨所有 schema 按表名前缀匹配
+  # - public.orders : 指定 schema 下精确匹配
+  # - public.ord_*  : 指定 schema 下按表名前缀匹配
+  # - public.*      : 排除指定 schema 下所有表
+  # 注意：暂不支持三段式 db.schema.table，也不支持 *orders / *mid* 这类任意位置通配
   exclude_tables:
     - temp_*
     - test_*
     - _*
+    - public.qa_feedback
+    - public.highway_metadata
 
 # 数据采样配置
 sampling:
@@ -352,6 +360,10 @@ relationships:
   # 是否包含跨域表对（CLI --cross-domain/--no-cross-domain 可覆盖）
   # null/false=仅域内, true=包含跨域; domain为null时此项被忽略
   cross_domain: null
+  llm:
+    providers:
+      qwen:
+        model: qwen3-max
 
   # sample_size: 1000  # 已废弃：关系评分阶段统一使用 sampling.sample_size
   name_similarity:
@@ -482,6 +494,10 @@ sql_rag:
     output_dir: "output/sql"
 
   # 为 SQL RAG 指定专属 LLM（深合并覆盖，其余字段继承全局 llm）
+  llm:
+    providers:
+      qwen:
+        model: qwen3-max
   # 示例1：切换到 qwen-max 模型
   # llm:
   #   providers:

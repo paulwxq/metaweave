@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-19T18:03:20.727304",
+  "generated_timestamp": "2026-03-20T01:21:33.371802",
   "table_info": {
     "database": "highway_db",
     "schema_name": "public",
     "table_name": "bss_service_area_mapper",
     "table_type": "table",
-    "comment": "服务区信息映射表，关联不同来源系统中的服务区名称、编号与唯一标识",
+    "comment": "服务区与业务系统映射关系表，记录服务区在不同源系统中的唯一标识及类型信息",
     "comment_source": "ddl",
     "total_rows": 317,
     "total_columns": 13
@@ -78,7 +78,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "记录版本号，用于乐观锁控制",
+      "comment": "数据版本号，用于乐观锁控制",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 317,
@@ -806,5 +806,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-19T18:03:43.487920"
+  "llm_enhanced_at": "2026-03-20T01:21:55.117384"
 }

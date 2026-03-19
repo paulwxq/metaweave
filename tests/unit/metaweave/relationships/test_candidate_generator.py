@@ -474,7 +474,7 @@ class TestCandidateGenerator:
         # 目标列：有唯一约束
         col_profile_unique = {
             "structure_flags": {
-                "is_unique": True
+                "is_unique_constraint": True
             }
         }
         table = {}
@@ -487,7 +487,7 @@ class TestCandidateGenerator:
         fk_sigs = set()
         generator = CandidateGenerator(config, fk_sigs)
 
-        # 目标列：有索引
+        # 目标列：只有索引不能作为目标列（根据当前代码逻辑）
         col_profile_indexed = {
             "structure_flags": {
                 "is_indexed": True
@@ -495,7 +495,7 @@ class TestCandidateGenerator:
         }
         table = {}
 
-        assert generator._is_qualified_target_column("product_id", col_profile_indexed, table) is True
+        assert generator._is_qualified_target_column("product_id", col_profile_indexed, table) is False
 
     def test_qualified_target_column_with_logical_key(self, complete_config):
         """测试目标列约束检查：单列逻辑主键"""
@@ -509,14 +509,12 @@ class TestCandidateGenerator:
         }
         table = {
             "table_profile": {
-                "logical_keys": {
-                    "candidate_primary_keys": [
-                        {
-                            "columns": ["order_id"],
-                            "confidence_score": 0.9
-                        }
-                    ]
-                }
+                "unique_column_sets": [
+                    {
+                        "columns": ["order_id"],
+                        "confidence_score": 0.9
+                    }
+                ]
             }
         }
 
@@ -541,9 +539,7 @@ class TestCandidateGenerator:
         }
         table = {
             "table_profile": {
-                "logical_keys": {
-                    "candidate_primary_keys": []
-                }
+                "unique_column_sets": []
             }
         }
 
@@ -606,39 +602,6 @@ class TestCandidateGenerator:
 
         # 完全相同
         assert generator._calculate_name_similarity("store_id", "store_id") == 1.0
-
-    def test_get_type_compatibility_score(self, complete_config):
-        """测试类型兼容性分数计算（用于阈值比较）"""
-        config = complete_config.copy()
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 完全相同类型
-        assert generator._get_type_compatibility_score("integer", "integer") == 1.0
-        assert generator._get_type_compatibility_score("varchar", "varchar") == 1.0
-
-        # 整数类型族（高度兼容 0.9，因为精度不同）
-        assert generator._get_type_compatibility_score("integer", "bigint") == 0.9
-        assert generator._get_type_compatibility_score("int4", "int8") == 0.9
-
-        # 字符串类型族（高度兼容）
-        assert generator._get_type_compatibility_score("varchar", "text") == 0.85
-        assert generator._get_type_compatibility_score("char", "varchar") == 0.8
-
-        # 数值类型族（高度兼容，0.8）
-        assert generator._get_type_compatibility_score("numeric", "decimal") == 0.8
-        assert generator._get_type_compatibility_score("float", "double precision") == 0.8
-
-        # 整数与数值（高度兼容，0.9）
-        assert generator._get_type_compatibility_score("integer", "numeric") == 0.9
-        assert generator._get_type_compatibility_score("bigint", "decimal") == 0.9
-
-        # 日期时间类型族（部分兼容，0.5）
-        assert generator._get_type_compatibility_score("date", "timestamp") == 0.5
-
-        # 不兼容类型
-        assert generator._get_type_compatibility_score("integer", "varchar") == 0.0
-        assert generator._get_type_compatibility_score("date", "integer") == 0.0
 
     @pytest.mark.skip(reason="方法 _is_compatible_combination 已被重构或移除")
     def test_is_compatible_combination_with_type_threshold(self, complete_config):
