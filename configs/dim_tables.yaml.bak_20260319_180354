@@ -1,0 +1,32 @@
+# 维度表加载配置
+# 说明：此文件由 dim_config --generate 自动生成维表列表（按 database 分组），需人工填写 embedding_col
+#
+# embedding_col 支持三种格式：
+#   1. 单列向量化：embedding_col: column_name
+#   2. 多列向量化（YAML列表）：embedding_col: [col1, col2, col3]  # 推荐
+#   3. 多列向量化（逗号分隔）：embedding_col: col1, col2, col3   # 自动拆分
+#
+# 示例：
+# databases:
+#   your_database:
+#     tables:
+#       public.dim_region:
+#         embedding_col: region_name                   # 单列
+#       public.dim_store:
+#         embedding_col: [store_name, address]         # 多列（推荐格式）
+#       public.dim_product:
+#         embedding_col: product_name, category, brand # 多列（自动拆分）
+
+databases:
+  highway_db:
+    tables:
+      public.bss_branch:
+        embedding_col: null
+      public.bss_company:
+        embedding_col: null
+      public.bss_service_area:
+        embedding_col: null
+      public.bss_service_area_mapper:
+        embedding_col: null
+      public.highway_metadata:
+        embedding_col: null

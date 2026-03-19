@@ -1,7 +1,7 @@
 # 表间关系发现报告
 database: highway_db
 生成方式: rel_llm
-生成时间: 2026-03-19 11:53:15
+生成时间: 2026-03-19 18:04:11
 关系总数: 20
 
 ## 统计摘要
@@ -65,20 +65,7 @@ database: highway_db
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted
 
-### 5. public.bss_branch.section_route_id → public.bss_section_route_area_link.section_route_id
-- **类型**: 单列
-- **源列**: `section_route_id`
-- **目标列**: `section_route_id`
-- **关系类型**: inferred
-- **置信度**: 0.924 (高)
-- **评分明细**:
-  - inclusion_rate: 0.889
-  - jaccard_index: 0.851
-  - name_similarity: 1.000
-  - type_compatibility: 1.000
-- **推断方法**: llm_assisted
-
-### 6. public.bss_branch.service_area_id → public.bss_section_route_area_link.service_area_id
+### 5. public.bss_branch.service_area_id → public.bss_section_route_area_link.service_area_id
 - **类型**: 单列
 - **源列**: `service_area_id`
 - **目标列**: `service_area_id`
@@ -87,6 +74,19 @@ database: highway_db
 - **评分明细**:
   - inclusion_rate: 0.888
   - jaccard_index: 0.878
+  - name_similarity: 1.000
+  - type_compatibility: 1.000
+- **推断方法**: llm_assisted
+
+### 6. public.bss_branch.section_route_id → public.bss_section_route_area_link.section_route_id
+- **类型**: 单列
+- **源列**: `section_route_id`
+- **目标列**: `section_route_id`
+- **关系类型**: inferred
+- **置信度**: 0.924 (高)
+- **评分明细**:
+  - inclusion_rate: 0.889
+  - jaccard_index: 0.851
   - name_similarity: 1.000
   - type_compatibility: 1.000
 - **推断方法**: llm_assisted

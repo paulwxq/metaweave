@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-19T11:52:22.004173",
+  "generated_timestamp": "2026-03-19T18:03:20.594107",
   "table_info": {
     "database": "highway_db",
     "schema_name": "public",
@@ -359,7 +359,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "逻辑删除时间戳（NULL表示未删除）",
+      "comment": "逻辑删除时间戳（为空表示未删除）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 9,
@@ -405,7 +405,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "逻辑删除操作人用户名",
+      "comment": "逻辑删除人用户名",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 9,
@@ -664,5 +664,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-19T11:52:26.328834"
+  "llm_enhanced_at": "2026-03-19T18:03:23.771480"
 }

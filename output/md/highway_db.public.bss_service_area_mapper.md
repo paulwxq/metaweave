@@ -1,7 +1,7 @@
 # public.bss_service_area_mapper（服务区信息映射表，关联不同来源系统中的服务区名称、编号与唯一标识）
 ## 字段列表：
 - id (character varying(32)) - 服务区域映射记录唯一标识ID [示例: 00e1e893909211ed8ee6fa163eaf653f, 013867f5962211ed8ee6fa163eaf653f]
-- version (integer(32)) - 数据版本号，用于乐观锁控制 [示例: 1, 1]
+- version (integer(32)) - 记录版本号，用于乐观锁控制 [示例: 1, 1]
 - create_ts (timestamp without time zone) - 记录创建时间戳 [示例: 2023-01-10 10:54:03, 2023-01-17 12:47:29]
 - created_by (character varying(50)) - 创建人用户名 [示例: admin, admin]
 - update_ts (timestamp without time zone) - 记录最后更新时间戳 [示例: 2023-01-10 10:54:07, 2023-01-17 12:47:32]

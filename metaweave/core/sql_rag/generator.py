@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
+from metaweave.core.sql_rag.context_utils import extract_relevant_relationship_sections
 from metaweave.core.sql_rag.models import GenerationResult, QuestionSQLPair
 from metaweave.core.sql_rag.prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 
@@ -31,17 +32,20 @@ class QuestionSQLGenerator:
         self.uncategorized_questions = self.config.get("uncategorized_questions", 3)
         self.skip_uncategorized = self.config.get("skip_uncategorized", False)
         self.output_dir = Path(self.config.get("output_dir", "output/sql"))
+        self.max_prompt_chars = self.config.get("max_prompt_chars", 100000)
 
     def generate(
         self,
         domains_config_path: str,
         md_dir: str,
+        rel_dir: Optional[str] = None,
     ) -> GenerationResult:
         """执行 Question-SQL 生成
 
         Args:
             domains_config_path: db_domains.yaml 路径
             md_dir: output/md/ 目录路径
+            rel_dir: output/rel/ 目录路径（可选）
 
         Returns:
             GenerationResult
@@ -79,10 +83,12 @@ class QuestionSQLGenerator:
 
             try:
                 pairs = self._generate_for_domain(
+                    db_name=db_name,
                     db_description=db_description,
                     domain=domain,
                     md_map=md_map,
                     questions_count=questions_count,
+                    rel_dir=rel_dir,
                 )
                 # 注入 domain 元数据
                 for pair in pairs:
@@ -131,10 +137,12 @@ class QuestionSQLGenerator:
 
     def _generate_for_domain(
         self,
+        db_name: str,
         db_description: str,
         domain: Dict[str, Any],
         md_map: Dict[str, str],
         questions_count: int,
+        rel_dir: Optional[str] = None,
     ) -> List[QuestionSQLPair]:
         """为单个主题域生成 Question-SQL"""
         domain_name = domain.get("name", "")
@@ -147,14 +155,36 @@ class QuestionSQLGenerator:
             logger.warning("主题域 [%s] 没有找到任何 MD 内容", domain_name)
             return []
 
+        # 解析关联关系
+        rel_content = ""
+        if rel_dir and tables:
+            rel_content = extract_relevant_relationship_sections(
+                rel_dir=rel_dir,
+                table_names=tables,
+                db_name=db_name,
+            )
+        
+        if not rel_content:
+            rel_content = "未提取到与当前主题表相关的关系段落，可仅依据表结构生成高质量单表或谨慎关联的 SQL。"
+
         # 构建提示词
         prompt = USER_PROMPT_TEMPLATE.format(
             database_description=db_description,
             domain_name=domain_name,
             domain_description=domain_description,
             md_content=md_content,
+            rel_content=rel_content,
             questions_per_domain=questions_count,
         )
+
+        prompt_len = len(prompt)
+        if prompt_len > self.max_prompt_chars:
+            logger.warning(
+                "主题域 [%s] 生成提示词长度超限（%d > %d），可能遭遇报错或截断",
+                domain_name,
+                prompt_len,
+                self.max_prompt_chars,
+            )
 
         logger.debug(
             "主题域 [%s] LLM 提示词\n"

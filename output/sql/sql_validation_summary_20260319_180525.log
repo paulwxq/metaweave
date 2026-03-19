@@ -1,0 +1,60 @@
+SQL验证报告
+==================================================
+
+输入文件: output/sql/qs_highway_db_pair.json
+验证时间: 2026-03-19T18:05:25.321346
+验证耗时: 0.05秒
+
+验证结果摘要:
+  总SQL数量: 24
+  有效SQL: 20
+  无效SQL: 4
+  成功率: 83.33%
+  平均耗时: 0.009秒
+  重试次数: 0
+
+SQL修复统计:
+  尝试修复: 4
+  修复成功: 4
+  修复失败: 0
+  修复成功率: 100.00%
+
+修复结果回写统计:
+  替换的SQL: 4
+  删除的无效项: 0
+  回写失败: 0
+
+成功修复的SQL（共4个）:
+==================================================
+
+1. 问题: 查询2022年3月2日‘其他’车型在各个服务区的车辆数量，并关联显示服务区名称（来自bss_service_area表）。
+   原始错误: 字段 sa.name 不存在
+LINE 1: EXPLAIN SELECT sa.name AS "服务区名称", cdc.customer_count A...
+                       ^
+   修复后SQL:
+   SELECT sa.service_area_name AS "服务区名称", cdc.customer_count AS "车辆数量" FROM public.bss_car_day_count cdc JOIN public.bss_service_area sa ON cdc.service_area_id = sa.id WHERE cdc.count_date = '2022-03-02' AND cdc.car_type = '其他' AND cdc.delete_ts IS NULL AND sa.delete_ts IS NULL;
+----------------------------------------
+
+2. 问题: 统计每条路线关联的服务区数量，并按服务区数量降序排列。
+   原始错误: 字段 r.路线名称 不存在
+LINE 1: EXPLAIN SELECT r."路线名称", COUNT(l.service_area_id) AS "服...
+                       ^
+   修复后SQL:
+   SELECT r.route_name AS "路线名称", COUNT(l.service_area_id) AS "服务区数量" FROM public.bss_section_route r INNER JOIN public.bss_section_route_area_link l ON r.id = l.section_route_id WHERE r.delete_ts IS NULL GROUP BY r.route_name ORDER BY "服务区数量" DESC;
+----------------------------------------
+
+3. 问题: 查询路段名称为'昌栗'的所有服务区名称（需通过路段-路线关联表和服务区关联表联合获取）。
+   原始错误: 字段 sa.服务区名称 不存在
+LINE 1: EXPLAIN SELECT sa."服务区名称" FROM public.bss_section_route...
+                       ^
+   修复后SQL:
+   SELECT sa.service_area_name FROM public.bss_section_route sr INNER JOIN public.bss_section_route_area_link sral ON sr.id = sral.section_route_id INNER JOIN public.bss_service_area sa ON sral.service_area_id = sa.id WHERE sr.section_name = '昌栗' AND sr.delete_ts IS NULL;
+----------------------------------------
+
+4. 问题: 查询所有手工录入的餐饮档口信息，包括档口名称、编码、方向、品牌及所属公司名称（需关联bss_company表）。
+   原始错误: 字段 c.name 不存在
+LINE 1: ...b.direction AS "方向", b.product_brand AS "品牌", c.name AS ...
+                                                             ^
+   修复后SQL:
+   SELECT b.branch_name AS "档口名称", b.branch_no AS "档口编码", b.direction AS "方向", b.product_brand AS "品牌", c.company_name AS "公司名称" FROM public.bss_branch b JOIN public.bss_company c ON b.company_id = c.id WHERE b.is_manual_entry = 1 AND b.classify = '餐饮';
+----------------------------------------

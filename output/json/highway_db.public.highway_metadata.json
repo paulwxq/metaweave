@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-19T11:52:22.127466",
+  "generated_timestamp": "2026-03-19T18:03:20.741791",
   "table_info": {
     "database": "highway_db",
     "schema_name": "public",
@@ -256,7 +256,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "关联的数据库表名数组",
+      "comment": "关联的源数据表名数组",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 6,
@@ -304,7 +304,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "常见业务问题及对应SQL查询语句",
+      "comment": "常见业务问题及对应SQL查询示例",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 6,
@@ -352,7 +352,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "主题相关关键词数组",
+      "comment": "主题关联的核心业务关键词数组",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 6,
@@ -400,7 +400,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": null,
-      "comment": "主题分类标签（如交易分析、流量分析等）",
+      "comment": "主题所属分析大类标签",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 6,
@@ -459,7 +459,7 @@
       "numeric_scale": null,
       "is_nullable": true,
       "column_default": "CURRENT_TIMESTAMP",
-      "comment": "元数据最后更新时间",
+      "comment": "元数据最后更新时间戳",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 6,
@@ -602,5 +602,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-19T11:52:52.172174"
+  "llm_enhanced_at": "2026-03-19T18:03:47.039197"
 }

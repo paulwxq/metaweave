@@ -7,7 +7,7 @@
 
 ## 生成信息
 
-- **生成时间**: 2026-03-19 11:53:16
+- **生成时间**: 2026-03-19 18:04:11
 - **生成命令**: `metaweave metadata --step cql`
 
 ---
@@ -46,7 +46,7 @@
 
 | 文件名 | 行数 |
 |-------|------|
-| import_all.highway_db.cypher | 3522 |
+| import_all.highway_db.cypher | 3520 |
 | import_all.highway_db.md | - |
 
 ---

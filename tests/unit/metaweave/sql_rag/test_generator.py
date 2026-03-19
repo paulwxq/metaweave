@@ -14,6 +14,7 @@ class FakeLLMService:
     def __init__(self, response: str = ""):
         self.response = response
         self.calls = []
+        self.model = "fake-model"
 
     def call_llm(self, prompt: str, system_message: str = None) -> str:
         self.calls.append({"prompt": prompt, "system_message": system_message})

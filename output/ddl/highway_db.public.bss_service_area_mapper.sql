@@ -2,7 +2,7 @@
 -- Database: highway_db
 -- Table: public.bss_service_area_mapper
 -- Comment: 服务区信息映射表，关联不同来源系统中的服务区名称、编号与唯一标识
--- Generated: 2026-03-19 11:51:55
+-- Generated: 2026-03-19 18:02:45
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_service_area_mapper (
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS public.bss_service_area_mapper (
 
 -- Column Comments
 COMMENT ON COLUMN public.bss_service_area_mapper.id IS '服务区域映射记录唯一标识ID';
-COMMENT ON COLUMN public.bss_service_area_mapper.version IS '数据版本号，用于乐观锁控制';
+COMMENT ON COLUMN public.bss_service_area_mapper.version IS '记录版本号，用于乐观锁控制';
 COMMENT ON COLUMN public.bss_service_area_mapper.create_ts IS '记录创建时间戳';
 COMMENT ON COLUMN public.bss_service_area_mapper.created_by IS '创建人用户名';
 COMMENT ON COLUMN public.bss_service_area_mapper.update_ts IS '记录最后更新时间戳';

@@ -375,7 +375,9 @@ class TestLoadTableMd:
         assert validator._load_table_md("orders", "testdb") == ""
 
 
-class TestExtractRelevantRelationships:
+from metaweave.core.sql_rag.context_utils import extract_relevant_relationship_sections
+
+class TestExtractRelevantRelationshipSections:
     def test_extract_matching_sections(self, tmp_path):
         rel_dir = tmp_path / "rel"
         rel_dir.mkdir()
@@ -394,22 +396,15 @@ class TestExtractRelevantRelationships:
 """
         (rel_dir / "testdb.relationships_global.md").write_text(rel_content, encoding="utf-8")
 
-        validator = SQLValidator(
-            connector=FakeConnector(), config={}, rel_dir=str(rel_dir)
-        )
-        result = validator._extract_relevant_relationships(["orders", "customers"], "testdb")
+        result = extract_relevant_relationship_sections(str(rel_dir), ["orders", "customers"], "testdb")
         assert "orders.customer_id" in result
         assert "orders.product_id" in result
         assert "film.language_id" not in result
 
     def test_no_rel_dir(self):
-        validator = SQLValidator(connector=FakeConnector(), config={})
-        assert validator._extract_relevant_relationships(["orders"], "testdb") == ""
+        assert extract_relevant_relationship_sections("", ["orders"], "testdb") == ""
 
     def test_missing_rel_file(self, tmp_path):
         rel_dir = tmp_path / "rel"
         rel_dir.mkdir()
-        validator = SQLValidator(
-            connector=FakeConnector(), config={}, rel_dir=str(rel_dir)
-        )
-        assert validator._extract_relevant_relationships(["orders"], "testdb") == ""
+        assert extract_relevant_relationship_sections(str(rel_dir), ["orders"], "testdb") == ""

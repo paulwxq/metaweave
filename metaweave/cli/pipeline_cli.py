@@ -402,10 +402,12 @@ def _step_sql_rag_generate(ctx: _PipelineContext) -> None:
     generator = QuestionSQLGenerator(llm_service, generation_config)
 
     md_dir = _resolve_md_dir(ctx.loaded_config)
+    rel_dir = _resolve_output_dir("rel", ctx.loaded_config)
 
     gen_result = generator.generate(
         domains_config_path=str(ctx.domains_path),
         md_dir=str(md_dir),
+        rel_dir=str(rel_dir),
     )
     if not gen_result.success:
         raise _StepError(

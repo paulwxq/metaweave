@@ -110,9 +110,15 @@ def generate(config: str, domains_config: str, md_dir: str, clean: bool, debug: 
     domains_path = _resolve_path(domains_config, project_root)
     md_dir_path = _resolve_path(md_dir, project_root)
 
+    output_config = main_config.get("output", {})
+    rel_dir_path = _resolve_path(
+        output_config.get("rel_directory", "output/rel"), project_root
+    )
+
     result = generator.generate(
         domains_config_path=str(domains_path),
         md_dir=str(md_dir_path),
+        rel_dir=str(rel_dir_path),
     )
 
     if result.success:
@@ -399,9 +405,15 @@ def run_all(
         generator.clean_output(db_name)
         click.echo(f"已清理 {db_name} 的旧样例文件")
 
+    output_config = main_config.get("output", {})
+    rel_dir_path = _resolve_path(
+        output_config.get("rel_directory", "output/rel"), project_root
+    )
+
     gen_result = generator.generate(
         domains_config_path=str(domains_path),
         md_dir=str(md_dir_path),
+        rel_dir=str(rel_dir_path),
     )
 
     if not gen_result.success:

@@ -276,8 +276,9 @@ class SQLValidator:
 
                 # 加载相关关系
                 if table_names and db_name:
-                    rel_content = self._extract_relevant_relationships(
-                        table_names, db_name
+                    from metaweave.core.sql_rag.context_utils import extract_relevant_relationship_sections
+                    rel_content = extract_relevant_relationship_sections(
+                        self.rel_dir, table_names, db_name
                     )
                     if rel_content:
                         all_relationships.append(rel_content)
@@ -405,46 +406,6 @@ class SQLValidator:
             return md_file.read_text(encoding="utf-8")
         return ""
 
-    def _extract_relevant_relationships(
-        self, table_names: List[str], db_name: str
-    ) -> str:
-        """从 rel.md 中提取涉及指定表的关系段落"""
-        if not self.rel_dir:
-            return ""
-
-        rel_file = self.rel_dir / f"{db_name}.relationships_global.md"
-        if not rel_file.exists():
-            return ""
-
-        content = rel_file.read_text(encoding="utf-8")
-        lines = content.split("\n")
-
-        # 构建表名集合（纯表名，用于标题行匹配）
-        table_set = set()
-        for t in table_names:
-            table_set.add(t.split(".")[-1].lower())
-
-        relevant_sections = []
-        current_section = []
-        is_relevant = False
-
-        for line in lines:
-            if line.startswith("### "):
-                if is_relevant and current_section:
-                    relevant_sections.append("\n".join(current_section))
-                current_section = [line]
-                heading_lower = line.lower()
-                is_relevant = any(
-                    f".{t}." in heading_lower or heading_lower.endswith(f".{t}")
-                    for t in table_set
-                )
-            else:
-                current_section.append(line)
-
-        if is_relevant and current_section:
-            relevant_sections.append("\n".join(current_section))
-
-        return "\n\n".join(relevant_sections)
 
     def _parse_repair_response(self, response: str) -> List[Dict]:
         """解析修复响应"""

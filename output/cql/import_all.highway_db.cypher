@@ -1,6 +1,6 @@
 // import_all.highway_db.cypher
 // Neo4j 元数据导入脚本（global 模式，包含所有表和关系）
-// 生成时间: 2026-03-19T11:53:16.027951
+// 生成时间: 2026-03-19T18:04:11.235038
 // 统计: 10 张表, 124 个列, 20 个关系
 
 // =====================================================================
@@ -46,7 +46,7 @@
       ]
     ],
     "table_domains": [
-      "餐饮服务"
+      "服务区餐饮及零售"
     ],
     "table_category": "dim"
   },
@@ -56,7 +56,7 @@
     "full_name": "public.bss_business_day_data",
     "schema": "public",
     "name": "bss_business_day_data",
-    "comment": "服务区日营业数据表，记录各服务区按支付渠道（微信、支付宝等）划分的订单量与收款金额",
+    "comment": "服务区每日经营数据表，记录各服务区分支的支付渠道交易笔数与金额汇总",
     "pk": [
       "id"
     ],
@@ -74,7 +74,7 @@
       ]
     ],
     "table_domains": [
-      "营业数据分析"
+      "服务区经营分析"
     ],
     "table_category": "fact"
   },
@@ -99,7 +99,7 @@
       ]
     ],
     "table_domains": [
-      "顾客行为研究"
+      "车辆流量统计"
     ],
     "table_category": "fact"
   },
@@ -120,7 +120,7 @@
     "logic_uk": [],
     "indexes": [],
     "table_domains": [
-      "企业组织架构"
+      "服务区基本信息"
     ],
     "table_category": "dim"
   },
@@ -141,7 +141,7 @@
     "logic_uk": [],
     "indexes": [],
     "table_domains": [
-      "服务区管理"
+      "路段与路线管理"
     ],
     "table_category": "bridge"
   },
@@ -151,7 +151,7 @@
     "full_name": "public.bss_section_route_area_link",
     "schema": "public",
     "name": "bss_section_route_area_link",
-    "comment": "路段路由与服务区的关联关系表，记录路段路由所属的服务区ID",
+    "comment": "路段路由与服务区域的关联关系表",
     "pk": [
       "section_route_id",
       "service_area_id"
@@ -167,7 +167,7 @@
       ]
     ],
     "table_domains": [
-      "服务区管理"
+      "路段与路线管理"
     ],
     "table_category": "bridge"
   },
@@ -192,7 +192,7 @@
       ]
     ],
     "table_domains": [
-      "服务区管理"
+      "服务区基本信息"
     ],
     "table_category": "dim"
   },
@@ -216,9 +216,7 @@
         "service_area_id"
       ]
     ],
-    "table_domains": [
-      "服务区管理"
-    ],
+    "table_domains": [],
     "table_category": "dim"
   },
   {
@@ -238,7 +236,7 @@
     "logic_uk": [],
     "indexes": [],
     "table_domains": [
-      "_未分类_"
+      "元数据管理"
     ],
     "table_category": "dim"
   },
@@ -248,7 +246,7 @@
     "full_name": "public.qa_feedback",
     "schema": "public",
     "name": "qa_feedback",
-    "comment": "用户对SQL查询结果的反馈记录，包含问题、生成SQL、点赞状态及训练数据标记",
+    "comment": "用户对SQL查询结果的反馈记录，包含问题、生成SQL、点赞状态及是否用于训练数据",
     "pk": [
       "id"
     ],
@@ -272,7 +270,7 @@
       ]
     ],
     "table_domains": [
-      "_未分类_"
+      "用户反馈"
     ],
     "table_category": "fact"
   }
@@ -1031,7 +1029,7 @@
     "schema": "public",
     "table": "bss_business_day_data",
     "name": "xs",
-    "comment": "刷卡支付金额（单位：元）",
+    "comment": "信用卡支付金额（单位：元）",
     "data_type": "numeric",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1126,7 +1124,7 @@
     "schema": "public",
     "table": "bss_business_day_data",
     "name": "pay_sum",
-    "comment": "当日总支付金额（单位：元，为各渠道之和）",
+    "comment": "当日总支付金额（单位：元）",
     "data_type": "numeric",
     "semantic_role": "metric",
     "is_pk": false,
@@ -1506,7 +1504,7 @@
     "schema": "public",
     "table": "bss_company",
     "name": "delete_ts",
-    "comment": "逻辑删除时间戳（NULL表示未删除）",
+    "comment": "逻辑删除时间戳（为空表示未删除）",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -1525,7 +1523,7 @@
     "schema": "public",
     "table": "bss_company",
     "name": "deleted_by",
-    "comment": "逻辑删除操作人用户名",
+    "comment": "逻辑删除人用户名",
     "data_type": "character varying",
     "semantic_role": "audit",
     "is_pk": false,
@@ -1886,7 +1884,7 @@
     "schema": "public",
     "table": "bss_service_area",
     "name": "created_by",
-    "comment": "创建操作的用户账号",
+    "comment": "创建人用户名",
     "data_type": "character varying",
     "semantic_role": "audit",
     "is_pk": false,
@@ -1924,7 +1922,7 @@
     "schema": "public",
     "table": "bss_service_area",
     "name": "updated_by",
-    "comment": "最后更新操作的用户账号",
+    "comment": "最后更新人用户名",
     "data_type": "character varying",
     "semantic_role": "audit",
     "is_pk": false,
@@ -1962,7 +1960,7 @@
     "schema": "public",
     "table": "bss_service_area",
     "name": "deleted_by",
-    "comment": "执行逻辑删除的用户账号",
+    "comment": "逻辑删除操作人用户名",
     "data_type": "character varying",
     "semantic_role": "audit",
     "is_pk": false,
@@ -2114,7 +2112,7 @@
     "schema": "public",
     "table": "bss_service_area_mapper",
     "name": "version",
-    "comment": "数据版本号，用于乐观锁控制",
+    "comment": "记录版本号，用于乐观锁控制",
     "data_type": "integer",
     "semantic_role": "audit",
     "is_pk": false,
@@ -2418,7 +2416,7 @@
     "schema": "public",
     "table": "highway_metadata",
     "name": "related_tables",
-    "comment": "关联的数据库表名数组",
+    "comment": "关联的源数据表名数组",
     "data_type": "array",
     "semantic_role": "complex",
     "is_pk": false,
@@ -2437,7 +2435,7 @@
     "schema": "public",
     "table": "highway_metadata",
     "name": "questions",
-    "comment": "常见业务问题及对应SQL查询语句",
+    "comment": "常见业务问题及对应SQL查询示例",
     "data_type": "jsonb",
     "semantic_role": "complex",
     "is_pk": false,
@@ -2456,7 +2454,7 @@
     "schema": "public",
     "table": "highway_metadata",
     "name": "keywords",
-    "comment": "主题相关关键词数组",
+    "comment": "主题关联的核心业务关键词数组",
     "data_type": "array",
     "semantic_role": "complex",
     "is_pk": false,
@@ -2475,7 +2473,7 @@
     "schema": "public",
     "table": "highway_metadata",
     "name": "theme_tag",
-    "comment": "主题分类标签（如交易分析、流量分析等）",
+    "comment": "主题所属分析大类标签",
     "data_type": "character varying",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -2494,7 +2492,7 @@
     "schema": "public",
     "table": "highway_metadata",
     "name": "update_ts",
-    "comment": "元数据最后更新时间",
+    "comment": "元数据最后更新时间戳",
     "data_type": "timestamp without time zone",
     "semantic_role": "audit",
     "is_pk": false,
@@ -2551,7 +2549,7 @@
     "schema": "public",
     "table": "qa_feedback",
     "name": "sql",
-    "comment": "系统生成的对应SQL查询语句",
+    "comment": "生成的对应SQL查询语句",
     "data_type": "text",
     "semantic_role": "description",
     "is_pk": false,
@@ -2570,7 +2568,7 @@
     "schema": "public",
     "table": "qa_feedback",
     "name": "is_thumb_up",
-    "comment": "用户是否点赞（True-是，False-否）",
+    "comment": "用户是否点赞（True-点赞，False-未点赞）",
     "data_type": "boolean",
     "semantic_role": "enum",
     "is_pk": false,
@@ -2589,7 +2587,7 @@
     "schema": "public",
     "table": "qa_feedback",
     "name": "user_id",
-    "comment": "提交反馈的用户标识",
+    "comment": "提交反馈的用户ID",
     "data_type": "character varying",
     "semantic_role": "identifier",
     "is_pk": false,
@@ -3255,22 +3253,6 @@ UNWIND [
   {
     "source_table": "public.bss_branch",
     "target_table": "public.bss_section_route_area_link",
-    "cardinality": "M:N",
-    "constraint_name": null,
-    "join_type": "INNER JOIN",
-    "on": "SRC.section_route_id = DST.section_route_id",
-    "source_columns": [
-      "section_route_id"
-    ],
-    "target_columns": [
-      "section_route_id"
-    ],
-    "src_full_name": "public.bss_branch",
-    "dst_full_name": "public.bss_section_route_area_link"
-  },
-  {
-    "source_table": "public.bss_branch",
-    "target_table": "public.bss_section_route_area_link",
     "cardinality": "N:1",
     "constraint_name": null,
     "join_type": "INNER JOIN",
@@ -3280,6 +3262,22 @@ UNWIND [
     ],
     "target_columns": [
       "service_area_id"
+    ],
+    "src_full_name": "public.bss_branch",
+    "dst_full_name": "public.bss_section_route_area_link"
+  },
+  {
+    "source_table": "public.bss_branch",
+    "target_table": "public.bss_section_route_area_link",
+    "cardinality": "M:N",
+    "constraint_name": null,
+    "join_type": "INNER JOIN",
+    "on": "SRC.section_route_id = DST.section_route_id",
+    "source_columns": [
+      "section_route_id"
+    ],
+    "target_columns": [
+      "section_route_id"
     ],
     "src_full_name": "public.bss_branch",
     "dst_full_name": "public.bss_section_route_area_link"

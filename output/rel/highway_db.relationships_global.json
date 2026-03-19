@@ -4,8 +4,8 @@
   "metadata_source": "json_files",
   "json_metadata_version": "2.0",
   "json_files_loaded": 10,
-  "database_queries_executed": 78,
-  "generated_timestamp": "2026-03-19T11:53:15.913997",
+  "database_queries_executed": 73,
+  "generated_timestamp": "2026-03-19T18:04:11.093925",
   "statistics": {
     "total_relationships_found": 20,
     "foreign_key_relationships": 0,
@@ -15,7 +15,7 @@
     "active_search_discoveries": 0,
     "dynamic_composite_discoveries": 0,
     "llm_assisted_relationships": 20,
-    "rejected_low_confidence": 8
+    "rejected_low_confidence": 5
   },
   "relationships": [
     {
@@ -123,32 +123,6 @@
       "cardinality": "N:1"
     },
     {
-      "relationship_id": "rel_a13964be2ea0",
-      "type": "single_column",
-      "from_table": {
-        "schema": "public",
-        "table": "bss_branch"
-      },
-      "to_table": {
-        "schema": "public",
-        "table": "bss_section_route_area_link"
-      },
-      "from_column": "section_route_id",
-      "to_column": "section_route_id",
-      "discovery_method": "llm_assisted",
-      "target_source_type": "llm_inferred",
-      "source_constraint": null,
-      "composite_score": 0.924,
-      "confidence_level": "high",
-      "metrics": {
-        "inclusion_rate": 0.8889,
-        "jaccard_index": 0.8511,
-        "name_similarity": 1.0,
-        "type_compatibility": 1.0
-      },
-      "cardinality": "M:N"
-    },
-    {
       "relationship_id": "rel_72126a780584",
       "type": "single_column",
       "from_table": {
@@ -173,6 +147,32 @@
         "type_compatibility": 1.0
       },
       "cardinality": "N:1"
+    },
+    {
+      "relationship_id": "rel_a13964be2ea0",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_branch"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_section_route_area_link"
+      },
+      "from_column": "section_route_id",
+      "to_column": "section_route_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.924,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 0.8889,
+        "jaccard_index": 0.8511,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "M:N"
     },
     {
       "relationship_id": "rel_b889677e9a18",

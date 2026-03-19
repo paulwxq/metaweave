@@ -1,6 +1,6 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-19T11:52:22.116748",
+  "generated_timestamp": "2026-03-19T18:03:20.727304",
   "table_info": {
     "database": "highway_db",
     "schema_name": "public",
@@ -78,7 +78,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "数据版本号，用于乐观锁控制",
+      "comment": "记录版本号，用于乐观锁控制",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 317,
@@ -806,5 +806,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-19T11:52:48.963068"
+  "llm_enhanced_at": "2026-03-19T18:03:43.487920"
 }
