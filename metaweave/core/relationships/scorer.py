@@ -486,6 +486,35 @@ class RelationshipScorer:
         logger.debug("基数判断: M:N（兜底，无法明确判断）")
         return "M:N"
 
+    @staticmethod
+    def _make_hashable(value: Any) -> Any:
+        """将不可哈希的值转换为可哈希表示。
+
+        PostgreSQL 复杂类型（array → list, json/jsonb → dict/list, hstore → dict）
+        在 Python 中不可哈希，无法直接放入 set。此方法递归转换：
+        - list → tuple（递归处理元素）
+        - dict → tuple(sorted items)（递归处理值）
+        - 其他不可哈希类型 → str()
+
+        已知可哈希的基础类型（int, str, float, bool, None, datetime 等）直接返回。
+        """
+        # 快速路径：绝大多数值是基础可哈希类型
+        if isinstance(value, (int, float, str, bool, type(None), bytes)):
+            return value
+        if isinstance(value, list):
+            return tuple(RelationshipScorer._make_hashable(v) for v in value)
+        if isinstance(value, dict):
+            return tuple(
+                (k, RelationshipScorer._make_hashable(v))
+                for k, v in sorted(value.items())
+            )
+        # 兜底：尝试哈希，不行就 str()
+        try:
+            hash(value)
+            return value
+        except TypeError:
+            return str(value)
+
     def _extract_value_set(self, rows: List[Dict], columns: List[str]) -> Tuple[Set[Tuple], int]:
         """从查询结果中提取值集合
 
@@ -498,17 +527,36 @@ class RelationshipScorer:
             - value_set: 值元组集合（多列组合为元组，已排除含 NULL 的行）
             - valid_count: 有效行数（排除含 NULL 的行后实际参与比较的行数）
         """
-        value_set = set()
+        value_set: Set[Tuple] = set()
         valid_count = 0
+        warned_columns: Set[str] = set()
 
         for row in rows:
-            # 提取各列的值组成元组
-            values = tuple(row.get(col) for col in columns)
+            raw_values = [row.get(col) for col in columns]
 
-            # 跳过包含NULL的值
-            if None not in values:
-                value_set.add(values)
-                valid_count += 1
+            # 跳过包含 NULL 的行
+            if None in raw_values:
+                continue
+
+            # 将不可哈希值转为可哈希表示
+            safe_values: list = []
+            for col, val in zip(columns, raw_values):
+                try:
+                    hash(val)
+                    safe_values.append(val)
+                except TypeError:
+                    if col not in warned_columns:
+                        warned_columns.add(col)
+                        logger.warning(
+                            "列 '%s' 包含不可哈希类型 %s（如 array/json），"
+                            "将转换为可哈希表示用于集合比较",
+                            col,
+                            type(val).__name__,
+                        )
+                    safe_values.append(self._make_hashable(val))
+
+            value_set.add(tuple(safe_values))
+            valid_count += 1
 
         return value_set, valid_count
 

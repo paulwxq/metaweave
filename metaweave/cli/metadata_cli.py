@@ -488,12 +488,11 @@ def metadata_command(
                                 if not json_files:
                                     step_error_msg = "阶段 A 未生成任何 JSON 文件"
                                 else:
-                                    cli_config = copy.deepcopy(config_for_llm)
-                                    if "llm" in cli_config and "langchain_config" in cli_config["llm"]:
-                                        cli_config["llm"]["langchain_config"]["use_async"] = False
-
                                     click.echo("🤖 阶段 2/2: LLM 增强处理（原地写回 output/json）...")
-                                    enhancer = JsonLlmEnhancer(cli_config)
+                                    enhancer = JsonLlmEnhancer(
+                                        config_for_llm,
+                                        runtime_override={"langchain_config": {"use_async": False}},
+                                    )
                                     enhanced_count = enhancer.enhance_json_files(json_files)
                                     step_success = True
 
@@ -658,13 +657,12 @@ def metadata_command(
                 click.echo("✨ json_llm 处理完成（仅执行了阶段 A）")
                 return
 
-            # 强制 CLI 使用同步模式（CLI 工具不需要异步复杂性）
-            cli_config = copy.deepcopy(config)
-            if "llm" in cli_config and "langchain_config" in cli_config["llm"]:
-                cli_config["llm"]["langchain_config"]["use_async"] = False
-
             # 初始化增强器（不查库，只基于 JSON 调用 LLM）
-            enhancer = JsonLlmEnhancer(cli_config)
+            # 通过 runtime_override 强制 CLI 使用同步模式
+            enhancer = JsonLlmEnhancer(
+                config,
+                runtime_override={"langchain_config": {"use_async": False}},
+            )
 
             # 调用增强方法（同步模式保证返回 int）
             enhanced_count = enhancer.enhance_json_files(json_files)

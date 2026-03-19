@@ -4,18 +4,18 @@
   "metadata_source": "json_files",
   "json_metadata_version": "2.0",
   "json_files_loaded": 10,
-  "database_queries_executed": 87,
-  "generated_timestamp": "2026-03-18T12:47:16.152747",
+  "database_queries_executed": 78,
+  "generated_timestamp": "2026-03-19T11:53:15.913997",
   "statistics": {
-    "total_relationships_found": 21,
+    "total_relationships_found": 20,
     "foreign_key_relationships": 0,
     "composite_key_relationships": 0,
-    "single_column_relationships": 21,
+    "single_column_relationships": 20,
     "total_suppressed_single_relations": 0,
     "active_search_discoveries": 0,
     "dynamic_composite_discoveries": 0,
-    "llm_assisted_relationships": 21,
-    "rejected_low_confidence": 10
+    "llm_assisted_relationships": 20,
+    "rejected_low_confidence": 8
   },
   "relationships": [
     {
@@ -123,32 +123,6 @@
       "cardinality": "N:1"
     },
     {
-      "relationship_id": "rel_72126a780584",
-      "type": "single_column",
-      "from_table": {
-        "schema": "public",
-        "table": "bss_branch"
-      },
-      "to_table": {
-        "schema": "public",
-        "table": "bss_section_route_area_link"
-      },
-      "from_column": "service_area_id",
-      "to_column": "service_area_id",
-      "discovery_method": "llm_assisted",
-      "target_source_type": "llm_inferred",
-      "source_constraint": null,
-      "composite_score": 0.926,
-      "confidence_level": "high",
-      "metrics": {
-        "inclusion_rate": 0.8876,
-        "jaccard_index": 0.8778,
-        "name_similarity": 1.0,
-        "type_compatibility": 1.0
-      },
-      "cardinality": "N:1"
-    },
-    {
       "relationship_id": "rel_a13964be2ea0",
       "type": "single_column",
       "from_table": {
@@ -173,6 +147,32 @@
         "type_compatibility": 1.0
       },
       "cardinality": "M:N"
+    },
+    {
+      "relationship_id": "rel_72126a780584",
+      "type": "single_column",
+      "from_table": {
+        "schema": "public",
+        "table": "bss_branch"
+      },
+      "to_table": {
+        "schema": "public",
+        "table": "bss_section_route_area_link"
+      },
+      "from_column": "service_area_id",
+      "to_column": "service_area_id",
+      "discovery_method": "llm_assisted",
+      "target_source_type": "llm_inferred",
+      "source_constraint": null,
+      "composite_score": 0.926,
+      "confidence_level": "high",
+      "metrics": {
+        "inclusion_rate": 0.8876,
+        "jaccard_index": 0.8778,
+        "name_similarity": 1.0,
+        "type_compatibility": 1.0
+      },
+      "cardinality": "N:1"
     },
     {
       "relationship_id": "rel_b889677e9a18",
@@ -407,32 +407,6 @@
         "type_compatibility": 1.0
       },
       "cardinality": "M:N"
-    },
-    {
-      "relationship_id": "rel_c7962fd58f36",
-      "type": "single_column",
-      "from_table": {
-        "schema": "public",
-        "table": "bss_car_day_count"
-      },
-      "to_table": {
-        "schema": "public",
-        "table": "bss_service_area"
-      },
-      "from_column": "service_area_id",
-      "to_column": "id",
-      "discovery_method": "llm_assisted",
-      "target_source_type": "llm_inferred",
-      "source_constraint": null,
-      "composite_score": 0.9068,
-      "confidence_level": "high",
-      "metrics": {
-        "inclusion_rate": 1.0,
-        "jaccard_index": 0.7833,
-        "name_similarity": 0.6422,
-        "type_compatibility": 1.0
-      },
-      "cardinality": "N:1"
     },
     {
       "relationship_id": "rel_54b4e3ea3090",

@@ -2,7 +2,7 @@
 -- Database: highway_db
 -- Table: public.bss_service_area_mapper
 -- Comment: 服务区信息映射表，关联不同来源系统中的服务区名称、编号与唯一标识
--- Generated: 2026-03-18 12:46:11
+-- Generated: 2026-03-19 11:51:55
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_service_area_mapper (

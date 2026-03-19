@@ -28,7 +28,7 @@ def _write_config(tmp_path: Path) -> Path:
             "rel_directory": str((out_dir / "rel").relative_to(Path.cwd().resolve())),
             "cql_directory": str((out_dir / "cql").relative_to(Path.cwd().resolve())),
         },
-        "llm_comment_generation": {"enabled": False},
+        "comment_generation": {"enabled": False},
     }
     path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump(cfg, allow_unicode=True), encoding="utf-8")
@@ -89,7 +89,7 @@ class _DummyCQLGenerator:
 
 
 class _DummyJsonLlmEnhancer:
-    def __init__(self, _config: dict):
+    def __init__(self, _config: dict, **kwargs):
         pass
 
     def enhance_json_files(self, json_files):

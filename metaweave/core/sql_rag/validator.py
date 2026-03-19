@@ -318,6 +318,7 @@ class SQLValidator:
             )
 
             try:
+                logger.debug("SQLValidator 当前 LLM 模型: %s", self.llm_service.model)
                 response = self.llm_service.call_llm(
                     prompt, system_message=SQL_REPAIR_SYSTEM_PROMPT
                 )

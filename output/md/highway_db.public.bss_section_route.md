@@ -6,7 +6,7 @@
 - created_by (character varying(50)) - 创建人用户名 [示例: admin, admin]
 - update_ts (timestamp without time zone) - 记录最后更新时间戳 [示例: null]
 - updated_by (character varying(50)) - 最后更新人用户名 [示例: null]
-- delete_ts (timestamp without time zone) - 逻辑删除时间戳 [示例: null]
+- delete_ts (timestamp without time zone) - 逻辑删除时间戳（为空表示未删除） [示例: null]
 - deleted_by (character varying(50)) - 逻辑删除人用户名 [示例: null]
 - section_name (character varying(255)) - 路段名称 [示例: 昌栗, 昌宁]
 - route_name (character varying(255)) - 路线名称 [示例: 昌栗, 昌韶]

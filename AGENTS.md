@@ -173,7 +173,7 @@ Primary config file: `configs/metadata_config.yaml`
 Key sections:
 - `database` - PostgreSQL connection, schemas, exclusions
 - `llm` - Provider selection (qwen-plus/deepseek), API keys, model parameters
-- `llm_comment_generation` - Enable/disable LLM comments, language
+- `comment_generation` - Enable/disable LLM comments, language
 - `logical_key_detection` - Candidate key discovery settings
 - `sampling` - Sample size for data profiling
 - `output` - Output directories and formats
@@ -182,6 +182,19 @@ Environment variables (`.env`):
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
 - `DASHSCOPE_API_KEY`, `DASHSCOPE_MODEL` (for qwen-plus)
 - `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL`, `DEEPSEEK_API_BASE` (for deepseek)
+
+#### Module-level LLM Override
+
+Modules can override the global `llm` config via `xxx.llm` (deep merge semantics). The resolver is `metaweave/services/llm_config_resolver.py`.
+
+Currently supported module-level LLM paths:
+- `domain_generation.llm`
+- `sql_rag.llm`
+- `relationships.llm`
+- `json_llm.llm`
+- `comment_generation.llm`
+
+All five modules have been integrated. Declaring unsupported paths in YAML will raise `ValueError` at startup.
 
 ### Data Models
 

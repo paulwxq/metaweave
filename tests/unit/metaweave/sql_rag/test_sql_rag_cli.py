@@ -21,7 +21,7 @@ def setup_configs(tmp_path):
     """创建 CLI 测试所需的配置文件和目录"""
     # metadata_config.yaml
     meta_cfg = {
-        "llm": {"active": "test", "providers": {"test": {}}},
+        "llm": {"active": "test", "providers": {"test": {"model": "test-model"}}},
         "database": {"host": "localhost", "port": 5432, "database": "testdb"},
         "embedding": {
             "active": "qwen",

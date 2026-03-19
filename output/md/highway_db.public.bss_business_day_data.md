@@ -1,4 +1,4 @@
-# public.bss_business_day_data（服务区每日各支付渠道交易数据统计表，记录各服务区、分店按日期的微信、支付宝、现金等支付金额与订单数）
+# public.bss_business_day_data（服务区日营业数据表，记录各服务区按支付渠道（微信、支付宝等）划分的订单量与收款金额）
 ## 字段列表：
 - id (character varying(32)) - 业务日数据记录唯一标识ID [示例: 00827DFF993D415488EA1F07CAE6C440, 00e799048b8cbb8ee758eac9c8b4b820]
 - version (integer(32)) - 数据版本号，用于乐观锁控制 [示例: 1, 1]
@@ -24,7 +24,7 @@
 - jd (numeric(19,4)) - 京东支付金额（单位：元） [示例: 0.0, 0.0]
 - jd_order (integer(32)) - 金豆支付数量 [示例: 0.0, 0.0]
 - order_sum (integer(32)) - 订单总数 [示例: 324.0, 146.0]
-- pay_sum (numeric(19,4)) - 当日总支付金额（单位：元） [示例: 6077.5, 2687.0]
+- pay_sum (numeric(19,4)) - 当日总支付金额（单位：元，为各渠道之和） [示例: 6077.5, 2687.0]
 - source_type (integer(32)) - 数据来源类别 [示例: 1, 0]
 ## 字段补充说明：
 - 主键约束 bss_business_day_data_pkey: id

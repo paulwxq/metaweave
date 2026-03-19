@@ -1,38 +1,35 @@
 # 数据库业务主题配置
 database:
   name: highway_db
-  description: highway_db 是面向全国高速公路服务区运营与数字化管理的业务分析型数据库，全面覆盖服务区基础资产（位置、类型、所属公司）、路段与路网拓扑关系、多业态分支网点（餐饮/小吃）、日级客流与车流统计、全渠道支付交易明细、跨系统服务区标识映射、业务元数据治理及用户查询反馈闭环等核心场景，支撑经营分析、资源调度、服务质量评估与智能SQL辅助生成。
+  description: highway_db数据库专注于收集和管理多个高速公路服务区的相关数据，包括服务区的基础信息、日常运营情况、客户使用行为以及公司结构等。通过这些数据，可以支持对服务区经营状况的分析、服务质量的改进及用户满意度提升等工作。
 llm_inference:
   max_domains_per_table: 3
 domains:
 - name: _未分类_
   description: 无法归入其他业务主题的表
   tables:
+  - highway_db.public.highway_metadata
   - highway_db.public.qa_feedback
-- name: 服务区基础资产与组织管理
-  description: 管理高速公路服务区实体及其所属组织架构，包括服务区基本信息、公司主体、唯一标识映射及审计属性，是所有业务数据的空间与组织锚点。
+- name: 服务区管理
+  description: 涉及服务区的基本信息维护及其与路线之间的关联关系。
   tables:
   - highway_db.public.bss_service_area
-  - highway_db.public.bss_company
-  - highway_db.public.bss_service_area_mapper
-- name: 路网结构与空间关联
-  description: 刻画高速公路物理路网结构，定义路段、路线及其与服务区的空间隶属关系，为地理分析、路径推演和服务区辐射范围建模提供拓扑基础。
-  tables:
-  - highway_db.public.bss_section_route
   - highway_db.public.bss_section_route_area_link
-- name: 服务区经营业态与网点管理
-  description: 聚焦服务区内部商业生态，记录餐饮及小吃等细分业态的分支网点信息，支撑业态分布、网点密度及多层级运营单元管理。
-  tables:
-  - highway_db.public.bss_branch
-- name: 交通流量与车辆行为分析
-  description: 采集并统计各服务区内按日分车型的车辆到达与使用数据，用于分析车流特征、高峰时段、车型结构及服务区承载能力。
-  tables:
-  - highway_db.public.bss_car_day_count
-- name: 支付交易与经营绩效分析
-  description: 记录各服务区及分支网点按日、按支付渠道（微信、支付宝、现金等）的交易金额与订单数，支撑营收监控、渠道效能评估与经营决策。
+  - highway_db.public.bss_section_route
+  - highway_db.public.bss_service_area_mapper
+- name: 营业数据分析
+  description: 包含服务区每日的营业表现，如不同支付渠道下的订单量与收入总额。
   tables:
   - highway_db.public.bss_business_day_data
-- name: 业务元数据与分析治理
-  description: 存储高速公路领域关键分析主题的语义定义、关联表结构、典型业务问题及关键词，驱动自助分析、智能SQL生成与知识沉淀。
+- name: 顾客行为研究
+  description: 记录了每天各类型车辆在服务区内的使用频率，有助于理解顾客偏好。
   tables:
-  - highway_db.public.highway_metadata
+  - highway_db.public.bss_car_day_count
+- name: 企业组织架构
+  description: 存储有关公司的基本信息，包括分公司详情。
+  tables:
+  - highway_db.public.bss_company
+- name: 餐饮服务
+  description: 涵盖了服务区内部餐饮及小吃店的位置分布和服务点信息。
+  tables:
+  - highway_db.public.bss_branch

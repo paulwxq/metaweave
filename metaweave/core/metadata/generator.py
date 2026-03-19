@@ -78,11 +78,12 @@ class MetadataGenerator:
         self.extractor = None
         
         # LLM 服务（如果启用）
-        comment_config = self.config.get("llm_comment_generation", {})
+        comment_config = self.config.get("comment_generation", {})
         self.comment_enabled = comment_config.get("enabled", True)
         
         if self.comment_enabled:
-            llm_config = self.config.get("llm", {})
+            from metaweave.services.llm_config_resolver import resolve_module_llm_config
+            llm_config = resolve_module_llm_config(self.config, "comment_generation.llm")
             try:
                 self.llm_service = LLMService(llm_config)
 

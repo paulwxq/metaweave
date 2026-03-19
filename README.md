@@ -108,6 +108,32 @@ DASHSCOPE_BASE_URI=https://dashscope.aliyuncs.com/compatible-mode/v1
 
 2. 编辑 `configs/metadata_config.yaml` 按需调整配置（通常默认即可）。
 
+### 模块级 LLM 配置覆盖
+
+MetaWeave 支持在全局 `llm` 配置的基础上，为特定模块单独覆盖 LLM 参数（深合并语义）。只需在对应模块的配置段下添加 `llm` 子键即可，未声明的字段自动继承全局配置。
+
+**当前已支持模块级 LLM 覆盖的模块：**
+
+| 模块 | 配置路径 | 说明 |
+|------|---------|------|
+| Domain Generation | `domain_generation.llm` | 业务域生成 |
+| SQL RAG | `sql_rag.llm` | Question-SQL 生成与校验 |
+| Relationships | `relationships.llm` | LLM 关系发现 |
+| JSON LLM | `json_llm.llm` | LLM 增强 JSON 画像 |
+| Comment Generation | `comment_generation.llm` | 注释生成 |
+
+示例：为 SQL RAG 切换到更强的 Qwen 模型：
+
+```yaml
+sql_rag:
+  llm:
+    providers:
+      qwen:
+        model: qwen-max
+```
+
+> 所有五个模块均已完成模块级 LLM 覆盖接入。
+
 ### 两段式执行
 
 MetaWeave 采用**两段式流水线**：先生成元数据产物，再加载到目标数据库。

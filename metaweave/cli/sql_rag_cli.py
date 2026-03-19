@@ -17,9 +17,20 @@ logger = logging.getLogger("metaweave.cli")
 
 
 def _load_main_config(config_path: str, project_root: Path) -> dict:
-    """用 ConfigLoader 加载主配置文件（metadata_config.yaml），支持 ${ENV_VAR} 展开"""
+    """用 ConfigLoader 加载主配置文件（metadata_config.yaml），支持 ${ENV_VAR} 展开。
+
+    加载后立即执行全局预检（白名单 + 非标准路径），与 metadata_cli / pipeline_cli 行为一致。
+    """
+    from metaweave.services.llm_config_resolver import (
+        _validate_declared_module_llm_paths,
+        _validate_nonstandard_llm_paths,
+    )
+
     path = _resolve_path(config_path, project_root)
-    return ConfigLoader(str(path)).load()
+    full_config = ConfigLoader(str(path)).load()
+    _validate_declared_module_llm_paths(full_config)
+    _validate_nonstandard_llm_paths(full_config)
+    return full_config
 
 
 @click.group(name="sql-rag")
@@ -72,10 +83,11 @@ def generate(config: str, domains_config: str, md_dir: str, clean: bool, debug: 
     sql_rag_cfg = main_config.get("sql_rag", {})
     generation_config = sql_rag_cfg.get("generation", {})
 
-    # 初始化 LLMService
+    # 初始化 LLMService（通过统一解析器，支持 sql_rag.llm 深合并覆盖）
     from metaweave.services.llm_service import LLMService
+    from metaweave.services.llm_config_resolver import resolve_module_llm_config
 
-    llm_config = main_config.get("llm", {})
+    llm_config = resolve_module_llm_config(main_config, "sql_rag.llm")
     llm_service = LLMService(llm_config)
 
     # 创建生成器
@@ -186,8 +198,9 @@ def validate(
     llm_service = None
     if enable_repair:
         from metaweave.services.llm_service import LLMService
+        from metaweave.services.llm_config_resolver import resolve_module_llm_config
 
-        llm_config = main_config.get("llm", {})
+        llm_config = resolve_module_llm_config(main_config, "sql_rag.llm")
         llm_service = LLMService(llm_config)
 
     # 解析 MD 和 REL 目录（修复时提供上下文）
@@ -365,8 +378,9 @@ def run_all(
     click.echo("=" * 50)
 
     from metaweave.services.llm_service import LLMService
+    from metaweave.services.llm_config_resolver import resolve_module_llm_config
 
-    llm_config = main_config.get("llm", {})
+    llm_config = resolve_module_llm_config(main_config, "sql_rag.llm")
     llm_service = LLMService(llm_config)
 
     from metaweave.core.sql_rag.generator import QuestionSQLGenerator

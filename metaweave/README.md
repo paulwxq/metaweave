@@ -226,7 +226,7 @@ llm:
 ### 注释生成配置
 
 ```yaml
-llm_comment_generation:
+comment_generation:
   enabled: true
   language: zh-CN
 ```
@@ -277,7 +277,7 @@ src/metaweave/
 - 检查 API Key 是否正确
 - 检查网络连接
 - 查看日志文件 `logs/metaweave/metadata.log`
-- 可以禁用注释生成：在配置文件中设置 `llm_comment_generation.enabled: false`
+- 可以禁用注释生成：在配置文件中设置 `comment_generation.enabled: false`
 
 ### 2. 数据库连接失败
 

@@ -1,0 +1,35 @@
+# 数据库业务主题配置
+database:
+  name: highway_db
+  description: highway_db是一个专注于高速公路服务区运营管理的数据库，涵盖了服务区的基础信息、餐饮分支门店详情、每日经营状况、车型使用情况、公司组织结构以及路段与服务区之间的关联关系等多方面数据。此外，还包含用户反馈记录用于优化问答系统。
+llm_inference:
+  max_domains_per_table: 3
+domains:
+- name: _未分类_
+  description: 无法归入其他业务主题的表
+  tables:
+  - highway_db.public.highway_metadata
+  - highway_db.public.qa_feedback
+- name: 服务区管理
+  description: 负责管理所有与服务区相关的静态和动态信息。
+  tables:
+  - highway_db.public.bss_service_area
+  - highway_db.public.bss_service_area_mapper
+  - highway_db.public.bss_section_route_area_link
+- name: 餐饮服务
+  description: 涵盖服务区内的餐饮店铺信息及其运营数据。
+  tables:
+  - highway_db.public.bss_branch
+  - highway_db.public.bss_business_day_data
+- name: 车辆流量分析
+  description: 记录并分析通过服务区的不同类型车辆的数量。
+  tables:
+  - highway_db.public.bss_car_day_count
+- name: 公司与组织架构
+  description: 存储了参与服务区运营的相关公司的基本信息。
+  tables:
+  - highway_db.public.bss_company
+- name: 路线与路段管理
+  description: 涉及高速公路上各个路段的基本属性及其与服务区的关系。
+  tables:
+  - highway_db.public.bss_section_route

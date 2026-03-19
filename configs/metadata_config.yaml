@@ -274,7 +274,7 @@ vector_database:
       schema: vectors             # 向量数据存储的 schema
 
 # 注释生成配置,启用llm
-llm_comment_generation:
+comment_generation:
   enabled: true                 # 总开关
   language: zh  # 注释语言：zh / en / bilingual
   max_columns_per_call: 120     # 单批处理的缺失字段上限
@@ -413,6 +413,10 @@ decision:
 domain_generation:
   # 送入 LLM 的 MD 文件数量上限（优先级：CLI --md-limit > 此值 > 默认 100）
   md_context_limit: 100
+  llm:
+    providers:
+      qwen:
+        model: qwen-max
   # 为 Domain 生成指定专属 LLM（深合并覆盖，其余字段继承全局 llm）
   # 示例1：切换到 qwen-max 模型
   # llm:
@@ -476,7 +480,19 @@ sql_rag:
     uncategorized_questions: 3
     skip_uncategorized: false
     output_dir: "output/sql"
-    llm_timeout: 120
+
+  # 为 SQL RAG 指定专属 LLM（深合并覆盖，其余字段继承全局 llm）
+  # 示例1：切换到 qwen-max 模型
+  # llm:
+  #   providers:
+  #     qwen:
+  #       model: qwen-max
+  # 示例2：切换到 deepseek 并覆盖超时
+  # llm:
+  #   active: deepseek
+  #   providers:
+  #     deepseek:
+  #       timeout: 120
 
   validation:
     sql_validation_max_concurrent: 5
@@ -485,3 +501,30 @@ sql_rag:
     sql_validation_max_retries: 2
     enable_sql_repair: true
     repair_batch_size: 1
+
+# ============================================================
+# 模块级 LLM 覆盖说明
+# ============================================================
+# 以下模块支持通过 xxx.llm 子键对全局 llm 配置进行深合并覆盖：
+#   - domain_generation.llm  （第一阶段已支持）
+#   - sql_rag.llm            （第二阶段已支持，示例见上方 sql_rag 段）
+#   - relationships.llm      （第三阶段已支持）
+#   - json_llm.llm           （第三阶段已支持）
+#   - comment_generation.llm （第四阶段已支持）
+# 所有五个模块均已完成模块级 LLM 覆盖接入。
+#
+# 示例：为 LLM 关系发现指定专属模型
+# relationships:
+#   llm:
+#     active: deepseek
+#     providers:
+#       deepseek:
+#         model: deepseek-chat
+#         timeout: 180
+#
+# 示例：为 JSON LLM 增强指定专属模型
+# json_llm:
+#   llm:
+#     providers:
+#       qwen:
+#         model: qwen-max

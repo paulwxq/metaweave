@@ -97,6 +97,7 @@ class DomainGenerator:
         logger.debug("Domain generation prompt:\n%s", prompt)
 
         logger.info("正在调用 LLM 生成 database/domains 配置...")
+        logger.debug("DomainGenerator 当前 LLM 模型: %s", self.llm_service.model)
         response = self.llm_service._call_llm(prompt)
         payload = self._parse_response(response)
 

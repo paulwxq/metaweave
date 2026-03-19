@@ -167,6 +167,7 @@ class QuestionSQLGenerator:
         )
 
         # 调用 LLM
+        logger.debug("QuestionSQLGenerator 当前 LLM 模型: %s", self.llm_service.model)
         response = self.llm_service.call_llm(prompt, system_message=SYSTEM_PROMPT)
 
         # 解析并清洗

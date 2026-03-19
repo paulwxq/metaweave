@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-18T12:46:27.998719",
+  "generated_timestamp": "2026-03-19T11:52:22.136813",
   "table_info": {
     "database": "highway_db",
     "schema_name": "public",
     "table_name": "qa_feedback",
     "table_type": "table",
-    "comment": "用户对SQL查询结果的反馈记录，包括问题、生成SQL、点赞状态及是否用于训练",
+    "comment": "用户对SQL查询结果的反馈记录，包含问题、生成SQL、点赞状态及训练数据标记",
     "comment_source": "ddl",
     "total_rows": 20,
     "total_columns": 8
@@ -121,7 +121,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "生成的对应SQL查询语句",
+      "comment": "系统生成的对应SQL查询语句",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 20,
@@ -173,7 +173,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "用户是否点赞（True-点赞，False-未点赞）",
+      "comment": "用户是否点赞（True-是，False-否）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 20,
@@ -235,7 +235,7 @@
       "numeric_scale": null,
       "is_nullable": false,
       "column_default": null,
-      "comment": "提交反馈的用户ID",
+      "comment": "提交反馈的用户标识",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 20,
@@ -580,5 +580,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-18T12:46:55.780514"
+  "llm_enhanced_at": "2026-03-19T11:52:56.315351"
 }

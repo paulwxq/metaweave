@@ -31,31 +31,40 @@ class JsonLlmEnhancer:
     通过 LLM 进行表分类覆盖和注释增强，结果原地写回 JSON 文件。
     """
 
-    def __init__(self, config: Dict, connector: Optional[DatabaseConnector] = None):
+    def __init__(
+        self,
+        config: Dict,
+        connector: Optional[DatabaseConnector] = None,
+        runtime_override: Optional[Dict] = None,
+    ):
         """初始化 LLM 增强处理器
 
         Args:
             config: 完整配置字典
             connector: 数据库连接器（仅用于传递配置，不实际查库）
+            runtime_override: 运行时 LLM 配置覆盖（如 CLI 强制 use_async=False）
         """
-        self.config = config
-        self.llm_service = LLMService(config.get("llm", {}))
+        from metaweave.services.llm_config_resolver import resolve_module_llm_config
 
-        # 注释生成配置（沿用现有 configs/metadata_config.yaml 的 llm_comment_generation.*）
-        comment_config = config.get("llm_comment_generation", {})
+        self.config = config
+        llm_config = resolve_module_llm_config(config, "json_llm.llm", runtime_override=runtime_override)
+        self.llm_service = LLMService(llm_config)
+
+        # 注释生成配置（沿用 configs/metadata_config.yaml 的 comment_generation.*）
+        comment_config = config.get("comment_generation", {})
         self.comment_generation_enabled = comment_config.get("enabled", True)
         self.comment_language = (comment_config.get("language", "zh") or "zh").strip().lower()
         if self.comment_language in {"zh-cn", "zh_cn"}:
             self.comment_language = "zh"
         if self.comment_language not in {"zh", "en", "bilingual"}:
-            logger.warning("无效的 llm_comment_generation.language=%s，回退到 zh", self.comment_language)
+            logger.warning("无效的 comment_generation.language=%s，回退到 zh", self.comment_language)
             self.comment_language = "zh"
         self.overwrite_existing = comment_config.get("overwrite_existing", False)
         self.max_columns_per_call = comment_config.get("max_columns_per_call", 120)
         self.enable_batch_processing = comment_config.get("enable_batch_processing", True)
 
-        # 异步配置
-        langchain_config = config.get("llm", {}).get("langchain_config", {})
+        # 异步配置（从 resolver 合并后的 llm_config 读取，已包含 runtime_override）
+        langchain_config = llm_config.get("langchain_config", {})
         self.use_async = langchain_config.get("use_async", False)
 
     def enhance_json_directory(self, json_dir: Path):
@@ -129,6 +138,7 @@ class JsonLlmEnhancer:
                 else:
                     prompt0 = self._build_classification_only_prompt(llm_input)
 
+                logger.debug("JsonLlmEnhancer 当前 LLM 模型: %s", self.llm_service.model)
                 response0 = self.llm_service.call_llm(prompt0)
                 llm_result0 = self._parse_llm_response(response0, table_name)
 
@@ -141,6 +151,7 @@ class JsonLlmEnhancer:
                         "columns_need_comment": batch_cols,
                     }
                     prompt_i = self._build_comments_only_prompt(llm_input, batch_needs)
+                    logger.debug("JsonLlmEnhancer 当前 LLM 模型: %s", self.llm_service.model)
                     response_i = self.llm_service.call_llm(prompt_i)
                     llm_result_i = self._parse_llm_response(response_i, table_name)
                     if llm_result_i and isinstance(llm_result_i.get("column_comments"), dict):
@@ -238,6 +249,11 @@ class JsonLlmEnhancer:
             if total:
                 logger.info("LLM 增强进度: %s/%s", done, total)
 
+        logger.debug(
+            "JsonLlmEnhancer 当前 LLM 模型: %s（异步批量，共 %s 个 prompts）",
+            self.llm_service.model,
+            len(prompts),
+        )
         results = await self.llm_service.batch_call_llm_async(prompts, on_progress=on_progress)
         # 约定：LLMService.batch_call_llm_async 返回 List[Tuple[int, str]]，
         # 其中 int 是 prompts 的原始下标，str 是对应响应；并且内部会按下标排序返回。

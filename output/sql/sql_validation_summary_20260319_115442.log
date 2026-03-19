@@ -1,0 +1,70 @@
+SQL验证报告
+==================================================
+
+输入文件: output/sql/qs_highway_db_pair.json
+验证时间: 2026-03-19T11:54:42.303533
+验证耗时: 0.04秒
+
+验证结果摘要:
+  总SQL数量: 18
+  有效SQL: 13
+  无效SQL: 5
+  成功率: 72.22%
+  平均耗时: 0.010秒
+  重试次数: 0
+
+SQL修复统计:
+  尝试修复: 5
+  修复成功: 5
+  修复失败: 0
+  修复成功率: 100.00%
+
+修复结果回写统计:
+  替换的SQL: 5
+  删除的无效项: 0
+  回写失败: 0
+
+成功修复的SQL（共5个）:
+==================================================
+
+1. 问题: 近30天内，各服务区日均营收排名前5的服务区名称及日均营收额
+   原始错误: 字段 b.service_area_id 不存在
+LINE 1: ...ss_business_day_data b JOIN bss_service_area s ON b.service_...
+                                                             ^
+HINT:  也许您想要引用列"s.service_area_no"。
+   修复后SQL:
+   SELECT s.service_area_name AS 服务区名称, AVG(b.pay_sum) AS 日均营收额 FROM bss_business_day_data b JOIN bss_service_area s ON b.service_no = s.service_area_no WHERE b.oper_date >= CURRENT_DATE - INTERVAL '30 days' AND b.delete_ts IS NULL GROUP BY s.service_area_name ORDER BY 日均营收额 DESC LIMIT 5;
+----------------------------------------
+
+2. 问题: 查询未被逻辑删除且近7天有营业记录的所有档口明细，包括档口名、所属服务区、最近一次营业日期及当日订单总数
+   原始错误: 字段 b.branch_id 不存在
+LINE 1: ...ROM bss_business_day_data b JOIN bss_branch br ON b.branch_i...
+                                                             ^
+HINT:  也许您想要引用列"b.branch_no"。
+   修复后SQL:
+   SELECT br.branch_name AS 档口名称, sa.service_area_name AS 所属服务区, b.oper_date AS 最近营业日期, b.order_sum AS 当日订单总数 FROM bss_business_day_data b JOIN bss_branch br ON b.branch_no = br.branch_no JOIN bss_service_area sa ON b.service_no = sa.service_area_no WHERE b.delete_ts IS NULL AND b.oper_date >= CURRENT_DATE - INTERVAL '7 days' AND (b.branch_no, b.oper_date) IN (SELECT branch_no, MAX(oper_date) FROM bss_business_day_data WHERE delete_ts IS NULL GROUP BY branch_no) ORDER BY 最近营业日期 DESC, 档口名称;
+----------------------------------------
+
+3. 问题: 统计各服务区中餐饮档口的数量，并按数量降序排列，仅显示档口数大于1的服务区
+   原始错误: 字段 sa.name 不存在
+LINE 1: EXPLAIN SELECT sa.name AS 服务区名称, COUNT(b.id) AS 餐饮档...
+                       ^
+   修复后SQL:
+   SELECT sa.service_area_name AS 服务区名称, COUNT(b.id) AS 餐饮档口数量 FROM public.bss_branch b JOIN public.bss_service_area sa ON b.service_area_id = sa.id WHERE b.classify = '餐饮' AND b.delete_ts IS NULL GROUP BY sa.service_area_name HAVING COUNT(b.id) > 1 ORDER BY 餐饮档口数量 DESC;
+----------------------------------------
+
+4. 问题: 列出所有手工录入的餐饮档口信息，包括档口名称、品牌、所属服务区名称及方向，按创建时间倒序排列
+   原始错误: 字段 sa.name 不存在
+LINE 1: ...branch_name AS 档口名称, b.product_brand AS 品牌, sa.name AS...
+                                                             ^
+   修复后SQL:
+   SELECT b.branch_name AS 档口名称, b.product_brand AS 品牌, sa.service_area_name AS 服务区名称, b.direction AS 方向, b.create_ts AS 创建时间 FROM public.bss_branch b JOIN public.bss_service_area sa ON b.service_area_id = sa.id WHERE b.is_manual_entry = 1 AND b.classify = '餐饮' AND b.delete_ts IS NULL ORDER BY b.create_ts DESC;
+----------------------------------------
+
+5. 问题: 对比南区与西区餐饮档口的平均档口数量（按服务区维度），要求只统计至少有2个餐饮档口的服务区，并显示区域名称和平均档口数
+   原始错误: 对于表"b",丢失FROM子句项
+LINE 1: EXPLAIN SELECT b.direction AS 区域名称, AVG(branch_count) AS...
+                       ^
+   修复后SQL:
+   SELECT sub.direction AS 区域名称, AVG(sub.branch_count) AS 平均档口数量 FROM (SELECT b.service_area_id, b.direction, COUNT(*) AS branch_count FROM public.bss_branch b WHERE b.classify = '餐饮' AND b.delete_ts IS NULL AND b.direction IN ('南区', '西区') GROUP BY b.service_area_id, b.direction HAVING COUNT(*) >= 2) AS sub GROUP BY sub.direction;
+----------------------------------------

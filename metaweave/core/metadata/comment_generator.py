@@ -63,6 +63,7 @@ class CommentGenerator:
         
         # 调用 LLM 生成注释
         try:
+            logger.debug("CommentGenerator 当前 LLM 模型: %s", self.llm_service.model)
             comment = self.llm_service.generate_table_comment(
                 table_name=metadata.table_name,
                 columns=columns,
@@ -129,6 +130,7 @@ class CommentGenerator:
         
         # 调用 LLM 生成注释
         try:
+            logger.debug("CommentGenerator 当前 LLM 模型: %s", self.llm_service.model)
             comments = self.llm_service.generate_column_comments(
                 table_name=metadata.table_name,
                 columns=columns_info,

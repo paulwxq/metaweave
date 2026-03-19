@@ -2,7 +2,7 @@
 -- Database: highway_db
 -- Table: public.bss_section_route
 -- Comment: 路段与路线关联表，存储路段名称、所属路线及唯一编码信息
--- Generated: 2026-03-18 12:46:10
+-- Generated: 2026-03-19 11:51:54
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_section_route (
@@ -27,7 +27,7 @@ COMMENT ON COLUMN public.bss_section_route.create_ts IS '记录创建时间戳';
 COMMENT ON COLUMN public.bss_section_route.created_by IS '创建人用户名';
 COMMENT ON COLUMN public.bss_section_route.update_ts IS '记录最后更新时间戳';
 COMMENT ON COLUMN public.bss_section_route.updated_by IS '最后更新人用户名';
-COMMENT ON COLUMN public.bss_section_route.delete_ts IS '逻辑删除时间戳';
+COMMENT ON COLUMN public.bss_section_route.delete_ts IS '逻辑删除时间戳（为空表示未删除）';
 COMMENT ON COLUMN public.bss_section_route.deleted_by IS '逻辑删除人用户名';
 COMMENT ON COLUMN public.bss_section_route.section_name IS '路段名称';
 COMMENT ON COLUMN public.bss_section_route.route_name IS '路线名称';

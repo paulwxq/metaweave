@@ -24,12 +24,18 @@
 
 from __future__ import annotations
 
+import copy
+
 # --------------------------------------------------------------------------
 # 已支持模块级 LLM 覆盖的路径白名单
 # 每推进一个实施阶段，同步扩展此白名单
 # --------------------------------------------------------------------------
 SUPPORTED_MODULE_LLM_PATHS: set[str] = {
     "domain_generation.llm",
+    "sql_rag.llm",
+    "relationships.llm",
+    "json_llm.llm",
+    "comment_generation.llm",
 }
 
 # 所有已知可能存在 xxx.llm 子键的模块根节点
@@ -47,6 +53,22 @@ _NONSTANDARD_LLM_PATHS: list[str] = [
     "sql_rag.generation.llm",
     "relationships.rel_llm.llm",
 ]
+
+# 明确禁止的非标准散落字段（字段存在即报错）
+_NONSTANDARD_LLM_FIELDS: list[tuple[str, str, str]] = [
+    # (dotted_path, field_desc, target_standard_path)
+    (
+        "sql_rag.generation.llm_timeout",
+        "LLM 超时",
+        "sql_rag.llm.providers.<provider>.timeout",
+    ),
+]
+
+# 已废弃的顶层配置键 → 新键名
+# 配置中出现旧键时直接报错，不做兼容
+_DEPRECATED_TOP_LEVEL_KEYS: dict[str, str] = {
+    "llm_comment_generation": "comment_generation",
+}
 
 # override 顶层允许的合法键（对应 LLMService 消费的 llm 结构）
 _VALID_OVERRIDE_TOP_KEYS: set[str] = {
@@ -72,6 +94,16 @@ _ILLEGAL_LEGACY_KEYS: set[str] = {
 }
 
 
+def _path_exists(config: dict, dotted_path: str) -> bool:
+    """检查点分路径在配置字典中是否存在。"""
+    node = config
+    for part in dotted_path.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return False
+        node = node[part]
+    return True
+
+
 def deep_merge_dict(base: dict, override: dict) -> dict:
     """递归合并两个字典，返回新字典（不修改原始对象）。
 
@@ -79,13 +111,14 @@ def deep_merge_dict(base: dict, override: dict) -> dict:
     - base 和 override 都是 dict 时：同名 key 递归合并，新 key 直接追加
     - override 值不是 dict 时：override 覆盖 base
     - list 类型整块覆盖，不做按位置 merge
+    - 所有 override 值都会被 deep copy，避免返回值与 override 共享引用
     """
     result = dict(base)
     for key, override_val in override.items():
         if key in result and isinstance(result[key], dict) and isinstance(override_val, dict):
             result[key] = deep_merge_dict(result[key], override_val)
         else:
-            result[key] = override_val
+            result[key] = copy.deepcopy(override_val)
     return result
 
 
@@ -104,6 +137,20 @@ def _validate_declared_module_llm_paths(full_config: dict) -> None:
         if "llm" not in module_cfg:
             continue
         path = f"{module_root}.llm"
+        # P1-Fix: 校验 llm 子键必须是 dict，拒绝字符串、列表等非法类型
+        llm_val = module_cfg["llm"]
+        if not isinstance(llm_val, dict):
+            raise ValueError(
+                f"配置错误：'{path}' 的值必须是字典（dict），"
+                f"但实际类型为 {type(llm_val).__name__}：{llm_val!r}\n"
+                f"正确写法示例：\n"
+                f"  {module_root}:\n"
+                f"    llm:\n"
+                f"      active: deepseek\n"
+                f"      providers:\n"
+                f"        deepseek:\n"
+                f"          model: deepseek-chat"
+            )
         if path not in SUPPORTED_MODULE_LLM_PATHS:
             raise ValueError(
                 f"配置错误：检测到 '{path}'，但该模块尚未支持模块级 LLM 覆盖。\n"
@@ -113,24 +160,30 @@ def _validate_declared_module_llm_paths(full_config: dict) -> None:
 
 
 def _validate_nonstandard_llm_paths(full_config: dict) -> None:
-    """检查明确禁止的非标准 llm 路径（错误层级写法）。
+    """检查明确禁止的非标准 llm 路径和散落字段。
 
     此函数应在 CLI / pipeline 入口加载完配置后立即调用，早于任何 step 执行。
     """
     for dotted_path in _NONSTANDARD_LLM_PATHS:
-        parts = dotted_path.split(".")
-        node = full_config
-        found = True
-        for part in parts:
-            if not isinstance(node, dict) or part not in node:
-                found = False
-                break
-            node = node[part]
-        if found:
+        if _path_exists(full_config, dotted_path):
             raise ValueError(
                 f"配置错误：检测到非标准 LLM 路径 '{dotted_path}'。\n"
                 f"LLM 参数应统一写在对应模块根节点下的 'llm' 子键中。\n"
                 f"例如请将 '{dotted_path}' 相关参数移至标准路径（如 sql_rag.llm）。"
+            )
+
+    for dotted_path, field_desc, target_path in _NONSTANDARD_LLM_FIELDS:
+        if _path_exists(full_config, dotted_path):
+            raise ValueError(
+                f"配置错误：检测到非标准 LLM 字段 '{dotted_path}'（{field_desc}）。\n"
+                f"该字段已废弃，请删除并改用标准写法：{target_path}"
+            )
+
+    for old_key, new_key in _DEPRECATED_TOP_LEVEL_KEYS.items():
+        if old_key in full_config:
+            raise ValueError(
+                f"配置错误：检测到已废弃的顶层配置键 '{old_key}'。\n"
+                f"该键已重命名为 '{new_key}'，请将配置中的 '{old_key}' 改为 '{new_key}'。"
             )
 
 
@@ -226,7 +279,7 @@ def resolve_module_llm_config(
         )
 
     # 1. 读取全局 base_llm（深拷贝，避免污染原始配置）
-    base_llm = dict(full_config.get("llm", {}))
+    base_llm = copy.deepcopy(full_config.get("llm", {}))
 
     # 2. 读取模块级 override_llm
     override_llm: dict | None = None
@@ -242,8 +295,16 @@ def resolve_module_llm_config(
                 found = False
                 break
             node = node[part]
-        if found and isinstance(node, dict) and node:
-            override_llm = node
+        if found:
+            # P1-Fix: 路径存在但值不是 dict 时立即报错，拒绝静默回退
+            if not isinstance(node, dict):
+                raise ValueError(
+                    f"配置错误：'{override_path}' 的值必须是字典（dict），"
+                    f"但实际类型为 {type(node).__name__}：{node!r}\n"
+                    f"请将其修改为正确的字典格式。"
+                )
+            if node:  # 非空 dict 才作为 override
+                override_llm = node
     elif override_dict is not None:
         override_llm = override_dict
         path_label = "<override_dict>"

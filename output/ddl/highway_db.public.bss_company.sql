@@ -1,8 +1,8 @@
 -- ====================================
 -- Database: highway_db
 -- Table: public.bss_company
--- Comment: 公司信息表，存储分公司名称、编号及基础审计字段
--- Generated: 2026-03-18 12:46:06
+-- Comment: 公司信息表，存储企业分公司名称、编号及基础审计信息
+-- Generated: 2026-03-19 11:51:51
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_company (
@@ -26,13 +26,13 @@ COMMENT ON COLUMN public.bss_company.create_ts IS '记录创建时间戳';
 COMMENT ON COLUMN public.bss_company.created_by IS '创建人用户名';
 COMMENT ON COLUMN public.bss_company.update_ts IS '记录最后更新时间戳';
 COMMENT ON COLUMN public.bss_company.updated_by IS '最后更新人用户名';
-COMMENT ON COLUMN public.bss_company.delete_ts IS '逻辑删除时间戳（为空表示未删除）';
-COMMENT ON COLUMN public.bss_company.deleted_by IS '逻辑删除人用户名';
+COMMENT ON COLUMN public.bss_company.delete_ts IS '逻辑删除时间戳（NULL表示未删除）';
+COMMENT ON COLUMN public.bss_company.deleted_by IS '逻辑删除操作人用户名';
 COMMENT ON COLUMN public.bss_company.company_name IS '公司名称';
 COMMENT ON COLUMN public.bss_company.company_no IS '公司编码';
 
 -- Table Comment
-COMMENT ON TABLE public.bss_company IS '公司信息表，存储分公司名称、编号及基础审计字段';
+COMMENT ON TABLE public.bss_company IS '公司信息表，存储企业分公司名称、编号及基础审计信息';
 
 /* SAMPLE_RECORDS
 {

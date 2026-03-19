@@ -141,7 +141,9 @@ class LLMRelationshipDiscovery:
 
         self.scorer = RelationshipScorer(self.rel_config, connector, self.name_similarity_service)
 
-        llm_config = config.get("llm", {})
+        from metaweave.services.llm_config_resolver import resolve_module_llm_config
+
+        llm_config = resolve_module_llm_config(config, "relationships.llm")
         self.llm_service = LLMService(llm_config)
 
         output_config = config.get("output", {})
@@ -171,7 +173,7 @@ class LLMRelationshipDiscovery:
         self.single_exclude_roles = set(config.get("single_column", {}).get("exclude_semantic_roles", []))
         self.composite_exclude_roles = set(config.get("composite", {}).get("exclude_semantic_roles", []))
 
-        # 读取 LLM 重试配置
+        # 读取 LLM 重试配置（从 resolver 合并后的 llm_config 读取）
         self.llm_max_retries = llm_config.get("retry_times", 2)
         self.llm_retry_delay = llm_config.get("retry_delay", 1)  # 重试延迟（秒）
 
@@ -322,6 +324,9 @@ class LLMRelationshipDiscovery:
             )
 
             candidates = self._call_llm(tables[table1_name], tables[table2_name])
+            candidates = self._filter_invalid_candidates(
+                candidates, table1_name, table2_name
+            )
             llm_candidates.extend(candidates)
 
             if (i + 1) % 10 == 0:
@@ -373,6 +378,11 @@ class LLMRelationshipDiscovery:
                         total_pairs,
                     )
 
+            logger.debug(
+                "LLMRelationshipDiscovery 当前 LLM 模型: %s（异步批量，共 %s 个 prompts）",
+                self.llm_service.model,
+                len(batch_prompts),
+            )
             results = await self.llm_service.batch_call_llm_async(
                 batch_prompts,
                 on_progress=on_progress,
@@ -383,6 +393,9 @@ class LLMRelationshipDiscovery:
                 t1, t2 = pair_by_idx[idx]
                 if response:
                     candidates = self._parse_llm_response(response)
+                    candidates = self._filter_invalid_candidates(
+                        candidates, t1, t2
+                    )
                     llm_candidates.extend(candidates)
                 else:
                     logger.warning(f"表对 {t1} <-> {t2} 无响应")
@@ -457,10 +470,11 @@ class LLMRelationshipDiscovery:
         """按语义角色过滤候选关系
 
         过滤范围说明：
-        - 仅过滤目标列（to_cols），与 rel 保持一致
-        - 源列（from_cols）不做语义过滤（理由：与 rel 的过滤侧保持一致，rel 只过滤目标列）
+        - 源列（from_cols）：过滤 semantic_role == "complex" 的列（array/json 等不可哈希类型）
+        - 目标列（to_cols）：按完整语义角色规则过滤（与 rel 一致）
 
         过滤规则（优先级从高到低）：
+        0. 源列 complex 类型：永远过滤（不可哈希，无法参与集合比较）
         1. 物理约束目标列（PK/UK/索引）：不过滤语义角色
         2. 非物理约束目标列中，Complex 类型列：永远过滤（即使同名）
         3. 非物理约束目标列中，同名列：不过滤其他语义角色
@@ -497,6 +511,36 @@ class LLMRelationshipDiscovery:
                 from_cols = candidate["from_columns"]
                 to_cols = candidate["to_columns"]
                 exclude_roles = self.composite_exclude_roles
+
+            # --- 源列复杂类型预过滤 ---
+            # 源列如果是 complex 类型（array/json/jsonb 等），评分阶段会因不可哈希
+            # 值触发异常。在此处直接过滤，复用已有画像的 semantic_role。
+            from_table_key = f"{candidate['from_table']['schema']}.{candidate['from_table']['table']}"
+            from_table_json = table_key_map.get(from_table_key.lower())
+
+            if from_table_json:
+                from_col_profile_map = {
+                    col_name.lower(): col_profile
+                    for col_name, col_profile in from_table_json.get("column_profiles", {}).items()
+                }
+                source_has_complex = False
+                for from_col in from_cols:
+                    fcp = from_col_profile_map.get(from_col.lower())
+                    if fcp:
+                        from_role = fcp.get("semantic_analysis", {}).get("semantic_role")
+                        if from_role == "complex":
+                            logger.debug(
+                                "[filter_semantic_roles] 跳过候选（源列 %s 语义角色为 complex）: "
+                                "%s → %s",
+                                from_col,
+                                from_table_key,
+                                f"{candidate['to_table']['schema']}.{candidate['to_table']['table']}",
+                            )
+                            source_has_complex = True
+                            break
+                if source_has_complex:
+                    skipped_count += 1
+                    continue
 
             # 检查目标列（仅过滤目标列，与 rel 一致）
             should_skip = False
@@ -753,6 +797,77 @@ class LLMRelationshipDiscovery:
             inference_method=rel_dict.get("discovery_method")
         )
 
+    # ------------------------------------------------------------------
+    # 候选合法性过滤
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _filter_invalid_candidates(
+        candidates: List[Dict],
+        table1_full: str,
+        table2_full: str,
+    ) -> List[Dict]:
+        """过滤 LLM 返回的非法候选关系。
+
+        规则：
+        1. 同表同列自环（from_table == to_table 且列完全相同）→ 丢弃
+        2. 候选涉及的表不属于当前表对 (table1, table2) → 丢弃
+
+        Args:
+            candidates: _parse_llm_response 的原始输出
+            table1_full: 当前表对的表 1 全限定名（schema.table）
+            table2_full: 当前表对的表 2 全限定名（schema.table）
+
+        Returns:
+            过滤后的候选列表
+        """
+        valid_tables = {table1_full, table2_full}
+        filtered: List[Dict] = []
+
+        for c in candidates:
+            ft = c.get("from_table", {})
+            tt = c.get("to_table", {})
+            from_full = f"{ft.get('schema', '')}.{ft.get('table', '')}"
+            to_full = f"{tt.get('schema', '')}.{tt.get('table', '')}"
+
+            # 规则 1: 同表自环（同表 + 完全相同列）
+            if from_full == to_full:
+                if c.get("type") == "single_column":
+                    same_cols = c.get("from_column") == c.get("to_column")
+                else:
+                    same_cols = c.get("from_columns") == c.get("to_columns")
+                if same_cols:
+                    logger.warning(
+                        "丢弃自环关系: %s.%s -> %s.%s（同表同列）",
+                        from_full,
+                        c.get("from_column") or c.get("from_columns"),
+                        to_full,
+                        c.get("to_column") or c.get("to_columns"),
+                    )
+                    continue
+
+            # 规则 2: 涉及的表不在当前表对范围内
+            if from_full not in valid_tables or to_full not in valid_tables:
+                logger.warning(
+                    "丢弃越界关系: %s -> %s（不属于当前表对 %s <-> %s）",
+                    from_full,
+                    to_full,
+                    table1_full,
+                    table2_full,
+                )
+                continue
+
+            filtered.append(c)
+
+        if len(filtered) < len(candidates):
+            logger.info(
+                "候选过滤: %s -> %s（丢弃 %s 条非法关系）",
+                len(candidates),
+                len(filtered),
+                len(candidates) - len(filtered),
+            )
+        return filtered
+
     def _call_llm(self, table1: Dict, table2: Dict) -> List[Dict]:
         """调用 LLM 获取候选关联（带重试）
 
@@ -768,6 +883,7 @@ class LLMRelationshipDiscovery:
         # 重试逻辑
         for attempt in range(self.llm_max_retries + 1):
             try:
+                logger.debug("LLMRelationshipDiscovery 当前 LLM 模型: %s", self.llm_service.model)
                 response = self.llm_service._call_llm(prompt)
                 candidates = self._parse_llm_response(response)
                 
@@ -988,6 +1104,13 @@ class LLMRelationshipDiscovery:
             
             from_full_name = f"{from_table_info['schema']}.{from_table_info['table']}"
             to_full_name = f"{to_table_info['schema']}.{to_table_info['table']}"
+
+            # 最后防线：同表自环守卫
+            if from_full_name == to_full_name:
+                logger.warning(
+                    "评分阶段拦截同表关系: %s（跳过）", from_full_name
+                )
+                continue
             
             # 获取表元数据
             from_table = tables.get(from_full_name)

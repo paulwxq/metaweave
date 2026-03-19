@@ -38,7 +38,7 @@ def sample_config():
                 "batch_size": 10,
             }
         },
-        "llm_comment_generation": {
+        "comment_generation": {
             "enabled": True,
             "language": "zh",
             "max_columns_per_call": 120,
@@ -225,7 +225,7 @@ class TestCommentNeedsAnalysis:
 
     def test_analyze_comment_needs_with_overwrite(self, sample_config, sample_table_json):
         """测试覆盖模式"""
-        sample_config["llm_comment_generation"]["overwrite_existing"] = True
+        sample_config["comment_generation"]["overwrite_existing"] = True
         enhancer = JsonLlmEnhancer(sample_config)
         needs = enhancer._analyze_comment_needs(sample_table_json)
 
@@ -235,7 +235,7 @@ class TestCommentNeedsAnalysis:
 
     def test_analyze_comment_needs_disabled(self, sample_config, sample_table_json):
         """测试注释生成禁用"""
-        sample_config["llm_comment_generation"]["enabled"] = False
+        sample_config["comment_generation"]["enabled"] = False
         enhancer = JsonLlmEnhancer(sample_config)
         needs = enhancer._analyze_comment_needs(sample_table_json)
 
@@ -321,7 +321,7 @@ class TestCommentMerging:
 
     def test_merge_table_comment_overwrite(self, sample_config, sample_table_json):
         """测试覆盖已有表注释"""
-        sample_config["llm_comment_generation"]["overwrite_existing"] = True
+        sample_config["comment_generation"]["overwrite_existing"] = True
         sample_table_json["table_info"]["comment"] = "旧注释"
         sample_table_json["table_info"]["comment_source"] = "ddl"
 

@@ -1,0 +1,35 @@
+# 数据库业务主题配置
+database:
+  name: highway_db
+  description: highway_db 是一个面向高速公路服务区全生命周期运营管理的业务分析型数据库，覆盖服务区基础资产、所属公司与品牌门店架构、路段与路线拓扑关系、多维度经营数据（含日级交易、车流统计）、跨系统数据映射、业务元数据治理及AI查询反馈闭环等核心场景，支撑运营监控、商业分析、资源调度与智能问答等决策需求。
+llm_inference:
+  max_domains_per_table: 3
+domains:
+- name: _未分类_
+  description: 无法归入其他业务主题的表
+  tables:
+  - highway_db.public.highway_metadata
+  - highway_db.public.qa_feedback
+- name: 服务区基础资产
+  description: 管理高速公路服务区的物理与逻辑实体信息，包括名称、编号、地理位置、类型、运营状态及所属主体，是所有服务区相关分析的数据锚点。
+  tables:
+  - highway_db.public.bss_service_area
+  - highway_db.public.bss_service_area_mapper
+- name: 运营主体与组织架构
+  description: 刻画服务区背后的法人治理结构，涵盖运营公司、餐饮品牌分支等组织单元及其层级关系、资质与审计信息。
+  tables:
+  - highway_db.public.bss_company
+  - highway_db.public.bss_branch
+- name: 路段与路网拓扑
+  description: 描述高速公路基础设施的空间逻辑关系，包括路段、路线的定义及其与服务区的空间隶属与服务覆盖关系。
+  tables:
+  - highway_db.public.bss_section_route
+  - highway_db.public.bss_section_route_area_link
+- name: 经营绩效分析
+  description: 汇聚服务区层级的量化经营结果，包括按日统计的支付交易笔数与金额，支撑收入、渠道、时段等多维商业分析。
+  tables:
+  - highway_db.public.bss_business_day_data
+- name: 交通流量与用户行为
+  description: 记录进入服务区的车辆构成特征（车型维度）及日频次统计，反映服务区吸引力、客群结构与通行规律。
+  tables:
+  - highway_db.public.bss_car_day_count

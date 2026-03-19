@@ -1,12 +1,12 @@
 {
   "metadata_version": "2.0",
-  "generated_timestamp": "2026-03-18T12:46:27.861507",
+  "generated_timestamp": "2026-03-19T11:52:22.046205",
   "table_info": {
     "database": "highway_db",
     "schema_name": "public",
     "table_name": "bss_business_day_data",
     "table_type": "table",
-    "comment": "服务区每日各支付渠道交易数据统计表，记录各服务区、分店按日期的微信、支付宝、现金等支付金额与订单数",
+    "comment": "服务区日营业数据表，记录各服务区按支付渠道（微信、支付宝等）划分的订单量与收款金额",
     "comment_source": "ddl",
     "total_rows": 71321,
     "total_columns": 26
@@ -1258,7 +1258,7 @@
       "numeric_scale": 4,
       "is_nullable": true,
       "column_default": null,
-      "comment": "当日总支付金额（单位：元）",
+      "comment": "当日总支付金额（单位：元，为各渠道之和）",
       "comment_source": "ddl",
       "statistics": {
         "sample_count": 1000,
@@ -1561,5 +1561,5 @@
       }
     ]
   },
-  "llm_enhanced_at": "2026-03-18T12:46:38.451347"
+  "llm_enhanced_at": "2026-03-19T11:52:34.729093"
 }

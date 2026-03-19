@@ -275,12 +275,11 @@ def _step_json_llm(ctx: _PipelineContext) -> None:
     if not json_files:
         raise _StepError("json_llm", ["阶段 1 未生成任何 JSON 文件"])
 
-    cli_config = copy.deepcopy(generator.config)
-    if "llm" in cli_config and "langchain_config" in cli_config["llm"]:
-        cli_config["llm"]["langchain_config"]["use_async"] = False
-
     click.echo("🤖 阶段 2/2: LLM 增强处理（原地写回 output/json）...")
-    enhancer = JsonLlmEnhancer(cli_config)
+    enhancer = JsonLlmEnhancer(
+        generator.config,
+        runtime_override={"langchain_config": {"use_async": False}},
+    )
     enhancer.enhance_json_files(json_files)
 
 
@@ -387,6 +386,7 @@ def _step_cql(ctx: _PipelineContext) -> None:
 def _step_sql_rag_generate(ctx: _PipelineContext) -> None:
     from metaweave.core.metadata.connector import DatabaseConnector
     from metaweave.services.llm_service import LLMService
+    from metaweave.services.llm_config_resolver import resolve_module_llm_config
     from metaweave.core.sql_rag.generator import QuestionSQLGenerator
 
     # 提前创建 DB 连接（步骤 9 需要用于 EXPLAIN）
@@ -397,7 +397,8 @@ def _step_sql_rag_generate(ctx: _PipelineContext) -> None:
 
     generation_config = sql_rag_cfg.get("generation", {})
 
-    llm_service = LLMService(ctx.loaded_config.get("llm", {}))
+    llm_config = resolve_module_llm_config(ctx.loaded_config, "sql_rag.llm")
+    llm_service = LLMService(llm_config)
     generator = QuestionSQLGenerator(llm_service, generation_config)
 
     md_dir = _resolve_md_dir(ctx.loaded_config)
@@ -694,6 +695,10 @@ def pipeline_load(config, with_dim_values, clean, debug):
     """加载产物到目标库（3+1 步串行）"""
     from metaweave.core.loaders.factory import LoaderFactory
     from services.config_loader import ConfigLoader
+    from metaweave.services.llm_config_resolver import (
+        _validate_declared_module_llm_paths,
+        _validate_nonstandard_llm_paths,
+    )
 
     if debug:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -703,6 +708,8 @@ def pipeline_load(config, with_dim_values, clean, debug):
 
     # 通过 ConfigLoader 加载主配置（支持环境变量替换）
     full_config = ConfigLoader(str(config_path)).load()
+    _validate_declared_module_llm_paths(full_config)
+    _validate_nonstandard_llm_paths(full_config)
 
     # 从主配置切出 loaders 段，作为 loader 的 config dict
     loader_cfg = full_config.get("loaders", {})

@@ -189,19 +189,9 @@ def _load_main_config() -> dict[str, Any]:
 
 
 def _build_training_llm_config(full_config: dict[str, Any]) -> dict[str, Any]:
-    llm_config = copy.deepcopy(full_config.get("llm", {}))
-    active = llm_config.get("active")
-    providers = llm_config.get("providers", {})
-    if not active or active not in providers:
-        raise ValueError("全局 llm.active/provider 配置无效，无法构造测试 LLM 配置")
+    from metaweave.services.llm_config_resolver import resolve_module_llm_config
 
-    dedicated = full_config.get("domain_generation", {}).get("llm", {}) or {}
-    model_name = dedicated.get("model_name")
-    if not model_name:
-        raise ValueError("domain_generation.llm.model_name 未配置")
-
-    providers[active]["model"] = model_name
-    return llm_config
+    return resolve_module_llm_config(full_config, "sql_rag.llm")
 
 
 def test_sql_rag_training_scenario_with_rel_context() -> None:

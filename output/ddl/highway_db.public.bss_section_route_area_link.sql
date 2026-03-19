@@ -2,7 +2,7 @@
 -- Database: highway_db
 -- Table: public.bss_section_route_area_link
 -- Comment: 路段路由与服务区的关联关系表，记录路段路由所属的服务区ID
--- Generated: 2026-03-18 12:46:07
+-- Generated: 2026-03-19 11:51:52
 -- ====================================
 
 CREATE TABLE IF NOT EXISTS public.bss_section_route_area_link (
