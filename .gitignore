@@ -1,8 +1,12 @@
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
 
 # Distribution / packaging
+build/
+dist/
+.eggs/
 *.egg-info/
 *.egg
 
@@ -10,31 +14,62 @@ __pycache__/
 .venv/
 .venv-wsl/
 .venv-win/
+.venv-*/
 venv/
 ENV/
 env/
 
 # Environment variables
 .env
-#.env.*
+.env.*
+!.env.example
 
-# Logs / cache / output
+# Runtime output / logs / cache
+output/
 logs/
 cache/
+.cache/
+*.log
+*.pid
 
-# Test
+# Tests / coverage / static analysis
 .pytest_cache/
+tests/.tmp/
 .coverage
+.coverage.*
+coverage.xml
+coverage.json
 htmlcov/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+.tox/
+.nox/
+.pyre/
+.pytype/
+
+# Generated backups / temporary files
+*.bak
+*.bak_*
+*.backup
+*.tmp
+*.temp
+*.orig
+*.rej
+
+# Local agent / assistant state
+.omo/
+.claude/settings.local.json
 
 # IDE
 .vscode/
 .idea/
+.history/
 *.swp
 *.swo
-*.lock
 *~
 
 # OS
 .DS_Store
 Thumbs.db
+._*
