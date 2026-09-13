@@ -44,6 +44,7 @@ def _make_config(active="qwen", model="qwen-plus", domain_llm=None):
 
 class _CaptureLLMService:
     """捕获初始化参数的 mock LLMService"""
+    model = "test-model"
     captured_config: Dict = {}
     response = (
         '{"database": {"name": "TestDB", "description": "test"}, '
@@ -59,6 +60,7 @@ class _CaptureLLMService:
 
 class _TablesLLMService:
     """返回带 tables 的 LLM 响应"""
+    model = "test-model"
     response = ""
     last_prompt = ""
 

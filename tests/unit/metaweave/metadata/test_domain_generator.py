@@ -7,6 +7,7 @@ from metaweave.core.metadata.domain_generator import DomainGenerator
 
 
 class _DummyLLMService:
+    model = "test-model"
     response = """
 {
   "database": {
@@ -29,6 +30,18 @@ class _DummyLLMService:
         return type(self).response
 
 
+def _make_config(database_name: str = "") -> dict:
+    config = {
+        "llm": {
+            "active": "test",
+            "providers": {"test": {"model": "test-model"}},
+        }
+    }
+    if database_name:
+        config["database"] = {"database": database_name}
+    return config
+
+
 def _write_md_file(md_dir: Path) -> None:
     md_dir.mkdir(parents=True, exist_ok=True)
     (md_dir / "shop.public.orders.md").write_text(
@@ -45,7 +58,7 @@ def test_generate_domains_initializes_missing_yaml_and_writes_full_config(tmp_pa
     yaml_path = tmp_path / "configs" / "db_domains.yaml"
 
     generator = DomainGenerator(
-        config={"llm": {}, "database": {"database": "shopdb"}},
+        config=_make_config("shopdb"),
         yaml_path=str(yaml_path),
         md_context_dir=str(md_dir),
         md_context_mode="name_comment",
@@ -73,7 +86,7 @@ def test_generate_domains_requires_md_files(tmp_path, monkeypatch):
     monkeypatch.setattr("metaweave.core.metadata.domain_generator.LLMService", _DummyLLMService)
 
     generator = DomainGenerator(
-        config={"llm": {}},
+        config=_make_config(),
         yaml_path=str(tmp_path / "db_domains.yaml"),
         md_context_dir=str(tmp_path / "missing_md"),
     )
@@ -90,7 +103,7 @@ def test_prompt_without_description_uses_auto_mode(tmp_path, monkeypatch):
     _write_md_file(md_dir)
 
     generator = DomainGenerator(
-        config={"llm": {}},
+        config=_make_config(),
         yaml_path=str(tmp_path / "db_domains.yaml"),
         md_context_dir=str(md_dir),
     )
