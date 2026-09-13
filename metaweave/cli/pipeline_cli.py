@@ -577,6 +577,7 @@ def pipeline_generate(
 ):
     """生成全部产物（9 步串行）"""
     from services.config_loader import ConfigLoader
+    from metaweave.core.metadata.models import normalize_database_object_types
     from metaweave.services.llm_config_resolver import (
         _validate_declared_module_llm_paths,
         _validate_nonstandard_llm_paths,
@@ -590,6 +591,14 @@ def pipeline_generate(
     loaded_config = ConfigLoader(str(config_path)).load()
     _validate_declared_module_llm_paths(loaded_config)
     _validate_nonstandard_llm_paths(loaded_config)
+    ddl_object_types = normalize_database_object_types(
+        loaded_config.get("database", {}).get("include_object_types", ["table"])
+    )
+    if set(ddl_object_types) != {"table"}:
+        raise click.UsageError(
+            "当前版本仅在单独执行 metadata --step ddl 时支持 view 和 "
+            "materialized_view；pipeline generate 下游步骤尚未完成适配。"
+        )
 
     ctx = _PipelineContext(
         project_root=project_root,

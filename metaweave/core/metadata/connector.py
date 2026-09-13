@@ -12,13 +12,22 @@ from psycopg_pool import ConnectionPool
 from contextlib import contextmanager
 
 from metaweave.utils.sql_templates import (
+    CHECK_DATABASE_OBJECT_EXISTS_SQL,
+    GET_DATABASE_OBJECTS_SQL,
     GET_SCHEMAS_SQL,
     GET_TABLES_SQL,
     SAMPLE_DATA_SQL,
     CHECK_TABLE_EXISTS_SQL,
 )
+from metaweave.core.metadata.models import DatabaseObjectRef
 
 logger = logging.getLogger("metaweave.connector")
+
+OBJECT_TYPE_TO_RELKINDS = {
+    "table": ["r", "p"],
+    "view": ["v"],
+    "materialized_view": ["m"],
+}
 
 
 class DatabaseConnector:
@@ -174,6 +183,63 @@ class DatabaseConnector:
         except Exception as e:
             logger.error(f"获取表列表失败 (schema={schema}): {e}")
             return []
+
+    def get_database_objects(
+        self,
+        schema: str,
+        include_object_types: List[str],
+    ) -> List[DatabaseObjectRef]:
+        """获取指定 schema 下选中类型的数据库对象。"""
+        relkinds = [
+            relkind
+            for object_type in include_object_types
+            for relkind in OBJECT_TYPE_TO_RELKINDS[object_type]
+        ]
+        try:
+            results = self.execute_query(GET_DATABASE_OBJECTS_SQL, (schema, relkinds))
+            objects = [
+                DatabaseObjectRef(
+                    schema_name=row["schema_name"],
+                    object_name=row["object_name"],
+                    object_type=row["object_type"],
+                )
+                for row in results
+            ]
+            logger.info(
+                "Schema '%s' 包含 %d 个选中数据库对象（类型: %s）",
+                schema,
+                len(objects),
+                ", ".join(include_object_types),
+            )
+            return objects
+        except Exception as e:
+            logger.error("获取数据库对象失败 (schema=%s): %s", schema, e)
+            return []
+
+    def check_database_object_exists(
+        self,
+        schema: str,
+        object_name: str,
+        object_type: str,
+    ) -> bool:
+        """检查指定类型的数据库对象是否存在。"""
+        relkinds = OBJECT_TYPE_TO_RELKINDS[object_type]
+        try:
+            results = self.execute_query(
+                CHECK_DATABASE_OBJECT_EXISTS_SQL,
+                (schema, object_name, relkinds),
+                fetch_one=True,
+            )
+            return results[0]["exists"] if results else False
+        except Exception as e:
+            logger.error(
+                "检查数据库对象失败 (%s.%s, type=%s): %s",
+                schema,
+                object_name,
+                object_type,
+                e,
+            )
+            return False
     
     def check_table_exists(self, schema: str, table: str) -> bool:
         """检查表是否存在
@@ -222,6 +288,35 @@ class DatabaseConnector:
         except Exception as e:
             logger.error(f"采样数据失败 (schema={schema}, table={table}): {e}")
             return pd.DataFrame()
+
+    def sample_data_preserving_types(
+        self,
+        schema: str,
+        table: str,
+        limit: int = 1000,
+    ) -> pd.DataFrame:
+        """采样数据并保留 psycopg 返回的 Python 标量类型。
+
+        DDL 样例需要区分整数、浮点数和 Decimal。这里绕过 pandas SQL
+        读取时的数值强制转换，并以 object dtype 构造 DataFrame。
+        """
+        try:
+            sql = SAMPLE_DATA_SQL.format(
+                schema=psycopg.sql.Identifier(schema).as_string(None),
+                table=psycopg.sql.Identifier(table).as_string(None),
+            )
+            rows = self.execute_query(sql, (limit,))
+            df = pd.DataFrame(rows, dtype=object)
+            logger.info(
+                "保真采样 %s.%s 获取 %d 行数据",
+                schema,
+                table,
+                len(df),
+            )
+            return df
+        except Exception as e:
+            logger.error("保真采样失败 (%s.%s): %s", schema, table, e)
+            return pd.DataFrame()
     
     def test_connection(self) -> bool:
         """测试数据库连接
@@ -253,4 +348,3 @@ class DatabaseConnector:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """上下文管理器出口"""
         self.close()
-

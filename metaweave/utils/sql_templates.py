@@ -39,11 +39,13 @@ SELECT
     c.column_default,
     pgd.description as column_comment
 FROM information_schema.columns c
-LEFT JOIN pg_catalog.pg_statio_all_tables st 
-    ON c.table_schema = st.schemaname 
-    AND c.table_name = st.relname
+LEFT JOIN pg_catalog.pg_namespace ns
+    ON ns.nspname = c.table_schema
+LEFT JOIN pg_catalog.pg_class cls
+    ON cls.relnamespace = ns.oid
+    AND cls.relname = c.table_name
 LEFT JOIN pg_catalog.pg_description pgd 
-    ON pgd.objoid = st.relid 
+    ON pgd.objoid = cls.oid
     AND pgd.objsubid = c.ordinal_position
 WHERE c.table_schema = %s AND c.table_name = %s
 ORDER BY c.ordinal_position;
@@ -113,6 +115,9 @@ SELECT
     am.amname as index_type,
     ix.indisunique as is_unique,
     ix.indisprimary as is_primary,
+    (con.oid IS NOT NULL) as is_constraint_backed,
+    con.conname as constraint_name,
+    pg_get_indexdef(ix.indexrelid) as index_definition,
     pg_get_expr(ix.indpred, ix.indrelid) as condition,
     array_agg(a.attname ORDER BY array_position(ix.indkey::integer[], a.attnum::integer)) as columns
 FROM pg_indexes i
@@ -127,10 +132,109 @@ JOIN pg_index ix ON ix.indexrelid = (
 JOIN pg_class ic ON ic.oid = ix.indexrelid
 JOIN pg_am am ON am.oid = ic.relam
 JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(ix.indkey)
+LEFT JOIN pg_constraint con
+    ON con.conindid = ix.indexrelid
+    AND con.conrelid = c.oid
+    AND con.contype IN ('p', 'u', 'x')
 WHERE i.schemaname = %s AND i.tablename = %s
 GROUP BY i.indexname, am.amname, ix.indisunique, ix.indisprimary, 
-         ix.indpred, ix.indrelid
+         ix.indpred, ix.indrelid, ix.indexrelid, con.oid, con.conname
 ORDER BY i.indexname;
+"""
+
+# 获取普通表、View 和 Materialized View
+GET_DATABASE_OBJECTS_SQL = """
+SELECT
+    ns.nspname AS schema_name,
+    cls.relname AS object_name,
+    CASE cls.relkind
+        WHEN 'r' THEN 'table'
+        WHEN 'p' THEN 'table'
+        WHEN 'v' THEN 'view'
+        WHEN 'm' THEN 'materialized_view'
+    END AS object_type
+FROM pg_catalog.pg_class cls
+JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
+WHERE ns.nspname = %s
+  AND cls.relkind::text = ANY(%s)
+ORDER BY cls.relname;
+"""
+
+# 检查指定类型的数据库对象是否存在
+CHECK_DATABASE_OBJECT_EXISTS_SQL = """
+SELECT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_class cls
+    JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
+    WHERE ns.nspname = %s
+      AND cls.relname = %s
+      AND cls.relkind::text = ANY(%s)
+);
+"""
+
+# 获取普通表、View 或 Materialized View 的基本信息
+GET_DATABASE_OBJECT_INFO_SQL = """
+SELECT
+    ns.nspname AS schema_name,
+    cls.relname AS object_name,
+    CASE cls.relkind
+        WHEN 'r' THEN 'table'
+        WHEN 'p' THEN 'table'
+        WHEN 'v' THEN 'view'
+        WHEN 'm' THEN 'materialized_view'
+    END AS object_type,
+    obj_description(cls.oid, 'pg_class') AS object_comment
+FROM pg_catalog.pg_class cls
+JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
+WHERE ns.nspname = %s
+  AND cls.relname = %s
+  AND cls.relkind::text = ANY(%s);
+"""
+
+# 获取 View 或 Materialized View 的查询定义
+GET_VIEW_DEFINITION_SQL = """
+SELECT pg_get_viewdef(cls.oid, true) AS view_definition
+FROM pg_catalog.pg_class cls
+JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
+WHERE ns.nspname = %s
+  AND cls.relname = %s
+  AND cls.relkind IN ('v', 'm');
+"""
+
+# information_schema.columns 不覆盖 Materialized View，需直接读取系统目录
+GET_MATERIALIZED_VIEW_COLUMNS_SQL = """
+SELECT
+    attr.attname AS column_name,
+    attr.attnum AS ordinal_position,
+    format_type(attr.atttypid, NULL) AS data_type,
+    information_schema._pg_char_max_length(
+        attr.atttypid,
+        attr.atttypmod
+    ) AS character_maximum_length,
+    information_schema._pg_numeric_precision(
+        attr.atttypid,
+        attr.atttypmod
+    ) AS numeric_precision,
+    information_schema._pg_numeric_scale(
+        attr.atttypid,
+        attr.atttypmod
+    ) AS numeric_scale,
+    CASE WHEN attr.attnotnull THEN 'NO' ELSE 'YES' END AS is_nullable,
+    pg_get_expr(def.adbin, def.adrelid) AS column_default,
+    descr.description AS column_comment
+FROM pg_catalog.pg_class cls
+JOIN pg_catalog.pg_namespace ns ON ns.oid = cls.relnamespace
+JOIN pg_catalog.pg_attribute attr ON attr.attrelid = cls.oid
+LEFT JOIN pg_catalog.pg_attrdef def
+    ON def.adrelid = cls.oid AND def.adnum = attr.attnum
+LEFT JOIN pg_catalog.pg_description descr
+    ON descr.objoid = cls.oid AND descr.objsubid = attr.attnum
+WHERE ns.nspname = %s
+  AND cls.relname = %s
+  AND cls.relkind = 'm'
+  AND attr.attnum > 0
+  AND NOT attr.attisdropped
+ORDER BY attr.attnum;
 """
 
 # 获取所有 schema
@@ -167,4 +271,3 @@ SELECT EXISTS (
     WHERE schemaname = %s AND tablename = %s
 );
 """
-

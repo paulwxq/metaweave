@@ -13,7 +13,7 @@ import pandas as pd
 
 from metaweave.core.metadata.models import TableMetadata
 from metaweave.utils.file_utils import save_text, save_json, ensure_dir
-from metaweave.utils.data_utils import dataframe_to_sample_dict
+from metaweave.utils.data_utils import dataframe_to_sample_dict, format_data_type
 
 logger = logging.getLogger("metaweave.formatter")
 
@@ -43,10 +43,17 @@ class OutputFormatter:
         self.formats = config.get("formats", ["ddl", "markdown", "json"])
         self.ddl_options = config.get("ddl_options", {})
         sample_records_config = self.ddl_options.get("sample_records", {})
+        sample_record_count = sample_records_config.get("count", 3)
+        if isinstance(sample_record_count, bool) or not isinstance(
+            sample_record_count,
+            int,
+        ):
+            raise ValueError("output.ddl_options.sample_records.count 必须是非负整数")
+        if sample_record_count < 0:
+            raise ValueError("output.ddl_options.sample_records.count 必须是非负整数")
         self.sample_record_options = {
             "enabled": sample_records_config.get("enabled", True),
-            "count": sample_records_config.get("count", 3),
-            "label_prefix": sample_records_config.get("label_prefix", "Record"),
+            "count": sample_record_count,
         }
         self.markdown_options = config.get("markdown_options", {})
         self.markdown_sample_value_count = max(
@@ -148,68 +155,135 @@ class OutputFormatter:
         metadata: TableMetadata,
         sample_data: Optional[pd.DataFrame] = None
     ) -> str:
-        """生成 DDL 脚本
+        """生成普通表、View 或 Materialized View 的 DDL 脚本。"""
+        object_type = metadata.table_type or "table"
+        if object_type not in {"table", "view", "materialized_view"}:
+            raise ValueError(f"不支持的数据库对象类型: {object_type}")
         
-        Args:
-            metadata: 表元数据
-            
-        Returns:
-            DDL 脚本内容
-        """
         ddl_lines = []
         
         # 文件头注释
         ddl_lines.append(f"-- ====================================")
         ddl_lines.append(f"-- Database: {self.database_name}")
-        ddl_lines.append(f"-- Table: {metadata.full_name}")
+        object_header_label = {
+            "table": "Table",
+            "view": "View",
+            "materialized_view": "Materialized View",
+        }[object_type]
+        ddl_lines.append(f"-- {object_header_label}: {metadata.full_name}")
+        ddl_lines.append(f"-- Object Type: {object_type}")
         if metadata.comment:
             ddl_lines.append(f"-- Comment: {metadata.comment}")
         ddl_lines.append(f"-- Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         ddl_lines.append(f"-- ====================================")
         ddl_lines.append("")
         
-        # CREATE TABLE 语句
-        ddl_lines.append(f"CREATE TABLE IF NOT EXISTS {metadata.full_name} (")
+        if object_type == "table":
+            ddl_lines.extend(self._build_create_table_statement(metadata))
+        else:
+            definition = (metadata.view_definition or "").strip().rstrip(";")
+            if not definition:
+                raise ValueError(f"{metadata.full_name} 缺少 View 定义")
+            if object_type == "view":
+                ddl_lines.append(
+                    f"CREATE OR REPLACE VIEW {metadata.full_name} AS\n{definition};"
+                )
+            else:
+                ddl_lines.append(
+                    f"CREATE MATERIALIZED VIEW IF NOT EXISTS {metadata.full_name} AS\n"
+                    f"{definition};"
+                )
+        ddl_lines.append("")
         
-        # 字段定义
+        if object_type in {"view", "materialized_view"}:
+            ddl_lines.extend(self._build_view_object_metadata_block(metadata))
+            ddl_lines.append("")
+
+        # 字段注释
+        if self.ddl_options.get("include_comments", True):
+            ddl_lines.append("-- Column Comments")
+            for col in metadata.columns:
+                if col.comment:
+                    ddl_lines.append(
+                        f"COMMENT ON COLUMN {metadata.full_name}.{col.column_name} IS "
+                        f"'{self._escape_sql_comment(col.comment)}';"
+                    )
+            ddl_lines.append("")
+
+        # 只排除由物理约束创建的索引；独立唯一索引必须保留。
+        if self.ddl_options.get("include_indexes", True):
+            standalone_indexes = [
+                idx for idx in metadata.indexes
+                if not idx.is_primary and not idx.is_constraint_backed
+            ]
+
+            if standalone_indexes:
+                ddl_lines.append("-- Indexes")
+                for idx in standalone_indexes:
+                    if idx.definition:
+                        ddl_lines.append(idx.definition.rstrip().rstrip(";") + ";")
+                    else:
+                        unique = "UNIQUE " if idx.is_unique else ""
+                        ddl_lines.append(
+                            f"CREATE {unique}INDEX {idx.index_name} ON "
+                            f"{metadata.full_name}({', '.join(idx.columns)});"
+                        )
+                ddl_lines.append("")
+
+        # 数据库对象注释
+        if metadata.comment:
+            comment_object_type = {
+                "table": "TABLE",
+                "view": "VIEW",
+                "materialized_view": "MATERIALIZED VIEW",
+            }[object_type]
+            ddl_lines.append("-- Object Comment")
+            ddl_lines.append(
+                f"COMMENT ON {comment_object_type} {metadata.full_name} IS "
+                f"'{self._escape_sql_comment(metadata.comment)}';"
+            )
+
+        sample_block = self._build_sample_records_block(metadata, sample_data)
+        if sample_block:
+            ddl_lines.append("")
+            ddl_lines.append(sample_block)
+
+        return "\n".join(ddl_lines)
+
+    def _build_create_table_statement(self, metadata: TableMetadata) -> List[str]:
+        """生成普通表的 CREATE TABLE 语句。"""
+        ddl_lines = [f"CREATE TABLE IF NOT EXISTS {metadata.full_name} ("]
         column_defs = []
         for col in metadata.columns:
-            col_def = f"    {col.column_name} {col.data_type.upper()}"
-            
-            # 添加长度/精度
-            if col.character_maximum_length:
-                col_def += f"({col.character_maximum_length})"
-            elif col.numeric_precision:
-                if col.numeric_scale:
-                    col_def += f"({col.numeric_precision},{col.numeric_scale})"
-                else:
-                    col_def += f"({col.numeric_precision})"
-            
-            # 添加 NOT NULL
+            rendered_type = format_data_type(
+                col.data_type,
+                char_length=col.character_maximum_length,
+                numeric_precision=col.numeric_precision,
+                numeric_scale=col.numeric_scale,
+            )
+            col_def = f"    {col.column_name} {rendered_type}"
             if not col.is_nullable:
                 col_def += " NOT NULL"
-            
-            # 添加默认值
             if col.column_default:
                 col_def += f" DEFAULT {col.column_default}"
-            
             column_defs.append(col_def)
         
-        # 添加主键约束
         for pk in metadata.primary_keys:
-            pk_def = f"    CONSTRAINT {pk.constraint_name} PRIMARY KEY ({', '.join(pk.columns)})"
-            column_defs.append(pk_def)
-        
-        # 添加唯一约束
+            column_defs.append(
+                f"    CONSTRAINT {pk.constraint_name} PRIMARY KEY "
+                f"({', '.join(pk.columns)})"
+            )
         for uc in metadata.unique_constraints:
-            uc_def = f"    CONSTRAINT {uc.constraint_name} UNIQUE ({', '.join(uc.columns)})"
-            column_defs.append(uc_def)
-        
-        # 添加外键约束
+            column_defs.append(
+                f"    CONSTRAINT {uc.constraint_name} UNIQUE "
+                f"({', '.join(uc.columns)})"
+            )
         for fk in metadata.foreign_keys:
             fk_def = (
-                f"    CONSTRAINT {fk.constraint_name} FOREIGN KEY ({', '.join(fk.source_columns)}) "
-                f"REFERENCES {fk.target_schema}.{fk.target_table} ({', '.join(fk.target_columns)})"
+                f"    CONSTRAINT {fk.constraint_name} FOREIGN KEY "
+                f"({', '.join(fk.source_columns)}) REFERENCES "
+                f"{fk.target_schema}.{fk.target_table} "
+                f"({', '.join(fk.target_columns)})"
             )
             if fk.on_delete != "NO ACTION":
                 fk_def += f" ON DELETE {fk.on_delete}"
@@ -219,45 +293,36 @@ class OutputFormatter:
         
         ddl_lines.append(",\n".join(column_defs))
         ddl_lines.append(");")
-        ddl_lines.append("")
+        return ddl_lines
         
-        # 字段注释
-        if self.ddl_options.get("include_comments", True):
-            ddl_lines.append("-- Column Comments")
-            for col in metadata.columns:
-                if col.comment:
-                    ddl_lines.append(
-                        f"COMMENT ON COLUMN {metadata.full_name}.{col.column_name} IS '{col.comment}';"
-                    )
-            ddl_lines.append("")
-        
-        # 索引（排除主键和唯一约束索引）
-        if self.ddl_options.get("include_indexes", True):
-            non_pk_indexes = [
-                idx for idx in metadata.indexes
-                if not idx.is_primary and not idx.is_unique
-            ]
-            
-            if non_pk_indexes:
-                ddl_lines.append("-- Indexes")
-                for idx in non_pk_indexes:
-                    ddl_lines.append(
-                        f"CREATE INDEX {idx.index_name} ON {metadata.full_name}"
-                        f"({', '.join(idx.columns)});"
-                    )
-                ddl_lines.append("")
-        
-        # 表注释
-        if metadata.comment:
-            ddl_lines.append("-- Table Comment")
-            ddl_lines.append(f"COMMENT ON TABLE {metadata.full_name} IS '{metadata.comment}';")
-        
-        sample_block = self._build_sample_records_block(metadata, sample_data)
-        if sample_block:
-            ddl_lines.append("")
-            ddl_lines.append(sample_block)
-        
-        return "\n".join(ddl_lines)
+    @staticmethod
+    def _build_view_object_metadata_block(metadata: TableMetadata) -> List[str]:
+        """生成 View/MV 的对象注释和字段元数据块。"""
+        object_type = metadata.table_type or "table"
+        payload = {
+            "object_type": object_type,
+            "object_name": metadata.full_name,
+            "object_comment": metadata.comment or "",
+            "columns": [
+                {
+                    "column_name": column.column_name,
+                    "data_type": format_data_type(
+                        column.data_type,
+                        char_length=column.character_maximum_length,
+                        numeric_precision=column.numeric_precision,
+                        numeric_scale=column.numeric_scale,
+                    ).lower(),
+                    "column_comment": column.comment or "",
+                }
+                for column in metadata.columns
+            ],
+        }
+        serialized = json.dumps(payload, ensure_ascii=False, indent=2)
+        return ["/* OBJECT_METADATA", *serialized.splitlines(), "*/"]
+
+    @staticmethod
+    def _escape_sql_comment(value: str) -> str:
+        return value.replace("'", "''")
     
     def _get_sample_value(
         self,
@@ -319,14 +384,12 @@ class OutputFormatter:
         
         for col in metadata.columns:
             # 构建类型字符串（含长度/精度）
-            data_type = col.data_type.lower()
-            if col.character_maximum_length:
-                data_type += f"({col.character_maximum_length})"
-            elif col.numeric_precision:
-                if col.numeric_scale:
-                    data_type += f"({col.numeric_precision},{col.numeric_scale})"
-                else:
-                    data_type += f"({col.numeric_precision})"
+            data_type = format_data_type(
+                col.data_type,
+                char_length=col.character_maximum_length,
+                numeric_precision=col.numeric_precision,
+                numeric_scale=col.numeric_scale,
+            ).lower()
             
             # 获取示例值
             sample_value = self._get_sample_value(col.column_name, sample_data)
@@ -452,46 +515,53 @@ class OutputFormatter:
             
             content = ddl_file.read_text(encoding="utf-8")
             
-            # 查找 SAMPLE_RECORDS 注释块
-            pattern = r'/\*\s*SAMPLE_RECORDS\s*(.*?)\s*\*/'
+            # 新格式使用 SAMPLED_RECORDS，同时兼容历史 SAMPLE_RECORDS。
+            pattern = (
+                r'/\*\s*(?:SAMPLED_RECORDS|SAMPLE_RECORDS)\s*'
+                r'(?P<body>\{.*?\})\s*\*/'
+            )
             match = re.search(pattern, content, re.DOTALL)
             
             if not match:
                 return None
             
-            json_str = match.group(1)
+            json_str = match.group("body")
             sample_data = json.loads(json_str)
             
-            # 提取有效的记录（排除 placeholder）
+            # 新格式直接保存记录；旧格式使用 {label, data} 包装。
             records = []
             for record in sample_data.get("records", []):
-                if record.get("data") is not None:
-                    # 转换数据类型（将字符串数字转换为数字）
-                    converted_data = {}
-                    for key, value in record["data"].items():
-                        if isinstance(value, str):
-                            # 尝试转换为数字
-                            try:
-                                # 尝试整数
-                                if '.' not in value:
-                                    converted_data[key] = int(value)
-                                else:
-                                    converted_data[key] = float(value)
-                            except (ValueError, TypeError):
-                                # 保持字符串
-                                converted_data[key] = value
-                        else:
+                if not isinstance(record, dict):
+                    continue
+                record_data = record.get("data") if "data" in record else record
+                if not isinstance(record_data, dict):
+                    continue
+
+                # 转换数据类型（将字符串数字转换为数字）
+                converted_data = {}
+                for key, value in record_data.items():
+                    if isinstance(value, str):
+                        try:
+                            if '.' not in value:
+                                converted_data[key] = int(value)
+                            else:
+                                converted_data[key] = float(value)
+                        except (ValueError, TypeError):
                             converted_data[key] = value
-                    records.append(converted_data)
+                    else:
+                        converted_data[key] = value
+                records.append(converted_data)
             
             if not records:
                 return None
-            
+
+            max_records = self.sample_record_options["count"]
+            selected_records = records[:max_records]
             return {
-                "sample_method": "random",
-                "sample_size": len(records),
+                "sample_method": sample_data.get("sample_method", "limit"),
+                "sample_size": len(selected_records),
                 "total_rows": metadata.row_count,
-                "records": records[:5]  # 最多取5条
+                "records": selected_records,
             }
             
         except Exception as e:
@@ -513,10 +583,13 @@ class OutputFormatter:
             
             # 如果 DDL 中没有，尝试从 sample_data 提取
             if not sample_records and sample_data is not None and not sample_data.empty:
-                samples = dataframe_to_sample_dict(sample_data, max_rows=5)
+                samples = dataframe_to_sample_dict(
+                    sample_data,
+                    max_rows=self.sample_record_options["count"],
+                )
                 if samples:
                     sample_records = {
-                        "sample_method": "random",
+                        "sample_method": "limit",
                         "sample_size": len(samples),
                         "total_rows": metadata.row_count,
                         "records": samples
@@ -525,7 +598,7 @@ class OutputFormatter:
             # 如果还是没有样例数据，创建空结构
             if not sample_records:
                 sample_records = {
-                    "sample_method": "random",
+                    "sample_method": "none",
                     "sample_size": 0,
                     "total_rows": metadata.row_count,
                     "records": []
@@ -552,31 +625,23 @@ class OutputFormatter:
         if not self.sample_record_options.get("enabled", True):
             return ""
         
-        max_records = max(0, int(self.sample_record_options.get("count", 3)))
+        max_records = self.sample_record_options["count"]
         if max_records == 0:
             return ""
         
-        label_prefix = self.sample_record_options.get("label_prefix", "Record")
         samples = []
         if sample_data is not None and not sample_data.empty:
             samples = dataframe_to_sample_dict(sample_data, max_rows=max_records)
-        
-        records = []
-        for idx, sample in enumerate(samples[:max_records]):
-            records.append(
-                {
-                    "label": f"{label_prefix} {idx + 1}",
-                    "data": sample,
-                }
-            )
+
+        records = samples[:max_records]
         
         if not records:
             return ""
         
         payload = {
-            "version": 1,
-            "table": metadata.full_name,
-            "records": records
+            "object_type": metadata.table_type or "table",
+            "object_name": metadata.full_name,
+            "records": records,
         }
         json_block = json.dumps(payload, ensure_ascii=False, indent=2)
-        return "\n".join(["/* SAMPLE_RECORDS", json_block, "*/"])
+        return "\n".join(["/* SAMPLED_RECORDS", json_block, "*/"])

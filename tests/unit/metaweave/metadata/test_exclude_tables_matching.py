@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock, patch
 
+from metaweave.core.metadata.models import DatabaseObjectRef
+
 
 class TestExcludeTablesMatching:
     @patch("metaweave.core.metadata.generator.MetadataGenerator._init_components")
@@ -16,14 +18,23 @@ class TestExcludeTablesMatching:
         generator = MetadataGenerator("configs/metadata_config.yaml")
         generator.active_step = "ddl"
         generator.connector = MagicMock()
-        generator.connector.get_tables.side_effect = [
-            ["orders", "customers"],
-            ["orders", "payments"],
+        generator.connector.get_database_objects.side_effect = [
+            [
+                DatabaseObjectRef("public", "orders", "table"),
+                DatabaseObjectRef("public", "customers", "table"),
+            ],
+            [
+                DatabaseObjectRef("ods", "orders", "table"),
+                DatabaseObjectRef("ods", "payments", "table"),
+            ],
         ]
 
         tables = generator._get_tables_to_process(["public", "ods"], None)
 
-        assert tables == [("public", "customers"), ("ods", "payments")]
+        assert tables == [
+            ("public", "customers", "table"),
+            ("ods", "payments", "table"),
+        ]
 
     @patch("metaweave.core.metadata.generator.MetadataGenerator._init_components")
     @patch("metaweave.core.metadata.generator.MetadataGenerator._load_config")
@@ -39,14 +50,24 @@ class TestExcludeTablesMatching:
         generator = MetadataGenerator("configs/metadata_config.yaml")
         generator.active_step = "ddl"
         generator.connector = MagicMock()
-        generator.connector.get_tables.side_effect = [
-            ["orders", "customers"],
-            ["orders", "payments"],
+        generator.connector.get_database_objects.side_effect = [
+            [
+                DatabaseObjectRef("public", "orders", "table"),
+                DatabaseObjectRef("public", "customers", "table"),
+            ],
+            [
+                DatabaseObjectRef("ods", "orders", "table"),
+                DatabaseObjectRef("ods", "payments", "table"),
+            ],
         ]
 
         tables = generator._get_tables_to_process(["public", "ods"], None)
 
-        assert tables == [("public", "customers"), ("ods", "orders"), ("ods", "payments")]
+        assert tables == [
+            ("public", "customers", "table"),
+            ("ods", "orders", "table"),
+            ("ods", "payments", "table"),
+        ]
 
     @patch("metaweave.core.metadata.generator.MetadataGenerator._init_components")
     @patch("metaweave.core.metadata.generator.MetadataGenerator._load_config")
@@ -62,14 +83,23 @@ class TestExcludeTablesMatching:
         generator = MetadataGenerator("configs/metadata_config.yaml")
         generator.active_step = "ddl"
         generator.connector = MagicMock()
-        generator.connector.get_tables.side_effect = [
-            ["orders", "customers"],
-            ["orders", "payments"],
+        generator.connector.get_database_objects.side_effect = [
+            [
+                DatabaseObjectRef("public", "orders", "table"),
+                DatabaseObjectRef("public", "customers", "table"),
+            ],
+            [
+                DatabaseObjectRef("ods", "orders", "table"),
+                DatabaseObjectRef("ods", "payments", "table"),
+            ],
         ]
 
         tables = generator._get_tables_to_process(["public", "ods"], None)
 
-        assert tables == [("ods", "orders"), ("ods", "payments")]
+        assert tables == [
+            ("ods", "orders", "table"),
+            ("ods", "payments", "table"),
+        ]
 
     @patch("metaweave.core.metadata.generator.MetadataGenerator._init_components")
     @patch("metaweave.core.metadata.generator.MetadataGenerator._load_config")
@@ -85,18 +115,26 @@ class TestExcludeTablesMatching:
         generator = MetadataGenerator("configs/metadata_config.yaml")
         generator.active_step = "ddl"
         generator.connector = MagicMock()
-        generator.connector.get_tables.side_effect = [
-            ["orders", "order_items", "customers"],
-            ["orders", "order_items", "payments"],
+        generator.connector.get_database_objects.side_effect = [
+            [
+                DatabaseObjectRef("public", "orders", "table"),
+                DatabaseObjectRef("public", "order_items", "table"),
+                DatabaseObjectRef("public", "customers", "table"),
+            ],
+            [
+                DatabaseObjectRef("ods", "orders", "table"),
+                DatabaseObjectRef("ods", "order_items", "table"),
+                DatabaseObjectRef("ods", "payments", "table"),
+            ],
         ]
 
         tables = generator._get_tables_to_process(["public", "ods"], None)
 
         assert tables == [
-            ("public", "customers"),
-            ("ods", "orders"),
-            ("ods", "order_items"),
-            ("ods", "payments"),
+            ("public", "customers", "table"),
+            ("ods", "orders", "table"),
+            ("ods", "order_items", "table"),
+            ("ods", "payments", "table"),
         ]
 
     @patch("metaweave.core.metadata.generator.MetadataGenerator._init_components")
@@ -113,9 +151,15 @@ class TestExcludeTablesMatching:
         generator = MetadataGenerator("configs/metadata_config.yaml")
         generator.active_step = "ddl"
         generator.connector = MagicMock()
-        generator.connector.get_tables.return_value = ["orders", "customers"]
+        generator.connector.get_database_objects.return_value = [
+            DatabaseObjectRef("public", "orders", "table"),
+            DatabaseObjectRef("public", "customers", "table"),
+        ]
 
         tables = generator._get_tables_to_process(["public"], None)
 
-        assert tables == [("public", "orders"), ("public", "customers")]
+        assert tables == [
+            ("public", "orders", "table"),
+            ("public", "customers", "table"),
+        ]
         assert "暂不支持三段式或多段模式" in caplog.text

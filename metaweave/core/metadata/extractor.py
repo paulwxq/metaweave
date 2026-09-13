@@ -6,7 +6,10 @@
 import logging
 from typing import List, Optional, Dict, Any
 
-from metaweave.core.metadata.connector import DatabaseConnector
+from metaweave.core.metadata.connector import (
+    DatabaseConnector,
+    OBJECT_TYPE_TO_RELKINDS,
+)
 from metaweave.core.metadata.models import (
     TableMetadata,
     ColumnInfo,
@@ -16,12 +19,14 @@ from metaweave.core.metadata.models import (
     IndexInfo,
 )
 from metaweave.utils.sql_templates import (
-    GET_SINGLE_TABLE_INFO_SQL,
     GET_COLUMNS_SQL,
+    GET_DATABASE_OBJECT_INFO_SQL,
     GET_PRIMARY_KEYS_SQL,
     GET_FOREIGN_KEYS_SQL,
     GET_UNIQUE_CONSTRAINTS_SQL,
     GET_INDEXES_SQL,
+    GET_MATERIALIZED_VIEW_COLUMNS_SQL,
+    GET_VIEW_DEFINITION_SQL,
 )
 
 logger = logging.getLogger("metaweave.extractor")
@@ -41,8 +46,13 @@ class MetadataExtractor:
         """
         self.connector = connector
     
-    def extract_table_info(self, schema: str, table: str) -> Optional[Dict[str, Any]]:
-        """提取表基本信息
+    def extract_table_info(
+        self,
+        schema: str,
+        table: str,
+        object_type: str = "table",
+    ) -> Optional[Dict[str, Any]]:
+        """提取普通表、View 或 Materialized View 的基本信息。
         
         Args:
             schema: schema 名称
@@ -53,8 +63,8 @@ class MetadataExtractor:
         """
         try:
             results = self.connector.execute_query(
-                GET_SINGLE_TABLE_INFO_SQL,
-                (schema, table),
+                GET_DATABASE_OBJECT_INFO_SQL,
+                (schema, table, OBJECT_TYPE_TO_RELKINDS[object_type]),
                 fetch_one=True
             )
             if results:
@@ -64,18 +74,29 @@ class MetadataExtractor:
             logger.error(f"提取表信息失败 ({schema}.{table}): {e}")
             return None
     
-    def extract_columns(self, schema: str, table: str) -> List[ColumnInfo]:
-        """提取字段信息
-        
+    def extract_columns(
+        self,
+        schema: str,
+        table: str,
+        object_type: str = "table",
+    ) -> List[ColumnInfo]:
+        """提取字段信息，Materialized View 直接读取系统目录。
+
         Args:
             schema: schema 名称
             table: 表名
-            
+            object_type: 数据库对象类型
+
         Returns:
             字段信息列表
         """
         try:
-            results = self.connector.execute_query(GET_COLUMNS_SQL, (schema, table))
+            query = (
+                GET_MATERIALIZED_VIEW_COLUMNS_SQL
+                if object_type == "materialized_view"
+                else GET_COLUMNS_SQL
+            )
+            results = self.connector.execute_query(query, (schema, table))
             
             columns = []
             for row in results:
@@ -283,6 +304,9 @@ class MetadataExtractor:
                     is_unique=row.get("is_unique", False),
                     is_primary=row.get("is_primary", False),
                     condition=row.get("condition"),
+                    is_constraint_backed=row.get("is_constraint_backed", False),
+                    constraint_name=row.get("constraint_name"),
+                    definition=row.get("index_definition"),
                 )
                 indexes.append(idx)
             
@@ -293,8 +317,26 @@ class MetadataExtractor:
             logger.error(f"提取索引失败 ({schema}.{table}): {e}")
             return []
     
-    def extract_all(self, schema: str, table: str) -> Optional[TableMetadata]:
-        """提取表的完整元数据
+    def extract_view_definition(self, schema: str, object_name: str) -> Optional[str]:
+        """提取普通 View 或 Materialized View 的查询定义。"""
+        try:
+            results = self.connector.execute_query(
+                GET_VIEW_DEFINITION_SQL,
+                (schema, object_name),
+                fetch_one=True,
+            )
+            return results[0].get("view_definition") if results else None
+        except Exception as e:
+            logger.error("提取 View 定义失败 (%s.%s): %s", schema, object_name, e)
+            return None
+
+    def extract_all(
+        self,
+        schema: str,
+        table: str,
+        object_type: str = "table",
+    ) -> Optional[TableMetadata]:
+        """提取数据库对象的完整元数据。
         
         Args:
             schema: schema 名称
@@ -304,42 +346,61 @@ class MetadataExtractor:
             完整的表元数据对象，如果提取失败则返回 None
         """
         try:
-            # 检查表是否存在
-            if not self.connector.check_table_exists(schema, table):
-                logger.warning(f"表不存在: {schema}.{table}")
+            # 检查对象是否存在且类型仍与枚举阶段一致
+            if not self.connector.check_database_object_exists(
+                schema,
+                table,
+                object_type,
+            ):
+                logger.warning(
+                    "数据库对象不存在或类型已变化: %s.%s (%s)",
+                    schema,
+                    table,
+                    object_type,
+                )
                 return None
             
-            # 提取表基本信息
-            table_info = self.extract_table_info(schema, table)
+            # 提取对象基本信息
+            table_info = self.extract_table_info(schema, table, object_type)
             if not table_info:
-                logger.error(f"无法获取表基本信息: {schema}.{table}")
+                logger.error(f"无法获取数据库对象基本信息: {schema}.{table}")
                 return None
             
             # 创建 TableMetadata 对象
             metadata = TableMetadata(
                 schema_name=schema,
                 table_name=table,
-                table_type="table",  # 默认为 table，可以后续扩展支持 view
-                comment=table_info.get("table_comment") or "",
-                comment_source="db" if table_info.get("table_comment") else "",
-                row_count=table_info.get("row_count", 0),
+                table_type=object_type,
+                comment=table_info.get("object_comment") or "",
+                comment_source="db" if table_info.get("object_comment") else "",
             )
             
             # 提取字段信息
-            metadata.columns = self.extract_columns(schema, table)
+            metadata.columns = self.extract_columns(schema, table, object_type)
             
-            # 提取约束信息
-            metadata.primary_keys = self.extract_primary_keys(schema, table)
-            metadata.foreign_keys = self.extract_foreign_keys(schema, table)
-            metadata.unique_constraints = self.extract_unique_constraints(schema, table)
+            if object_type == "table":
+                # View 和 Materialized View 没有普通表物理约束
+                metadata.primary_keys = self.extract_primary_keys(schema, table)
+                metadata.foreign_keys = self.extract_foreign_keys(schema, table)
+                metadata.unique_constraints = self.extract_unique_constraints(schema, table)
+                metadata.indexes = self.extract_indexes(schema, table)
+            elif object_type == "materialized_view":
+                metadata.indexes = self.extract_indexes(schema, table)
+
+            if object_type in {"view", "materialized_view"}:
+                metadata.view_definition = self.extract_view_definition(schema, table)
+                if not metadata.view_definition:
+                    logger.error("无法获取 View 定义: %s.%s", schema, table)
+                    return None
             
-            # 提取索引信息
-            metadata.indexes = self.extract_indexes(schema, table)
-            
-            logger.info(f"成功提取表元数据: {schema}.{table}")
+            logger.info(
+                "成功提取数据库对象元数据: %s.%s (%s)",
+                schema,
+                table,
+                object_type,
+            )
             return metadata
             
         except Exception as e:
             logger.error(f"提取表元数据失败 ({schema}.{table}): {e}")
             return None
-

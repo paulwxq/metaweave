@@ -3,7 +3,9 @@
 协调整个元数据生成流程的主控制器。
 """
 
+import json
 import logging
+from threading import Lock
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -17,11 +19,19 @@ from metaweave.core.metadata.extractor import MetadataExtractor
 from metaweave.core.metadata.comment_generator import CommentGenerator
 from metaweave.core.metadata.logical_key_detector import LogicalKeyDetector
 from metaweave.core.metadata.formatter import OutputFormatter
-from metaweave.core.metadata.models import GenerationResult, TableMetadata
+from metaweave.core.metadata.models import (
+    DatabaseObjectRef,
+    GenerationResult,
+    TableMetadata,
+    normalize_database_object_types,
+)
 from metaweave.core.metadata.profiler import MetadataProfiler
 from metaweave.services.llm_service import LLMService
 from metaweave.utils.file_utils import get_project_root
-from metaweave.utils.data_utils import get_column_statistics
+from metaweave.utils.data_utils import (
+    dataframe_to_sample_dict,
+    get_column_statistics,
+)
 from services.config_loader import ConfigLoader
 
 logger = logging.getLogger("metaweave.generator")
@@ -48,6 +58,7 @@ class MetadataGenerator:
         """
         self.config_path = Path(config_path)
         self.config = self._load_config()
+        self._result_lock = Lock()
         
         # 初始化各个组件
         self._init_components()
@@ -124,6 +135,19 @@ class MetadataGenerator:
         self.sampling_config = self.config.get("sampling", {})
         self.sampling_enabled = self.sampling_config.get("enabled", True)
         self.sample_size = self.sampling_config.get("sample_size", 1000)
+        ddl_sample_count = self.formatter.sample_record_options["count"]
+        ddl_sampling_needed = bool(self.comment_enabled) or bool(
+            self.formatter.sample_record_options["enabled"]
+        )
+        if (
+            self.sampling_enabled
+            and ddl_sampling_needed
+            and ddl_sample_count > self.sample_size
+        ):
+            raise ValueError(
+                "output.ddl_options.sample_records.count 不能大于 "
+                "sampling.sample_size"
+            )
         
         # 列统计配置
         column_stats_config = self.sampling_config.get("column_statistics", {})
@@ -228,14 +252,14 @@ class MetadataGenerator:
             
             logger.info(f"将处理以下 schema: {schemas}")
             
-            # 获取所有要处理的表
+            # 获取所有要处理的数据库对象
             all_tables = self._get_tables_to_process(schemas, tables)
             
             if not all_tables:
-                logger.warning("没有找到需要处理的表")
+                logger.warning("没有找到需要处理的数据库对象")
                 return result
             
-            logger.info(f"共找到 {len(all_tables)} 张表待处理")
+            logger.info(f"共找到 {len(all_tables)} 个数据库对象待处理")
             
             # 并发处理表
             if max_workers > 1:
@@ -243,7 +267,11 @@ class MetadataGenerator:
             else:
                 result = self._process_tables_sequential(all_tables, result)
             
-            logger.info(f"元数据生成完成: 成功 {result.processed_tables} 张，失败 {result.failed_tables} 张")
+            logger.info(
+                "元数据生成完成: 成功 %d，失败 %d",
+                result.processed_tables,
+                result.failed_tables,
+            )
             
         except Exception as e:
             logger.error(f"元数据生成过程出错: {e}")
@@ -297,35 +325,62 @@ class MetadataGenerator:
         self,
         schemas: List[str],
         tables: Optional[List[str]]
-    ) -> List[tuple]:
-        """获取要处理的表列表
+    ) -> List[tuple[str, str, str]]:
+        """获取要处理的数据库对象列表。
 
         Args:
             schemas: schema 列表
             tables: 表名列表（可选）
 
         Returns:
-            (schema, table) 元组列表
+            (schema, object_name, object_type) 元组列表
         """
-        all_tables = []
+        all_objects = []
         exclude_patterns = self.config.get("database", {}).get("exclude_tables", [])
 
         for schema in schemas:
             # md 步骤：从 DDL 目录枚举表
             if self.active_step == "md":
-                schema_tables = self._get_tables_from_ddl_dir(schema)
+                schema_objects = [
+                    DatabaseObjectRef(schema, table, "table")
+                    for table in self._get_tables_from_ddl_dir(schema)
+                ]
+            elif self.active_step == "ddl":
+                schema_objects = self.connector.get_database_objects(
+                    schema,
+                    self._resolve_ddl_object_types(),
+                )
             else:
-                schema_tables = self.connector.get_tables(schema)
+                # 下游步骤将在各自改造阶段增加对象类型选择；当前保持只处理普通表。
+                schema_objects = [
+                    DatabaseObjectRef(schema, table, "table")
+                    for table in self.connector.get_tables(schema)
+                ]
             
-            for table in schema_tables:
+            for database_object in schema_objects:
+                object_name = database_object.object_name
                 # 如果指定了表名列表，只处理列表中的表
-                if tables and table not in tables:
+                if tables and object_name not in tables:
                     continue
 
-                if not self._is_table_excluded(schema, table, exclude_patterns):
-                    all_tables.append((schema, table))
+                if not self._is_table_excluded(schema, object_name, exclude_patterns):
+                    all_objects.append(
+                        (
+                            database_object.schema_name,
+                            object_name,
+                            database_object.object_type,
+                        )
+                    )
         
-        return all_tables
+        return all_objects
+
+    def _resolve_ddl_object_types(self) -> List[str]:
+        """读取并校验 DDL 阶段允许处理的数据库对象类型。"""
+        configured = self.config.get("database", {}).get(
+            "include_object_types",
+            ["table"],
+        )
+        return normalize_database_object_types(configured)
 
     @staticmethod
     def _match_prefix_or_exact(value: str, pattern: str) -> bool:
@@ -379,14 +434,15 @@ class MetadataGenerator:
     
     def _process_tables_sequential(
         self,
-        tables: List[tuple],
+        tables: List[tuple[str, str, str]],
         result: GenerationResult
     ) -> GenerationResult:
         """顺序处理表"""
-        with tqdm(total=len(tables), desc="处理表") as pbar:
-            for schema, table in tables:
+        progress_desc = "处理对象" if self.active_step == "ddl" else "处理表"
+        with tqdm(total=len(tables), desc=progress_desc) as pbar:
+            for schema, table, object_type in tables:
                 try:
-                    self._process_table(schema, table, result)
+                    self._process_table(schema, table, object_type, result)
                     result.processed_tables += 1
                 except Exception as e:
                     logger.error(f"处理表失败 ({schema}.{table}): {e}")
@@ -399,7 +455,7 @@ class MetadataGenerator:
     
     def _process_tables_parallel(
         self,
-        tables: List[tuple],
+        tables: List[tuple[str, str, str]],
         max_workers: int,
         result: GenerationResult
     ) -> GenerationResult:
@@ -407,12 +463,19 @@ class MetadataGenerator:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # 提交所有任务
             future_to_table = {
-                executor.submit(self._process_table, schema, table, result): (schema, table)
-                for schema, table in tables
+                executor.submit(
+                    self._process_table,
+                    schema,
+                    table,
+                    object_type,
+                    result,
+                ): (schema, table)
+                for schema, table, object_type in tables
             }
             
             # 使用 tqdm 显示进度
-            with tqdm(total=len(tables), desc="处理表") as pbar:
+            progress_desc = "处理对象" if self.active_step == "ddl" else "处理表"
+            with tqdm(total=len(tables), desc=progress_desc) as pbar:
                 for future in as_completed(future_to_table):
                     schema, table = future_to_table[future]
                     try:
@@ -431,6 +494,7 @@ class MetadataGenerator:
         self,
         schema: str,
         table: str,
+        object_type: str,
         result: GenerationResult
     ):
         if self.active_step == "json":
@@ -441,12 +505,13 @@ class MetadataGenerator:
             self._process_table_from_ddl_for_md(schema, table, result)
         else:
             # ddl/rel 等其他步骤：直接查库
-            self._process_table_from_db(schema, table, result)
+            self._process_table_from_db(schema, table, object_type, result)
 
     def _process_table_from_db(
         self,
         schema: str,
         table: str,
+        object_type: str,
         result: GenerationResult
     ):
         """处理单张表
@@ -456,11 +521,11 @@ class MetadataGenerator:
             table: 表名
             result: 生成结果对象
         """
-        logger.info(f"开始处理表: {schema}.{table}")
+        logger.info("开始处理数据库对象: %s.%s (%s)", schema, table, object_type)
         
         try:
             # 1. 提取元数据
-            metadata = self.extractor.extract_all(schema, table)
+            metadata = self.extractor.extract_all(schema, table, object_type)
             if not metadata:
                 raise ValueError(f"提取元数据失败: {schema}.{table}")
             
@@ -510,30 +575,108 @@ class MetadataGenerator:
             )
             for file_path in output_files.values():
                 result.add_output_file(file_path)
+
+            if self.active_step == "ddl":
+                self._accumulate_ddl_statistics(metadata, result)
             
-            logger.info(f"表处理完成: {schema}.{table}")
+            logger.info("数据库对象处理完成: %s.%s (%s)", schema, table, object_type)
             
         except Exception as e:
             # 记录详细的错误信息
             logger.error(f"处理表失败 ({schema}.{table}): {type(e).__name__}: {e}", exc_info=True)
             raise
 
-    def _sample_data_for_ddl(self, schema: str, table: str):
-        """用于 --step ddl 的轻量采样：优先取到 target_rows 条“非全空行”的记录。
+    def _accumulate_ddl_statistics(
+        self,
+        metadata: TableMetadata,
+        result: GenerationResult,
+    ) -> None:
+        """累计一个数据库对象的类型、物理约束和索引数量。
 
-        - 最终返回最多 target_rows 行
-        - 会过滤掉“整行全是 NULL”的记录（如果存在）
+        元数据中的每个对象代表一个完整约束，因此复合约束按一个计数。
+        """
+        with self._result_lock:
+            result.processed_object_counts[metadata.table_type] = (
+                result.processed_object_counts.get(metadata.table_type, 0) + 1
+            )
+            result.physical_primary_key_constraints_found += len(metadata.primary_keys)
+            result.physical_foreign_key_constraints_found += len(metadata.foreign_keys)
+            result.unique_constraints_found += len(metadata.unique_constraints)
+            result.indexes_found += len(metadata.indexes)
+            result.regular_indexes_found += sum(
+                1 for index in metadata.indexes if not index.is_unique
+            )
+            result.unique_indexes_found += sum(
+                1 for index in metadata.indexes if index.is_unique
+            )
+
+    def _sample_data_for_ddl(self, schema: str, table: str):
+        """按 DDL 样例配置读取数据，并在内存中过滤全空行和重复行。
+
+        数据库读取数量与 sample_records.count 相同；过滤后不再补采。
         """
         try:
-            target_rows = 5
-            fetch_limit = target_rows * 2
-            df = self.connector.sample_data(schema, table, fetch_limit)
+            target_rows = self.formatter.sample_record_options["count"]
+            if target_rows == 0:
+                return None
+
+            df = self.connector.sample_data_preserving_types(
+                schema,
+                table,
+                target_rows,
+            )
             if df is None or df.empty:
                 return df
-            non_empty = df[df.notna().any(axis=1)]
-            if non_empty.empty:
+
+            candidate_count = len(df)
+            serialized_rows = dataframe_to_sample_dict(df, max_rows=candidate_count)
+            seen_rows = set()
+            retained_positions = []
+            all_null_count = 0
+            duplicate_count = 0
+
+            for position, row in enumerate(serialized_rows):
+                if all(value is None for value in row.values()):
+                    all_null_count += 1
+                    continue
+
+                row_key = json.dumps(
+                    row,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                if row_key in seen_rows:
+                    duplicate_count += 1
+                    continue
+
+                seen_rows.add(row_key)
+                retained_positions.append(position)
+
+            if not retained_positions:
+                logger.info(
+                    "DDL 样例处理 %s.%s：候选 %d 行，过滤全空行 %d 行，"
+                    "去重 %d 行，最终保留 0 行",
+                    schema,
+                    table,
+                    candidate_count,
+                    all_null_count,
+                    duplicate_count,
+                )
                 return df.iloc[0:0]
-            return non_empty.head(target_rows)
+
+            result = df.iloc[retained_positions].head(target_rows).copy()
+            logger.info(
+                "DDL 样例处理 %s.%s：候选 %d 行，过滤全空行 %d 行，"
+                "去重 %d 行，最终保留 %d 行",
+                schema,
+                table,
+                candidate_count,
+                all_null_count,
+                duplicate_count,
+                len(result),
+            )
+            return result
         except Exception as e:
             logger.warning(f"DDL 采样失败 ({schema}.{table}): {e}")
             return None
@@ -630,12 +773,8 @@ class MetadataGenerator:
         sample_data = None
         if parsed.sample_records:
             import pandas as pd
-            records_data = [rec.get("data", {}) for rec in parsed.sample_records if rec.get("data")]
-            if records_data:
-                sample_data = pd.DataFrame(records_data)
-                logger.info(f"使用 DDL 样例数据: {schema}.{table}, {len(sample_data)} 行")
-            else:
-                logger.warning(f"DDL 样例数据为空: {schema}.{table}")
+            sample_data = pd.DataFrame(parsed.sample_records)
+            logger.info(f"使用 DDL 样例数据: {schema}.{table}, {len(sample_data)} 行")
         else:
             logger.warning(f"DDL 无样例数据: {schema}.{table}")
 
@@ -677,10 +816,34 @@ class MetadataGenerator:
         summary_lines.append("=" * 60)
         summary_lines.append("元数据生成汇总报告")
         summary_lines.append("=" * 60)
-        summary_lines.append(f"成功处理: {result.processed_tables} 张表")
-        summary_lines.append(f"处理失败: {result.failed_tables} 张表")
+        unit = "个对象" if self.active_step == "ddl" else "张表"
+        summary_lines.append(f"成功处理: {result.processed_tables} {unit}")
+        summary_lines.append(f"处理失败: {result.failed_tables} {unit}")
         summary_lines.append(f"生成注释: {result.generated_comments} 个")
-        summary_lines.append(f"识别逻辑主键: {result.logical_keys_found} 个")
+        if self.active_step == "ddl":
+            summary_lines.append(
+                f"Table: {result.processed_object_counts.get('table', 0)} 个"
+            )
+            summary_lines.append(
+                f"View: {result.processed_object_counts.get('view', 0)} 个"
+            )
+            summary_lines.append(
+                "Materialized View: "
+                f"{result.processed_object_counts.get('materialized_view', 0)} 个"
+            )
+            summary_lines.append(
+                f"物理主键约束: {result.physical_primary_key_constraints_found} 个"
+            )
+            summary_lines.append(
+                f"物理外键约束: {result.physical_foreign_key_constraints_found} 个"
+            )
+            summary_lines.append(f"唯一约束: {result.unique_constraints_found} 个")
+            summary_lines.append(f"索引总数: {result.indexes_found} 个")
+            summary_lines.append(f"  - 普通索引: {result.regular_indexes_found} 个")
+            summary_lines.append(f"  - 唯一索引: {result.unique_indexes_found} 个")
+            summary_lines.append("逻辑主键识别: 未执行")
+        elif self.active_step == "json":
+            summary_lines.append(f"识别逻辑主键: {result.logical_keys_found} 个")
         summary_lines.append(f"输出文件: {len(result.output_files)} 个")
         
         if result.errors:

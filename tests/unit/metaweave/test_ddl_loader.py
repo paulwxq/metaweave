@@ -36,7 +36,7 @@ def _write_sample_ddl(tmp_path):
         */
         """
     ).strip()
-    ddl_file = tmp_path / "public.dim_company.sql"
+    ddl_file = tmp_path / "postgres.public.dim_company.sql"
     ddl_file.write_text(ddl_text, encoding="utf-8")
     return ddl_file
 
@@ -57,5 +57,41 @@ def test_ddl_loader_parses_structure_and_samples(tmp_path):
     assert metadata.primary_keys[0].columns == ["company_id"]
     assert metadata.foreign_keys[0].target_table == "dim_region"
     assert metadata.indexes[0].index_name == "idx_company_name"
-    assert len(metadata.sample_records) == 3
+    assert metadata.sample_records == [
+        {"company_id": "1", "company_name": "A"},
+        {"company_id": "2", "company_name": "B"},
+        {"company_id": "3", "company_name": "C"},
+    ]
 
+
+def test_ddl_loader_parses_compact_sampled_records(tmp_path):
+    ddl_file = tmp_path / "postgres.public.events.sql"
+    ddl_file.write_text(
+        textwrap.dedent(
+            """
+            CREATE TABLE IF NOT EXISTS public.events (
+                event_id INTEGER,
+                event_name TEXT
+            );
+
+            /* SAMPLED_RECORDS
+            {
+              "object_type": "table",
+              "object_name": "public.events",
+              "records": [
+                {"event_id": "1", "event_name": "created"},
+                {"event_id": "2", "event_name": "completed"}
+              ]
+            }
+            */
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    parsed = DDLLoader(tmp_path).load_table("public", "events")
+
+    assert parsed.sample_records == [
+        {"event_id": "1", "event_name": "created"},
+        {"event_id": "2", "event_name": "completed"},
+    ]

@@ -26,7 +26,9 @@ from metaweave.core.metadata.models import (
 logger = logging.getLogger("metaweave.ddl_loader")
 
 SAMPLE_BLOCK_PATTERN = re.compile(
-    r"/\*\s*SAMPLE_RECORDS\s*(?P<body>\{.*?\})\s*\*/", re.DOTALL | re.IGNORECASE
+    r"/\*\s*(?:SAMPLED_RECORDS|SAMPLE_RECORDS)\s*"
+    r"(?P<body>\{.*?\})\s*\*/",
+    re.DOTALL | re.IGNORECASE,
 )
 COLUMN_COMMENT_PATTERN = re.compile(
     r"COMMENT\s+ON\s+COLUMN\s+"
@@ -143,7 +145,7 @@ class DDLLoader:
     def _parse_sample_records(self, content: str, ddl_path: Path) -> List[Dict]:
         match = SAMPLE_BLOCK_PATTERN.search(content)
         if not match:
-            logger.warning(f"未在 DDL 中找到 SAMPLE_RECORDS 注释块: {ddl_path}")
+            logger.warning(f"未在 DDL 中找到样例数据注释块: {ddl_path}")
             return []
         body = match.group("body").strip()
         try:
@@ -151,9 +153,20 @@ class DDLLoader:
             records = data.get("records", [])
             if not isinstance(records, list):
                 raise ValueError("records 字段不是列表")
-            return records
-        except json.JSONDecodeError as exc:
-            raise DDLLoaderError(f"SAMPLE_RECORDS 解析失败 ({ddl_path}): {exc}") from exc
+
+            normalized_records = []
+            for record in records:
+                if not isinstance(record, dict):
+                    raise ValueError("records 中的记录不是对象")
+                record_data = record.get("data") if "data" in record else record
+                if record_data is None:
+                    continue
+                if not isinstance(record_data, dict):
+                    raise ValueError("样例记录的 data 字段不是对象")
+                normalized_records.append(record_data)
+            return normalized_records
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise DDLLoaderError(f"样例数据解析失败 ({ddl_path}): {exc}") from exc
 
     def _extract_create_table_block(self, content: str, ddl_path: Path) -> tuple[str, str]:
         create_pattern = re.compile(
@@ -534,4 +547,3 @@ class DDLLoader:
                 column = match.group("column")
                 comments[column] = match.group("comment").replace("''", "'")
         return comments
-

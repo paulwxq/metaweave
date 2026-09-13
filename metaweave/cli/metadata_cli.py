@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Tuple
 import yaml
 
 from metaweave.core.metadata.generator import MetadataGenerator
+from metaweave.core.metadata.models import normalize_database_object_types
 from metaweave.utils.file_utils import get_project_root, clear_dir_contents
 from metaweave.utils.logger import set_current_step
 
@@ -49,7 +50,7 @@ def _resolve_domain_params(
     "--tables",
     "-t",
     type=str,
-    help="要处理的表名列表（逗号分隔）"
+    help="要处理的数据库对象名称列表（逗号分隔；兼容参数名仍为 tables）"
 )
 @click.option(
     "--incremental",
@@ -378,6 +379,19 @@ def metadata_command(
                     f"但 {domains_config_path} 中 domains 列表为空。"
                     f"请先执行 --generate-domains 生成 domain 配置"
                 )
+
+        ddl_object_types = normalize_database_object_types(
+            loaded_config.get("database", {}).get(
+                "include_object_types",
+                ["table"],
+            )
+        )
+        unsupported_view_steps = {"standard", "md", "json", "json_llm"}
+        if step_lower in unsupported_view_steps and set(ddl_object_types) != {"table"}:
+            raise click.UsageError(
+                "当前版本仅在单独执行 --step ddl 时支持 view 和 "
+                "materialized_view；当前步骤的下游处理尚未完成适配。"
+            )
 
         # Step: standard - 串行调度多个步骤（fail-fast）
         if step_lower == "standard":
@@ -1003,13 +1017,42 @@ def metadata_command(
         click.echo("=" * 60)
         click.echo("📊 生成结果统计")
         click.echo("=" * 60)
-        click.echo(f"✅ 成功处理: {result.processed_tables} 张表")
-        
+        if step_lower == "ddl":
+            click.echo(f"✅ 成功处理: {result.processed_tables} 个对象")
+            click.echo(
+                f"  - Table: {result.processed_object_counts.get('table', 0)} 个"
+            )
+            click.echo(
+                f"  - View: {result.processed_object_counts.get('view', 0)} 个"
+            )
+            click.echo(
+                "  - Materialized View: "
+                f"{result.processed_object_counts.get('materialized_view', 0)} 个"
+            )
+        else:
+            click.echo(f"✅ 成功处理: {result.processed_tables} 张表")
+
         if result.failed_tables > 0:
-            click.echo(f"❌ 处理失败: {result.failed_tables} 张表", err=True)
-        
+            unit = "个对象" if step_lower == "ddl" else "张表"
+            click.echo(f"❌ 处理失败: {result.failed_tables} {unit}", err=True)
+
         click.echo(f"💬 生成注释: {result.generated_comments} 个")
-        click.echo(f"🔑 识别逻辑主键: {result.logical_keys_found} 个")
+        if step_lower == "ddl":
+            click.echo(
+                f"🔐 物理主键约束: "
+                f"{result.physical_primary_key_constraints_found} 个"
+            )
+            click.echo(
+                f"🔗 物理外键约束: "
+                f"{result.physical_foreign_key_constraints_found} 个"
+            )
+            click.echo(f"🔒 唯一约束: {result.unique_constraints_found} 个")
+            click.echo(f"📇 索引总数: {result.indexes_found} 个")
+            click.echo(f"  - 普通索引: {result.regular_indexes_found} 个")
+            click.echo(f"  - 唯一索引: {result.unique_indexes_found} 个")
+            click.echo("🔑 逻辑主键识别: 未执行")
+        elif step_lower == "json":
+            click.echo(f"🔑 识别逻辑主键: {result.logical_keys_found} 个")
         click.echo(f"📁 输出文件: {len(result.output_files)} 个")
         
         if result.errors:

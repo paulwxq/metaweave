@@ -2,6 +2,7 @@
 
 import json
 import math
+from decimal import Decimal
 
 import pandas as pd
 import pytest
@@ -9,10 +10,34 @@ import pytest
 from metaweave.utils.data_utils import (
     get_column_statistics,
     dataframe_to_sample_dict,
+    format_data_type,
     _is_complex_value,
     _normalize_for_hash,
     _is_null_value,
 )
+
+
+@pytest.mark.parametrize(
+    ("data_type", "char_length", "precision", "scale", "expected"),
+    [
+        ("integer", None, 32, 0, "INTEGER"),
+        ("bigint", None, 64, 0, "BIGINT"),
+        ("smallint", None, 16, 0, "SMALLINT"),
+        ("numeric", None, 10, 2, "NUMERIC(10,2)"),
+        ("numeric", None, 10, 0, "NUMERIC(10,0)"),
+        ("character varying", 100, None, None, "CHARACTER VARYING(100)"),
+    ],
+)
+def test_format_data_type_uses_only_valid_postgresql_modifiers(
+    data_type,
+    char_length,
+    precision,
+    scale,
+    expected,
+):
+    assert (
+        format_data_type(data_type, char_length, precision, scale) == expected
+    )
 
 
 # =====================================================================
@@ -238,6 +263,39 @@ class TestStatsBytesColumn:
 
 
 class TestSampleDictComplexTypes:
+    def test_mixed_numeric_row_preserves_integer_columns(self):
+        df = pd.DataFrame(
+            {
+                "category_id": [9],
+                "total_quantity": [169],
+                "total_amount": [6191.0],
+            }
+        )
+
+        result = dataframe_to_sample_dict(df)
+
+        assert result == [
+            {
+                "category_id": "9",
+                "total_quantity": "169",
+                "total_amount": "6191.0",
+            }
+        ]
+
+    def test_object_dataframe_preserves_nullable_integer_and_decimal(self):
+        df = pd.DataFrame(
+            [
+                {"quantity": None, "amount": Decimal("10.00")},
+                {"quantity": 2, "amount": Decimal("12.34")},
+            ],
+            dtype=object,
+        )
+
+        result = dataframe_to_sample_dict(df)
+
+        assert result[0] == {"quantity": None, "amount": "10.00"}
+        assert result[1] == {"quantity": "2", "amount": "12.34"}
+
     def test_list_serialized_as_json(self):
         df = pd.DataFrame({"tags": [[1, 2, 3]], "name": ["foo"]})
         result = dataframe_to_sample_dict(df)

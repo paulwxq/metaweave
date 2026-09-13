@@ -15,13 +15,20 @@ database:
   # 要处理的 schema 列表
   schemas:
     - public
+
+  # --step ddl 要提取的数据库对象类型。
+  # 可选值: table | view | materialized_view；默认只启用 table 以保持兼容。
+  include_object_types:
+    - table
+    - view
+    - materialized_view
   
-  # 排除的表，支持以下格式：
-  # - orders        : 跨所有 schema 精确匹配表名
-  # - ord_*         : 跨所有 schema 按表名前缀匹配
+  # 排除的数据库对象（历史配置名仍为 exclude_tables），支持以下格式：
+  # - orders        : 跨所有 schema 精确匹配对象名
+  # - ord_*         : 跨所有 schema 按对象名前缀匹配
   # - public.orders : 指定 schema 下精确匹配
   # - public.ord_*  : 指定 schema 下按表名前缀匹配
-  # - public.*      : 排除指定 schema 下所有表
+  # - public.*      : 排除指定 schema 下所有对象
   # 注意：暂不支持三段式 db.schema.table，也不支持 *orders / *mid* 这类任意位置通配
   exclude_tables:
     - temp_*
@@ -344,7 +351,6 @@ output:
     sample_records:
       enabled: true
       count: 5
-      label_prefix: "Record"
   
   # Markdown 选项
   markdown_options:

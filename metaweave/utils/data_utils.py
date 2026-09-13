@@ -103,19 +103,31 @@ def format_data_type(
     Returns:
         格式化后的数据类型字符串
     """
-    formatted_type = data_type.upper()
-    
-    # 字符类型
-    if data_type in ["character varying", "varchar", "character", "char"] and char_length:
+    normalized_type = data_type.strip().lower()
+    formatted_type = data_type.strip().upper()
+
+    character_types = {
+        "character varying",
+        "varchar",
+        "character",
+        "char",
+        "bit varying",
+        "varbit",
+        "bit",
+    }
+    numeric_types = {"numeric", "decimal"}
+
+    # information_schema 中整数类型的 numeric_precision 表示二进制位宽，
+    # 不是可写入 PostgreSQL DDL 的类型修饰符。
+    if normalized_type in character_types and char_length is not None:
         formatted_type = f"{formatted_type}({char_length})"
-    
-    # 数值类型
-    elif data_type in ["numeric", "decimal"] and numeric_precision:
-        if numeric_scale:
+
+    elif normalized_type in numeric_types and numeric_precision is not None:
+        if numeric_scale is not None:
             formatted_type = f"{formatted_type}({numeric_precision},{numeric_scale})"
         else:
             formatted_type = f"{formatted_type}({numeric_precision})"
-    
+
     return formatted_type
 
 
@@ -213,17 +225,26 @@ def dataframe_to_sample_dict(
     
     sample_df = truncate_sample(df, max_rows)
     
+    columns = list(sample_df.columns)
     result = []
-    for _, row in sample_df.iterrows():
+    # iterrows() 会把混合数值行统一提升为 float；
+    # itertuples() 保留各列标量类型。
+    for values in sample_df.itertuples(index=False, name=None):
         row_dict = {}
-        for col in sample_df.columns:
+        for col, value in zip(columns, values):
             try:
-                value = row[col]
                 if _is_null_value(value):
                     row_dict[col] = None
                 elif isinstance(value, bytes):
                     row_dict[col] = f"<binary:{len(value)} bytes>"
-                elif isinstance(value, (list, dict)):
+                elif isinstance(value, dict):
+                    row_dict[col] = json.dumps(
+                        value,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                        default=str,
+                    )
+                elif isinstance(value, list):
                     row_dict[col] = json.dumps(value, ensure_ascii=False, default=str)
                 else:
                     row_dict[col] = safe_str(value, max_length=200)
@@ -341,4 +362,3 @@ def is_potential_key_column(column_name: str) -> bool:
             return True
     
     return False
-

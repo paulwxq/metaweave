@@ -9,6 +9,41 @@ from typing import Dict, List, Optional, Any
 import json
 
 
+SUPPORTED_DATABASE_OBJECT_TYPES = frozenset(
+    {"table", "view", "materialized_view"}
+)
+
+
+def normalize_database_object_types(configured: Any) -> List[str]:
+    """校验并规范化数据库对象类型列表，保持配置顺序并去重。"""
+    if not isinstance(configured, list) or not configured:
+        raise ValueError(
+            "database.include_object_types 必须是非空列表，可选值: "
+            "table, view, materialized_view"
+        )
+
+    normalized = []
+    for value in configured:
+        object_type = str(value).strip().lower()
+        if object_type not in SUPPORTED_DATABASE_OBJECT_TYPES:
+            raise ValueError(
+                f"不支持的数据库对象类型: {value!r}；可选值: "
+                "table, view, materialized_view"
+            )
+        if object_type not in normalized:
+            normalized.append(object_type)
+    return normalized
+
+
+@dataclass(frozen=True)
+class DatabaseObjectRef:
+    """PostgreSQL 中可由元数据流程处理的数据库对象。"""
+
+    schema_name: str
+    object_name: str
+    object_type: str
+
+
 @dataclass
 class ColumnInfo:
     """字段信息"""
@@ -77,6 +112,9 @@ class IndexInfo:
     is_unique: bool = False
     is_primary: bool = False
     condition: Optional[str] = None
+    is_constraint_backed: bool = False
+    constraint_name: Optional[str] = None
+    definition: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
@@ -115,6 +153,7 @@ class TableMetadata:
     sample_records: List[Dict[str, Any]] = field(default_factory=list)
     column_profiles: Dict[str, "ColumnProfile"] = field(default_factory=dict)
     table_profile: Optional["TableProfile"] = None
+    view_definition: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典（用于 JSON 序列化 v2.0 格式）"""
@@ -212,6 +251,13 @@ class GenerationResult:
     logical_keys_found: int = 0
     output_files: List[str] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
+    physical_primary_key_constraints_found: int = 0
+    physical_foreign_key_constraints_found: int = 0
+    unique_constraints_found: int = 0
+    indexes_found: int = 0
+    regular_indexes_found: int = 0
+    unique_indexes_found: int = 0
+    processed_object_counts: Dict[str, int] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""

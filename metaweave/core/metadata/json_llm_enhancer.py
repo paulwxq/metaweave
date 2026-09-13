@@ -395,7 +395,7 @@ class JsonLlmEnhancer:
             return {"sample_method": "none", "sample_size": 0, "total_rows": 0, "records": []}
         records = sample_records.get("records", []) or []
         return {
-            "sample_method": sample_records.get("sample_method", "random"),
+            "sample_method": sample_records.get("sample_method", "limit"),
             "sample_size": sample_records.get("sample_size", len(records)),
             "total_rows": sample_records.get("total_rows", 0),
             "records": records,
