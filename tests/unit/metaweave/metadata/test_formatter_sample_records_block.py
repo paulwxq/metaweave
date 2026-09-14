@@ -1,5 +1,6 @@
 import json
 import re
+from threading import Lock
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -177,12 +178,16 @@ def test_md_step_uses_normalized_ddl_sample_records() -> None:
     generator.database_name = "store_db"
     generator.comment_enabled = False
     generator._get_ddl_loader = MagicMock(return_value=loader)
+    generator._result_lock = Lock()
     generator.formatter = MagicMock()
-    generator.formatter.format_and_save.return_value = {}
+    generator.formatter.format_and_save.return_value = {
+        "markdown": "/tmp/store_db.public.events.md"
+    }
 
     generator._process_table_from_ddl_for_md(
         "public",
         "events",
+        "table",
         MagicMock(),
     )
 

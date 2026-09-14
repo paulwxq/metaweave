@@ -16,7 +16,7 @@ database:
   schemas:
     - public
 
-  # --step ddl 要提取的数据库对象类型。
+  # --step ddl、--step json 和 --step md 要处理的数据库对象类型。
   # 可选值: table | view | materialized_view；默认只启用 table 以保持兼容。
   include_object_types:
     - table

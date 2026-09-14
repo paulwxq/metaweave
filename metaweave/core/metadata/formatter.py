@@ -392,9 +392,12 @@ class OutputFormatter:
         """
         md_lines = []
         
-        # 1. 标题：schema.table_name（表注释）
+        # 1. 标题：schema.object_name [object_type]（对象注释）
+        object_type = metadata.table_type or "table"
+        if object_type not in {"table", "view", "materialized_view"}:
+            raise ValueError(f"不支持的数据库对象类型: {object_type}")
         comment_part = f"（{metadata.comment}）" if metadata.comment else ""
-        md_lines.append(f"# {metadata.full_name}{comment_part}")
+        md_lines.append(f"# {metadata.full_name} [{object_type}]{comment_part}")
         
         # 2. 字段列表
         md_lines.append("## 字段列表：")
@@ -449,16 +452,30 @@ class OutputFormatter:
                 cols = ', '.join(uc.columns)
                 supplementary_items.append(f"- 唯一约束 {uc.constraint_name}: {cols}")
         
-        # 3.5 索引（排除主键和唯一索引）
-        regular_indexes = [
-            idx for idx in metadata.indexes 
-            if not idx.is_primary and not idx.is_unique
+        # 3.5 独立索引（排除主键和唯一约束的支撑索引）
+        standalone_indexes = [
+            idx for idx in metadata.indexes
+            if not idx.is_primary and not idx.is_constraint_backed
         ]
-        if regular_indexes:
-            for idx in regular_indexes:
-                cols = ', '.join(idx.columns)
+        if standalone_indexes:
+            for idx in standalone_indexes:
+                keys = (
+                    idx.key_expressions
+                    if idx.key_expressions is not None
+                    else idx.columns
+                )
+                key_text = ", ".join(keys)
+                if not key_text:
+                    key_text = idx.definition or "无法解析索引键"
+                index_label = "唯一索引" if idx.is_unique else "索引"
+                suffix = ""
+                if idx.included_columns:
+                    suffix += f"；INCLUDE: {', '.join(idx.included_columns)}"
+                if idx.condition:
+                    suffix += f"；WHERE: {idx.condition}"
                 supplementary_items.append(
-                    f"- 索引 {idx.index_name} ({idx.index_type}): {cols}"
+                    f"- {index_label} {idx.index_name} ({idx.index_type}): "
+                    f"{key_text}{suffix}"
                 )
         
         # 3.6 数据类型精度说明（针对 numeric/decimal 类型）

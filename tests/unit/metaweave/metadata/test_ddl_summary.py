@@ -128,6 +128,16 @@ class _SummaryMetadataGenerator:
                 unique_indexes_found=1,
                 processed_object_counts={"table": 2},
             )
+        if step == "md":
+            return GenerationResult(
+                success=True,
+                processed_tables=3,
+                processed_object_counts={
+                    "table": 1,
+                    "view": 1,
+                    "materialized_view": 1,
+                },
+            )
         return GenerationResult(
             success=True,
             processed_tables=2,
@@ -171,10 +181,7 @@ def test_cli_summary_is_specific_to_ddl_and_json(tmp_path, monkeypatch) -> None:
 def test_standard_rejects_non_table_ddl_objects(tmp_path) -> None:
     config_path = tmp_path / "metadata_config.yaml"
     config_path.write_text(
-        "database:\n"
-        "  include_object_types:\n"
-        "    - table\n"
-        "    - view\n",
+        "database:\n  include_object_types:\n    - table\n    - view\n",
         encoding="utf-8",
     )
     runner = CliRunner()
@@ -185,4 +192,60 @@ def test_standard_rejects_non_table_ddl_objects(tmp_path) -> None:
     )
 
     assert result.exit_code != 0
-    assert "仅在单独执行 --step ddl 时支持" in result.output
+    assert "--step ddl、--step json 或 --step md" in result.output
+
+
+def test_cli_md_summary_uses_database_object_counts(tmp_path, monkeypatch) -> None:
+    ddl_dir = tmp_path / "ddl"
+    ddl_dir.mkdir()
+    (ddl_dir / "store_db.public.orders.sql").write_text(
+        "CREATE TABLE public.orders (order_id INTEGER);\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "metadata_config.yaml"
+    config_path.write_text(
+        "database:\n"
+        "  database: store_db\n"
+        "  include_object_types: [table, view, materialized_view]\n"
+        "output:\n"
+        f"  ddl_directory: {ddl_dir}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(metadata_cli, "MetadataGenerator", _SummaryMetadataGenerator)
+
+    result = CliRunner().invoke(
+        metadata_cli.metadata_command,
+        ["--config", str(config_path), "--step", "md"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "成功处理: 3 个对象" in result.output
+    assert "Table: 1 个" in result.output
+    assert "View: 1 个" in result.output
+    assert "Materialized View: 1 个" in result.output
+
+
+def test_cli_md_precheck_ignores_other_database_ddl(tmp_path) -> None:
+    ddl_dir = tmp_path / "ddl"
+    ddl_dir.mkdir()
+    (ddl_dir / "other_db.public.orders.sql").write_text(
+        "CREATE TABLE public.orders (order_id INTEGER);\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "metadata_config.yaml"
+    config_path.write_text(
+        "database:\n"
+        "  database: store_db\n"
+        "  include_object_types: [table]\n"
+        "output:\n"
+        f"  ddl_directory: {ddl_dir}\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        metadata_cli.metadata_command,
+        ["--config", str(config_path), "--step", "md"],
+    )
+
+    assert result.exit_code != 0
+    assert "当前数据库 store_db" in result.output

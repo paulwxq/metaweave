@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 
 from metaweave.core.metadata.connector import DatabaseConnector
-from metaweave.core.metadata.ddl_loader import DDLLoader, DDLLoaderError
+from metaweave.core.metadata.ddl_loader import DDLLoader, DDLLoaderError, ParsedDDL
 from metaweave.core.metadata.extractor import MetadataExtractor
 from metaweave.core.metadata.comment_generator import CommentGenerator
 from metaweave.core.metadata.logical_key_detector import LogicalKeyDetector
@@ -128,6 +128,7 @@ class MetadataGenerator:
         self.active_step = "ddl"
         self.active_formats = self.formatter.formats
         self.ddl_loader: Optional[DDLLoader] = None
+        self._md_parsed_ddl: Dict[tuple[str, str], ParsedDDL] = {}
         self.profiler = MetadataProfiler(self.config)
 
         # 采样配置
@@ -251,6 +252,8 @@ class MetadataGenerator:
             self._pending_json_documents = []
             self._validate_json_sampling_method()
             self.formatter.validate_json_options()
+        elif self.active_step == "md":
+            self._md_parsed_ddl = {}
         logger.info(f"执行步骤: {self.active_step}")
         
         try:
@@ -321,41 +324,46 @@ class MetadataGenerator:
         
         return result
     
-    def _get_tables_from_ddl_dir(self, schema: str) -> List[str]:
-        """从 DDL 目录扫描表名（用于 md 步骤）
-
-        仅支持严格的 {database}.{schema}.{table}.sql 文件名格式。
-        table 名称包含特殊字符（如 '.'）的文件会被跳过并警告。
-
-        Args:
-            schema: schema 名称
-
-        Returns:
-            表名列表
-        """
+    def _get_objects_from_ddl_dir(self, schema: str) -> List[DatabaseObjectRef]:
+        """从 DDL 目录读取带真实类型的数据库对象。"""
         ddl_dir = self.formatter.ddl_dir
         if not ddl_dir.exists():
             logger.warning(f"DDL 目录不存在: {ddl_dir}")
             return []
 
-        # DDL 文件格式: {database}.{schema}.{table}.sql
+        # DDL 文件格式: {database}.{schema}.{object}.sql
         database_name = self.database_name
-        pattern = f"{database_name}.{schema}.*.sql"  # glob 用于粗过滤
+        pattern = f"{database_name}.{schema}.*.sql"
 
-        tables = []
+        objects: List[DatabaseObjectRef] = []
         # 注意：glob 只是粗过滤，最终以 stem 校验为准
-        for ddl_file in ddl_dir.glob(pattern):
-            # 解析文件名 stem（去除 .sql）: store_db.public.employee → employee
+        for ddl_file in sorted(ddl_dir.glob(pattern)):
             parts = ddl_file.stem.split(".")
-            if len(parts) == 3:  # 严格校验 stem 为 3 段：db.schema.table
-                table_name = parts[2]
-                tables.append(table_name)
-                logger.debug(f"从 DDL 文件发现表: {schema}.{table_name}")
-            else:
-                logger.warning(f"DDL 文件 stem 格式异常，跳过: {ddl_file.name}（期望 stem 3 段，实际 {len(parts)} 段）")
+            if len(parts) != 3:
+                raise DDLLoaderError(
+                    f"DDL 文件 stem 格式异常: {ddl_file.name}"
+                    f"（期望 {database_name}.{schema}.<object>.sql）"
+                )
 
-        logger.info(f"从 DDL 目录扫描到 {len(tables)} 张表: {schema}.*")
-        return tables
+            object_name = parts[2]
+            parsed = self._get_ddl_loader().load_table(schema, object_name)
+            object_type = parsed.metadata.table_type
+            if object_type not in {"table", "view", "materialized_view"}:
+                raise DDLLoaderError(
+                    f"DDL 对象类型不受支持 ({ddl_file}): {object_type!r}"
+                )
+
+            self._md_parsed_ddl[(schema, object_name)] = parsed
+            objects.append(DatabaseObjectRef(schema, object_name, object_type))
+            logger.debug(
+                "从 DDL 文件发现数据库对象: %s.%s (%s)",
+                schema,
+                object_name,
+                object_type,
+            )
+
+        logger.info("从 DDL 目录扫描到 %d 个对象: %s.*", len(objects), schema)
+        return objects
 
     def _get_tables_to_process(
         self,
@@ -375,11 +383,13 @@ class MetadataGenerator:
         exclude_patterns = self.config.get("database", {}).get("exclude_tables", [])
 
         for schema in schemas:
-            # md 步骤：从 DDL 目录枚举表
+            # md 步骤：从 DDL 目录枚举对象，并按配置选择对象类型。
             if self.active_step == "md":
+                allowed_types = set(self._resolve_database_object_types())
                 schema_objects = [
-                    DatabaseObjectRef(schema, table, "table")
-                    for table in self._get_tables_from_ddl_dir(schema)
+                    database_object
+                    for database_object in self._get_objects_from_ddl_dir(schema)
+                    if database_object.object_type in allowed_types
                 ]
             elif self.active_step in {"ddl", "json"}:
                 schema_objects = self.connector.get_database_objects(
@@ -489,14 +499,17 @@ class MetadataGenerator:
         result: GenerationResult
     ) -> GenerationResult:
         """顺序处理表"""
-        progress_desc = "处理对象" if self.active_step == "ddl" else "处理表"
+        progress_desc = "处理对象" if self.active_step in {"ddl", "md"} else "处理表"
         with tqdm(total=len(tables), desc=progress_desc) as pbar:
             for schema, table, object_type in tables:
                 try:
                     self._process_table(schema, table, object_type, result)
                     result.processed_tables += 1
                 except Exception as e:
-                    logger.error(f"处理表失败 ({schema}.{table}): {e}")
+                    entity = "对象" if self.active_step == "md" else "表"
+                    logger.error(f"处理{entity}失败 ({schema}.{table}): {e}")
+                    if self.active_step == "md":
+                        result.success = False
                     result.failed_tables += 1
                     result.add_error(f"{schema}.{table}: {str(e)}")
                 finally:
@@ -525,7 +538,7 @@ class MetadataGenerator:
             }
             
             # 使用 tqdm 显示进度
-            progress_desc = "处理对象" if self.active_step == "ddl" else "处理表"
+            progress_desc = "处理对象" if self.active_step in {"ddl", "md"} else "处理表"
             with tqdm(total=len(tables), desc=progress_desc) as pbar:
                 for future in as_completed(future_to_table):
                     schema, table = future_to_table[future]
@@ -533,7 +546,10 @@ class MetadataGenerator:
                         future.result()
                         result.processed_tables += 1
                     except Exception as e:
-                        logger.error(f"处理表失败 ({schema}.{table}): {e}")
+                        entity = "对象" if self.active_step == "md" else "表"
+                        logger.error(f"处理{entity}失败 ({schema}.{table}): {e}")
+                        if self.active_step == "md":
+                            result.success = False
                         result.failed_tables += 1
                         result.add_error(f"{schema}.{table}: {str(e)}")
                     finally:
@@ -553,7 +569,12 @@ class MetadataGenerator:
             self._process_table_from_ddl(schema, table, object_type, result)
         elif self.active_step == "md":
             # md 步骤：完全 file-only，不访问数据库
-            self._process_table_from_ddl_for_md(schema, table, result)
+            self._process_table_from_ddl_for_md(
+                schema,
+                table,
+                object_type,
+                result,
+            )
         else:
             # ddl/rel 等其他步骤：直接查库
             self._process_table_from_db(schema, table, object_type, result)
@@ -882,7 +903,8 @@ class MetadataGenerator:
     def _process_table_from_ddl_for_md(
         self,
         schema: str,
-        table: str,
+        object_name: str,
+        object_type: str,
         result: GenerationResult
     ):
         """md 专用：从 DDL 文件生成 Markdown（file-only，不访问数据库）
@@ -893,37 +915,37 @@ class MetadataGenerator:
         - 不采样数据库（使用 DDL 的 sample_records）
         - 完全 file-only，零数据库访问
         """
-        logger.info(f"开始处理表 (Markdown): {schema}.{table}")
+        logger.info(
+            "开始处理数据库对象 (Markdown): %s.%s (%s)",
+            schema,
+            object_name,
+            object_type,
+        )
 
         # 1. 从 DDL 文件加载元数据
-        try:
-            parsed = self._get_ddl_loader().load_table(schema, table)
-            metadata = parsed.metadata
-            metadata.database = self.database_name
-        except DDLLoaderError as exc:
-            logger.error(f"DDL 解析失败 ({schema}.{table}): {exc}")
-            result.failed_tables += 1
-            result.add_error(f"{schema}.{table}: {exc}")
-            return
+        parsed = getattr(self, "_md_parsed_ddl", {}).get((schema, object_name))
+        if parsed is None:
+            parsed = self._get_ddl_loader().load_table(schema, object_name)
+        metadata = parsed.metadata
+        if metadata.table_type != object_type:
+            raise DDLLoaderError(
+                f"DDL 对象类型为 {metadata.table_type}，枚举对象类型为 {object_type}"
+            )
+        metadata.database = self.database_name
 
         # 2. 将 DDL sample_records 转换为 DataFrame（仅用于注释生成辅助）
         sample_data = None
         if parsed.sample_records:
             import pandas as pd
             sample_data = pd.DataFrame(parsed.sample_records)
-            logger.info(f"使用 DDL 样例数据: {schema}.{table}, {len(sample_data)} 行")
-        else:
-            logger.warning(f"DDL 无样例数据: {schema}.{table}")
-
-        # 3. 补全缺失的注释（可选，使用 LLM + 缓存）
-        if self.comment_enabled:
-            comment_count = self.comment_generator.enrich_metadata_with_comments(
-                metadata,
-                sample_data  # 辅助 LLM 理解字段含义
+            logger.info(
+                "使用 DDL 样例数据: %s.%s, %d 行",
+                schema,
+                object_name,
+                len(sample_data),
             )
-            if comment_count > 0:
-                result.generated_comments += comment_count
-                logger.info(f"补全注释: {schema}.{table}, {comment_count} 个")
+        else:
+            logger.warning("DDL 无样例数据: %s.%s", schema, object_name)
 
         # 4. 跳过列统计、画像、逻辑主键（md 不需要）
         # 注意：
@@ -940,12 +962,24 @@ class MetadataGenerator:
             sample_data,  # 用于提取示例值
             formats_override=["markdown"]  # 仅输出 md 格式
         )
-        for file_path in output_files.values():
-            result.add_output_file(file_path)
+        markdown_path = output_files.get("markdown")
+        if not markdown_path:
+            raise RuntimeError(f"Markdown 保存失败: {schema}.{object_name}")
+
+        with self._result_lock:
+            result.add_output_file(markdown_path)
+            result.processed_object_counts[object_type] = (
+                result.processed_object_counts.get(object_type, 0) + 1
+            )
 
         # 注意：不需要 result.processed_tables += 1
         # 外层框架（_process_tables_sequential/parallel）已统计
-        logger.info(f"Markdown 生成完成: {schema}.{table}")
+        logger.info(
+            "Markdown 生成完成: %s.%s (%s)",
+            schema,
+            object_name,
+            object_type,
+        )
 
     def _generate_summary(self, result: GenerationResult):
         """生成汇总报告"""
@@ -953,7 +987,7 @@ class MetadataGenerator:
         summary_lines.append("=" * 60)
         summary_lines.append("元数据生成汇总报告")
         summary_lines.append("=" * 60)
-        unit = "个对象" if self.active_step in {"ddl", "json"} else "张表"
+        unit = "个对象" if self.active_step in {"ddl", "json", "md"} else "张表"
         summary_lines.append(f"成功处理: {result.processed_tables} {unit}")
         summary_lines.append(f"处理失败: {result.failed_tables} {unit}")
         summary_lines.append(f"生成注释: {result.generated_comments} 个")
@@ -1010,6 +1044,17 @@ class MetadataGenerator:
                 f"dim={result.table_category_counts.get('dim', 0)}，"
                 f"bridge={result.table_category_counts.get('bridge', 0)}，"
                 f"unknown={result.table_category_counts.get('unknown', 0)}"
+            )
+        elif self.active_step == "md":
+            summary_lines.append(
+                f"Table: {result.processed_object_counts.get('table', 0)} 个"
+            )
+            summary_lines.append(
+                f"View: {result.processed_object_counts.get('view', 0)} 个"
+            )
+            summary_lines.append(
+                "Materialized View: "
+                f"{result.processed_object_counts.get('materialized_view', 0)} 个"
             )
         summary_lines.append(f"输出文件: {len(result.output_files)} 个")
         

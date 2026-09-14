@@ -1,7 +1,5 @@
 import textwrap
 
-import pytest
-
 from metaweave.core.metadata.ddl_loader import DDLLoader
 
 
@@ -95,3 +93,64 @@ def test_ddl_loader_parses_compact_sampled_records(tmp_path):
         {"event_id": "1", "event_name": "created"},
         {"event_id": "2", "event_name": "completed"},
     ]
+
+
+def test_ddl_loader_parses_postgres_index_features(tmp_path):
+    ddl_file = tmp_path / "postgres.public.accounts.sql"
+    ddl_file.write_text(
+        textwrap.dedent(
+            """
+            CREATE TABLE public.accounts (
+                account_id INTEGER,
+                email TEXT,
+                created_at TIMESTAMP,
+                deleted_at TIMESTAMP
+            );
+
+            CREATE UNIQUE INDEX accounts_email_uidx
+            ON public.accounts USING btree (account_id, lower(email))
+            INCLUDE (created_at)
+            WHERE deleted_at IS NULL;
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    parsed = DDLLoader(tmp_path).load_table("public", "accounts")
+
+    assert len(parsed.metadata.indexes) == 1
+    index = parsed.metadata.indexes[0]
+    assert index.index_name == "accounts_email_uidx"
+    assert index.index_type == "btree"
+    assert index.is_unique is True
+    assert index.columns == ["account_id"]
+    assert index.key_expressions == ["account_id", "lower(email)"]
+    assert index.included_columns == ["created_at"]
+    assert index.condition == "deleted_at IS NULL"
+    assert index.is_constraint_backed is False
+    assert index.definition.startswith("CREATE UNIQUE INDEX")
+
+
+def test_ddl_loader_keeps_commas_inside_index_expressions(tmp_path):
+    ddl_file = tmp_path / "postgres.public.events.sql"
+    ddl_file.write_text(
+        textwrap.dedent(
+            """
+            CREATE TABLE public.events (
+                event_id INTEGER,
+                event_code TEXT
+            );
+
+            CREATE INDEX events_code_idx ON public.events
+            USING hash (concat(event_code, ',', event_id));
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+
+    parsed = DDLLoader(tmp_path).load_table("public", "events")
+
+    index = parsed.metadata.indexes[0]
+    assert index.index_type == "hash"
+    assert index.columns == []
+    assert index.key_expressions == ["concat(event_code, ',', event_id)"]

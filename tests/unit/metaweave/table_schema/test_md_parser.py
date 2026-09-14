@@ -17,6 +17,17 @@ def test_extract_table_name():
     assert parser.extract_table_name() == "public.dim_company"
 
 
+def test_extract_table_name_with_database_object_type():
+    parser = MDParser.from_string(
+        "# public.mv_sales [materialized_view]（销售汇总）\n"
+        "## 字段列表：\n"
+        "- category_id (integer) - 分类ID [示例: 1]\n"
+    )
+
+    assert parser.extract_table_name() == "public.mv_sales"
+    assert parser.get_column_descriptions() == {"category_id": "分类ID"}
+
+
 def test_get_column_descriptions_standard():
     parser = MDParser.from_string(MD_SAMPLE)
     cols = parser.get_column_descriptions()
@@ -38,4 +49,3 @@ def test_extract_table_name_invalid_title_raises():
     parser = MDParser.from_string(bad_md)
     with pytest.raises(ValueError):
         parser.extract_table_name()
-

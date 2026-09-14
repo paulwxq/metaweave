@@ -45,10 +45,12 @@ TABLE_COMMENT_PATTERN = re.compile(
     r"(?P<schema>[A-Za-z0-9_]+)\.(?P<table>[A-Za-z0-9_]+)\s+IS\s+'(?P<comment>(?:''|[^'])*)';",
     re.IGNORECASE | re.DOTALL,
 )
-INDEX_PATTERN = re.compile(
-    r"CREATE\s+(?P<unique>UNIQUE\s+)?INDEX\s+(?P<name>[A-Za-z0-9_]+)\s+ON\s+"
-    r"(?P<schema>[A-Za-z0-9_]+)\.(?P<table>[A-Za-z0-9_]+)\s*\((?P<columns>[^\)]+)\);",
-    re.IGNORECASE,
+CREATE_INDEX_START_PATTERN = re.compile(
+    r"CREATE\s+(?P<unique>UNIQUE\s+)?INDEX\s+"
+    r"(?:IF\s+NOT\s+EXISTS\s+)?(?P<name>[A-Za-z0-9_]+)\s+ON\s+"
+    r"(?:ONLY\s+)?(?P<schema>[A-Za-z0-9_]+)\.(?P<table>[A-Za-z0-9_]+)"
+    r"(?:\s+USING\s+(?P<method>[A-Za-z0-9_]+))?\s*(?=\()",
+    re.IGNORECASE | re.DOTALL,
 )
 
 CHAR_TYPES = {
@@ -548,24 +550,132 @@ class DDLLoader:
 
     def _parse_indexes(self, content: str, schema: str, table: str) -> List[IndexInfo]:
         indexes: List[IndexInfo] = []
-        for match in INDEX_PATTERN.finditer(content):
+        for match in CREATE_INDEX_START_PATTERN.finditer(content):
             if (
                 match.group("schema").lower() != schema.lower()
                 or match.group("table").lower() != table.lower()
             ):
                 continue
-            columns = [c.strip().strip('"') for c in match.group("columns").split(",")]
+
+            open_idx = match.end()
+            key_block, close_idx = self._extract_parenthesized_block(
+                content,
+                open_idx,
+            )
+            statement_end = content.find(";", close_idx)
+            if statement_end < 0:
+                statement_end = len(content)
+            suffix = content[close_idx + 1 : statement_end]
+
+            key_expressions = self._split_top_level_expressions(key_block)
+            columns = []
+            for expression in key_expressions:
+                column_name = self._plain_index_column(expression)
+                if column_name is not None:
+                    columns.append(column_name)
+
+            included_columns: List[str] = []
+            include_match = re.search(r"\bINCLUDE\s*(?=\()", suffix, re.IGNORECASE)
+            if include_match:
+                include_open_idx = close_idx + 1 + include_match.end()
+                include_block, _ = self._extract_parenthesized_block(
+                    content,
+                    include_open_idx,
+                )
+                included_columns = [
+                    self._unquote_identifier(value.strip())
+                    for value in self._split_top_level_expressions(include_block)
+                    if value.strip()
+                ]
+
+            condition = None
+            where_match = re.search(r"\bWHERE\s+(?P<condition>.+)$", suffix, re.IGNORECASE | re.DOTALL)
+            if where_match:
+                condition = where_match.group("condition").strip() or None
+
             indexes.append(
                 IndexInfo(
                     index_name=match.group("name"),
-                    index_type="btree",
+                    index_type=(match.group("method") or "btree").lower(),
                     columns=columns,
                     is_unique=bool(match.group("unique")),
                     is_primary=False,
-                    condition=None,
+                    condition=condition,
+                    is_constraint_backed=False,
+                    constraint_name=None,
+                    definition=content[match.start() : statement_end].strip(),
+                    included_columns=included_columns,
+                    key_expressions=key_expressions,
                 )
             )
         return indexes
+
+    @staticmethod
+    def _split_top_level_expressions(value: str) -> List[str]:
+        """按顶层逗号拆分 SQL 片段，保留括号和引号内的逗号。"""
+        items: List[str] = []
+        current: List[str] = []
+        depth = 0
+        in_single_quote = False
+        in_double_quote = False
+        index = 0
+
+        while index < len(value):
+            char = value[index]
+            next_char = value[index + 1] if index + 1 < len(value) else ""
+
+            if char == "'" and not in_double_quote:
+                current.append(char)
+                if in_single_quote and next_char == "'":
+                    current.append(next_char)
+                    index += 2
+                    continue
+                in_single_quote = not in_single_quote
+            elif char == '"' and not in_single_quote:
+                current.append(char)
+                if in_double_quote and next_char == '"':
+                    current.append(next_char)
+                    index += 2
+                    continue
+                in_double_quote = not in_double_quote
+            elif not in_single_quote and not in_double_quote:
+                if char == "(":
+                    depth += 1
+                    current.append(char)
+                elif char == ")":
+                    depth -= 1
+                    current.append(char)
+                elif char == "," and depth == 0:
+                    item = "".join(current).strip()
+                    if item:
+                        items.append(item)
+                    current = []
+                else:
+                    current.append(char)
+            else:
+                current.append(char)
+            index += 1
+
+        tail = "".join(current).strip()
+        if tail:
+            items.append(tail)
+        return items
+
+    @classmethod
+    def _plain_index_column(cls, expression: str) -> Optional[str]:
+        """普通字段键返回字段名；表达式键返回 None。"""
+        stripped = expression.strip()
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", stripped):
+            return stripped
+        if re.fullmatch(r'"(?:[^"]|"")+"', stripped):
+            return cls._unquote_identifier(stripped)
+        return None
+
+    @staticmethod
+    def _unquote_identifier(value: str) -> str:
+        if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
+            return value[1:-1].replace('""', '"')
+        return value
 
     def _parse_alter_table_constraints(
         self, content: str, metadata: TableMetadata, schema: str, table: str

@@ -384,12 +384,12 @@ def metadata_command(
                 ["table"],
             )
         )
-        unsupported_view_steps = {"standard", "md"}
+        unsupported_view_steps = {"standard"}
         if step_lower in unsupported_view_steps and set(ddl_object_types) != {"table"}:
             raise click.UsageError(
                 "当前组合步骤的下游处理尚未完成 view 和 materialized_view "
-                "适配；当前版本仅在单独执行 --step ddl 时支持，单独执行 "
-                "json 时也支持。"
+                "适配；当前版本仅在单独执行 --step ddl、--step json 或 "
+                "--step md 时支持。"
             )
 
         # Step: standard - 串行调度多个步骤（fail-fast）
@@ -866,15 +866,29 @@ def metadata_command(
                     f"请先执行: metaweave metadata --config {config} --step ddl"
                 )
 
-            # 检查是否有 DDL 文件（文件名格式：{database}.{schema}.{table}.sql）
-            ddl_files = list(ddl_dir.glob("*.sql"))
+            database_name = loaded_config.get("database", {}).get("database")
+            if not database_name:
+                raise click.UsageError(
+                    "❌ --step md 无法确定当前数据库名，请配置 database.database"
+                )
+
+            # 只检查当前数据库的严格三段式 DDL 文件。对象解析与过滤由生成器完成。
+            ddl_files = []
+            for ddl_file in sorted(ddl_dir.glob(f"{database_name}.*.*.sql")):
+                parts = ddl_file.stem.split(".")
+                if len(parts) == 3 and parts[0] == str(database_name):
+                    ddl_files.append(ddl_file)
             if not ddl_files:
                 raise click.UsageError(
-                    f"❌ --step md 依赖 DDL 文件，但 DDL 目录为空: {ddl_dir}\n"
+                    f"❌ --step md 依赖当前数据库 {database_name} 的 DDL 文件，"
+                    f"但未找到有效输入: {ddl_dir}\n"
                     f"请先执行: metaweave metadata --config {config} --step ddl"
                 )
 
-            click.echo(f"✅ 检测到 {len(ddl_files)} 个 DDL 文件，继续执行...")
+            click.echo(
+                f"✅ 检测到当前数据库 {database_name} 的 "
+                f"{len(ddl_files)} 个 DDL 文件，继续执行..."
+            )
         # ==========================================
 
         # 清理当前 step 输出目录（ddl/json/md）
@@ -919,7 +933,7 @@ def metadata_command(
         click.echo("=" * 60)
         click.echo("📊 生成结果统计")
         click.echo("=" * 60)
-        if step_lower in {"ddl", "json"}:
+        if step_lower in {"ddl", "json", "md"}:
             click.echo(f"✅ 成功处理: {result.processed_tables} 个对象")
             click.echo(
                 f"  - Table: {result.processed_object_counts.get('table', 0)} 个"
@@ -935,7 +949,7 @@ def metadata_command(
             click.echo(f"✅ 成功处理: {result.processed_tables} 张表")
 
         if result.failed_tables > 0:
-            unit = "个对象" if step_lower in {"ddl", "json"} else "张表"
+            unit = "个对象" if step_lower in {"ddl", "json", "md"} else "张表"
             click.echo(f"❌ 处理失败: {result.failed_tables} {unit}", err=True)
 
         click.echo(f"💬 生成注释: {result.generated_comments} 个")
