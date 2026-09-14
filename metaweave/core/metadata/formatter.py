@@ -6,13 +6,14 @@
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 import pandas as pd
 
 from metaweave.core.metadata.models import TableMetadata
-from metaweave.utils.file_utils import save_text, save_json, ensure_dir
+from metaweave.core.metadata.metadata_document import MetadataDocument
+from metaweave.utils.file_utils import atomic_write_json, save_text, ensure_dir
 from metaweave.utils.data_utils import dataframe_to_sample_dict, format_data_type
 
 logger = logging.getLogger("metaweave.formatter")
@@ -56,6 +57,13 @@ class OutputFormatter:
             "count": sample_record_count,
         }
         self.markdown_options = config.get("markdown_options", {})
+        json_options = config.get("json_options", {}) or {}
+        self.json_options = json_options
+        self.include_generation_timestamps = (
+            json_options.get("include_generation_timestamps", True)
+            if isinstance(json_options, dict)
+            else True
+        )
         self.markdown_sample_value_count = max(
             1,
             int(self.markdown_options.get("sample_value_count", 2))
@@ -95,6 +103,15 @@ class OutputFormatter:
         self.database_name = database_name
         
         logger.info(f"输出格式化器已初始化. DDL: {self.ddl_dir}, JSON: {self.json_dir}, MD: {self.markdown_dir}")
+
+    def validate_json_options(self) -> None:
+        """校验只影响 json/json_llm 的输出配置。"""
+        if not isinstance(self.json_options, dict):
+            raise ValueError("output.json_options 必须是对象")
+        if not isinstance(self.include_generation_timestamps, bool):
+            raise ValueError(
+                "output.json_options.include_generation_timestamps 必须是布尔值"
+            )
     
     def _get_filename(self, metadata: TableMetadata, extension: str) -> str:
         """生成标准文件名：database.schema.table.{extension}
@@ -568,50 +585,66 @@ class OutputFormatter:
             logger.warning(f"从 DDL 提取样例数据失败 ({metadata.full_name}): {e}")
             return None
     
-    def _save_json(self, metadata: TableMetadata, sample_data: Optional[pd.DataFrame] = None) -> Optional[Path]:
-        """保存 JSON 文件
-        
-        Args:
-            metadata: 表元数据
-            sample_data: 可选的样本数据 DataFrame
-        """
-        try:
-            json_data = metadata.to_dict()
-            
-            # 尝试从 DDL 提取样例数据
-            sample_records = self._extract_sample_records_from_ddl(metadata)
-            
-            # 如果 DDL 中没有，尝试从 sample_data 提取
-            if not sample_records and sample_data is not None and not sample_data.empty:
-                samples = dataframe_to_sample_dict(
-                    sample_data,
-                    max_rows=self.sample_record_options["count"],
-                )
-                if samples:
-                    sample_records = {
-                        "sample_method": "limit",
-                        "sample_size": len(samples),
-                        "total_rows": metadata.row_count,
-                        "records": samples
-                    }
-            
-            # 如果还是没有样例数据，创建空结构
-            if not sample_records:
+    def build_json_document(
+        self,
+        metadata: TableMetadata,
+        sample_data: Optional[pd.DataFrame] = None,
+    ) -> Dict[str, Any]:
+        """在内存中构造并校验一份 JSON 3.0 文档。"""
+        self.validate_json_options()
+        profiling_sample_count = None if sample_data is None else len(sample_data)
+        json_data = metadata.to_dict(
+            include_generation_timestamp=self.include_generation_timestamps,
+            profiling_sample_method="limit",
+            profiling_sample_count=profiling_sample_count,
+        )
+
+        sample_records = self._extract_sample_records_from_ddl(metadata)
+        if not sample_records and sample_data is not None and not sample_data.empty:
+            samples = dataframe_to_sample_dict(
+                sample_data,
+                max_rows=self.sample_record_options["count"],
+            )
+            if samples:
                 sample_records = {
-                    "sample_method": "none",
-                    "sample_size": 0,
-                    "total_rows": metadata.row_count,
-                    "records": []
+                    "sample_method": "limit",
+                    "records": samples,
                 }
-            
-            # 添加样例数据到 JSON
-            json_data["sample_records"] = sample_records
-            
-            filename = self._get_filename(metadata, "json")
-            file_path = self.json_dir / filename
-            save_json(json_data, file_path)
-            logger.info(f"保存 JSON: {file_path}")
-            return file_path
+
+        if not sample_records:
+            sample_records = {"sample_method": "none", "records": []}
+
+        json_data["sample_records"] = {
+            "sample_method": sample_records["sample_method"],
+            "records": sample_records["records"],
+        }
+        MetadataDocument.from_dict(json_data)
+        return json_data
+
+    def json_output_path(self, metadata: TableMetadata) -> Path:
+        """返回对象对应的 JSON 输出路径。"""
+        return self.json_dir / self._get_filename(metadata, "json")
+
+    def save_json_document(
+        self,
+        document: Dict[str, Any],
+        file_path: str | Path,
+    ) -> Path:
+        """校验并原子保存已完成规则/LLM 合并的 JSON 文档。"""
+        MetadataDocument.from_dict(document)
+        saved_path = atomic_write_json(document, file_path)
+        logger.info("保存 JSON: %s", saved_path)
+        return saved_path
+
+    def _save_json(
+        self,
+        metadata: TableMetadata,
+        sample_data: Optional[pd.DataFrame] = None,
+    ) -> Optional[Path]:
+        """兼容 format_and_save 的 JSON 保存入口。"""
+        try:
+            document = self.build_json_document(metadata, sample_data)
+            return self.save_json_document(document, self.json_output_path(metadata))
         except Exception as e:
             logger.error(f"保存 JSON 失败 ({metadata.full_name}): {e}")
             return None

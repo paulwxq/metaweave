@@ -142,6 +142,65 @@ GROUP BY i.indexname, am.amname, ix.indisunique, ix.indisprimary,
 ORDER BY i.indexname;
 """
 
+# JSON 画像专用的完整索引事实。使用 indnkeyatts 区分索引键与 INCLUDE
+# 列，并用 pg_get_indexdef 保留表达式键；不改变 DDL 阶段现有查询行为。
+GET_JSON_INDEXES_SQL = """
+SELECT
+    index_class.relname AS index_name,
+    access_method.amname AS index_type,
+    index_meta.indisunique AS is_unique,
+    index_meta.indisprimary AS is_primary,
+    (constraint_meta.oid IS NOT NULL) AS is_constraint_backed,
+    constraint_meta.conname AS constraint_name,
+    pg_get_indexdef(index_meta.indexrelid) AS index_definition,
+    pg_get_expr(index_meta.indpred, index_meta.indrelid) AS condition,
+    ARRAY(
+        SELECT attribute_meta.attname
+        FROM unnest(index_meta.indkey::smallint[]) WITH ORDINALITY AS key_item(attnum, position)
+        JOIN pg_catalog.pg_attribute attribute_meta
+          ON attribute_meta.attrelid = table_class.oid
+         AND attribute_meta.attnum = key_item.attnum
+        WHERE key_item.position <= index_meta.indnkeyatts
+          AND key_item.attnum <> 0
+        ORDER BY key_item.position
+    ) AS columns,
+    ARRAY(
+        SELECT pg_get_indexdef(
+            index_meta.indexrelid,
+            key_position,
+            true
+        )
+        FROM generate_series(1, index_meta.indnkeyatts) AS key_position
+        ORDER BY key_position
+    ) AS key_expressions,
+    ARRAY(
+        SELECT attribute_meta.attname
+        FROM unnest(index_meta.indkey::smallint[]) WITH ORDINALITY AS include_item(attnum, position)
+        JOIN pg_catalog.pg_attribute attribute_meta
+          ON attribute_meta.attrelid = table_class.oid
+         AND attribute_meta.attnum = include_item.attnum
+        WHERE include_item.position > index_meta.indnkeyatts
+          AND include_item.attnum <> 0
+        ORDER BY include_item.position
+    ) AS included_columns
+FROM pg_catalog.pg_class table_class
+JOIN pg_catalog.pg_namespace namespace_meta
+  ON namespace_meta.oid = table_class.relnamespace
+JOIN pg_catalog.pg_index index_meta
+  ON index_meta.indrelid = table_class.oid
+JOIN pg_catalog.pg_class index_class
+  ON index_class.oid = index_meta.indexrelid
+JOIN pg_catalog.pg_am access_method
+  ON access_method.oid = index_class.relam
+LEFT JOIN pg_catalog.pg_constraint constraint_meta
+  ON constraint_meta.conindid = index_meta.indexrelid
+ AND constraint_meta.conrelid = table_class.oid
+ AND constraint_meta.contype IN ('p', 'u', 'x')
+WHERE namespace_meta.nspname = %s
+  AND table_class.relname = %s
+ORDER BY index_class.relname;
+"""
+
 # 获取普通表、View 和 Materialized View
 GET_DATABASE_OBJECTS_SQL = """
 SELECT

@@ -25,6 +25,7 @@ from metaweave.utils.sql_templates import (
     GET_FOREIGN_KEYS_SQL,
     GET_UNIQUE_CONSTRAINTS_SQL,
     GET_INDEXES_SQL,
+    GET_JSON_INDEXES_SQL,
     GET_MATERIALIZED_VIEW_COLUMNS_SQL,
     GET_VIEW_DEFINITION_SQL,
 )
@@ -316,6 +317,53 @@ class MetadataExtractor:
         except Exception as e:
             logger.error(f"提取索引失败 ({schema}.{table}): {e}")
             return []
+
+    def extract_json_indexes(self, schema: str, table: str) -> List[IndexInfo]:
+        """提取当前 JSON 格式使用的完整索引事实。
+
+        该路径区分普通键、表达式键和 INCLUDE 列，仅由 json/json_llm
+        阶段调用，避免改变已经定稿的 DDL 输出路径。
+        """
+        try:
+            results = self.connector.execute_query(
+                GET_JSON_INDEXES_SQL,
+                (schema, table),
+            )
+            indexes = []
+            for row in results:
+                indexes.append(
+                    IndexInfo(
+                        index_name=row["index_name"],
+                        index_type=row.get("index_type", "btree"),
+                        columns=self._parse_pg_array(row.get("columns")),
+                        included_columns=self._parse_pg_array(
+                            row.get("included_columns")
+                        ),
+                        key_expressions=self._parse_pg_array(
+                            row.get("key_expressions")
+                        ),
+                        is_unique=row.get("is_unique", False),
+                        is_primary=row.get("is_primary", False),
+                        condition=row.get("condition"),
+                        is_constraint_backed=row.get(
+                            "is_constraint_backed",
+                            False,
+                        ),
+                        constraint_name=row.get("constraint_name"),
+                        definition=row.get("index_definition"),
+                    )
+                )
+            return indexes
+        except Exception as exc:
+            logger.error(
+                "提取 JSON 索引事实失败 (%s.%s): %s",
+                schema,
+                table,
+                exc,
+            )
+            raise RuntimeError(
+                f"提取 JSON 索引事实失败: {schema}.{table}"
+            ) from exc
     
     def extract_view_definition(self, schema: str, object_name: str) -> Optional[str]:
         """提取普通 View 或 Materialized View 的查询定义。"""

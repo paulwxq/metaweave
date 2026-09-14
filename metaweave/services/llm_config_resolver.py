@@ -34,8 +34,8 @@ SUPPORTED_MODULE_LLM_PATHS: set[str] = {
     "domain_generation.llm",
     "sql_rag.llm",
     "relationships.llm",
-    "json_llm.llm",
-    "comment_generation.llm",
+    "ddl_generation.llm",
+    "json_generation.llm",
 }
 
 # 所有已知可能存在 xxx.llm 子键的模块根节点
@@ -44,8 +44,8 @@ _ALL_KNOWN_MODULE_ROOTS: set[str] = {
     "domain_generation",
     "sql_rag",
     "relationships",
-    "json_llm",
-    "comment_generation",
+    "ddl_generation",
+    "json_generation",
 }
 
 # 明确禁止的非标准路径（错误层级写法）
@@ -64,10 +64,24 @@ _NONSTANDARD_LLM_FIELDS: list[tuple[str, str, str]] = [
     ),
 ]
 
-# 已废弃的顶层配置键 → 新键名
+# 已废弃的顶层配置键 → 迁移说明
 # 配置中出现旧键时直接报错，不做兼容
 _DEPRECATED_TOP_LEVEL_KEYS: dict[str, str] = {
-    "llm_comment_generation": "comment_generation",
+    "comment_generation": (
+        "请将 DDL 注释配置迁移到 'ddl_generation.comments'，"
+        "将 JSON 注释配置迁移到 'json_generation.comments'；"
+        "模块模型配置分别迁移到 'ddl_generation.llm' 和 "
+        "'json_generation.llm'"
+    ),
+    "llm_comment_generation": (
+        "该别名已删除；请将 DDL 注释配置迁移到 "
+        "'ddl_generation.comments'，将 JSON 注释配置迁移到 "
+        "'json_generation.comments'"
+    ),
+    "json_llm": (
+        "请将 JSON 注释和表分类配置迁移到 'json_generation'，"
+        "将模型配置迁移到 'json_generation.llm'"
+    ),
 }
 
 # override 顶层允许的合法键（对应 LLMService 消费的 llm 结构）
@@ -179,11 +193,11 @@ def _validate_nonstandard_llm_paths(full_config: dict) -> None:
                 f"该字段已废弃，请删除并改用标准写法：{target_path}"
             )
 
-    for old_key, new_key in _DEPRECATED_TOP_LEVEL_KEYS.items():
+    for old_key, migration_guidance in _DEPRECATED_TOP_LEVEL_KEYS.items():
         if old_key in full_config:
             raise ValueError(
                 f"配置错误：检测到已废弃的顶层配置键 '{old_key}'。\n"
-                f"该键已重命名为 '{new_key}'，请将配置中的 '{old_key}' 改为 '{new_key}'。"
+                f"{migration_guidance}。"
             )
 
 

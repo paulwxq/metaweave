@@ -7,14 +7,42 @@
 - 原子写入
 """
 
+import copy
 import json
-from pathlib import Path
 from typing import Dict
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from metaweave.core.metadata.json_llm_enhancer import JsonLlmEnhancer
+
+
+def _as_v3(table_json: Dict) -> Dict:
+    data = copy.deepcopy(table_json)
+    data["metadata_version"] = "3.0"
+    data["profiling"] = {"sample_method": "limit", "sample_count": 100}
+    for column in data["column_profiles"].values():
+        column.pop("column_name", None)
+        column.pop("structure_flags", None)
+        column.pop("role_specific_info", None)
+        statistics = column.get("statistics", {})
+        if "sample_count" in statistics and "null_rate" in statistics:
+            statistics["null_count"] = round(
+                statistics["sample_count"] * statistics["null_rate"]
+            )
+        statistics.pop("sample_count", None)
+        statistics.pop("null_rate", None)
+        statistics.pop("uniqueness", None)
+    table_profile = data["table_profile"]
+    table_profile.pop("column_statistics", None)
+    table_profile.pop("logical_keys", None)
+    table_profile["classification_source"] = "rule"
+    table_profile["unique_column_sets"] = []
+    data["sample_records"] = {
+        "sample_method": data["sample_records"]["sample_method"],
+        "records": data["sample_records"]["records"],
+    }
+    return data
 
 
 @pytest.fixture
@@ -38,12 +66,15 @@ def sample_config():
                 "batch_size": 10,
             }
         },
-        "comment_generation": {
-            "enabled": True,
-            "language": "zh",
-            "max_columns_per_call": 120,
-            "enable_batch_processing": True,
-            "overwrite_existing": False,
+        "json_generation": {
+            "comments": {
+                "llm_enabled": True,
+                "language": "zh",
+                "max_columns_per_call": 120,
+                "enable_batch_processing": True,
+                "overwrite": False,
+            },
+            "table_classification": {"llm_enabled": True},
         },
     }
 
@@ -51,8 +82,8 @@ def sample_config():
 @pytest.fixture
 def sample_table_json():
     """示例表 JSON（规则引擎输出）"""
-    return {
-        "metadata_version": "2.0",
+    data = {
+        "metadata_version": "3.0",
         "generated_timestamp": "2025-12-26T00:00:00.000000",
         "table_info": {
             "schema_name": "public",
@@ -153,6 +184,7 @@ def sample_table_json():
             ],
         },
     }
+    return _as_v3(data)
 
 
 class TestTokenOptimization:
@@ -225,7 +257,7 @@ class TestCommentNeedsAnalysis:
 
     def test_analyze_comment_needs_with_overwrite(self, sample_config, sample_table_json):
         """测试覆盖模式"""
-        sample_config["comment_generation"]["overwrite_existing"] = True
+        sample_config["json_generation"]["comments"]["overwrite"] = True
         enhancer = JsonLlmEnhancer(sample_config)
         needs = enhancer._analyze_comment_needs(sample_table_json)
 
@@ -235,13 +267,154 @@ class TestCommentNeedsAnalysis:
 
     def test_analyze_comment_needs_disabled(self, sample_config, sample_table_json):
         """测试注释生成禁用"""
-        sample_config["comment_generation"]["enabled"] = False
+        sample_config["json_generation"]["comments"]["llm_enabled"] = False
         enhancer = JsonLlmEnhancer(sample_config)
         needs = enhancer._analyze_comment_needs(sample_table_json)
 
         # 禁用时不需要生成任何注释
         assert needs["need_table_comment"] is False
         assert len(needs["columns_need_comment"]) == 0
+
+
+class TestEnhanceDocumentSwitches:
+    def _service(self, response: str):
+        service = MagicMock(model="test-model")
+        service.call_llm.return_value = response
+        return service
+
+    def test_both_switches_disabled_do_not_initialize_llm(
+        self, sample_config, sample_table_json
+    ):
+        sample_config["json_generation"]["comments"]["llm_enabled"] = False
+        sample_config["json_generation"]["table_classification"][
+            "llm_enabled"
+        ] = False
+        enhancer = JsonLlmEnhancer(sample_config)
+        original = _as_v3(sample_table_json)
+
+        outcome = enhancer.enhance_document(original)
+
+        assert outcome.success is True
+        assert outcome.llm_called is False
+        assert outcome.request_count == 0
+        assert enhancer.llm_service is None
+        assert outcome.document == original
+
+    def test_both_switches_disabled_do_not_require_llm_config(
+        self, sample_table_json
+    ):
+        config = {
+            "json_generation": {
+                "comments": {"llm_enabled": False},
+                "table_classification": {"llm_enabled": False},
+            }
+        }
+        enhancer = JsonLlmEnhancer(config)
+
+        outcome = enhancer.enhance_document(_as_v3(sample_table_json))
+
+        assert outcome.success is True
+        assert outcome.llm_called is False
+        assert enhancer.llm_service is None
+
+    def test_comments_only_preserves_rule_classification(
+        self, sample_config, sample_table_json
+    ):
+        sample_config["json_generation"]["table_classification"][
+            "llm_enabled"
+        ] = False
+        enhancer = JsonLlmEnhancer(sample_config)
+        enhancer.llm_service = self._service(
+            json.dumps(
+                {
+                    "table_comment": "测试对象",
+                    "column_comments": {"name": "名称"},
+                },
+                ensure_ascii=False,
+            )
+        )
+
+        outcome = enhancer.enhance_document(_as_v3(sample_table_json))
+
+        assert outcome.success is True
+        assert outcome.comment_task_succeeded is True
+        assert outcome.classification_task_attempted is False
+        assert outcome.document["table_profile"]["classification_source"] == "rule"
+        assert outcome.document["table_info"]["comment"] == "测试对象"
+
+    def test_classification_only_does_not_generate_comments(
+        self, sample_config, sample_table_json
+    ):
+        sample_config["json_generation"]["comments"]["llm_enabled"] = False
+        enhancer = JsonLlmEnhancer(sample_config)
+        enhancer.llm_service = self._service(
+            json.dumps(
+                {
+                    "table_category": "fact",
+                    "confidence": 0.9,
+                    "reason": "包含事实指标",
+                },
+                ensure_ascii=False,
+            )
+        )
+
+        outcome = enhancer.enhance_document(_as_v3(sample_table_json))
+
+        assert outcome.success is True
+        assert outcome.comment_task_attempted is False
+        assert outcome.classification_task_succeeded is True
+        assert outcome.document["table_profile"]["table_category"] == "fact"
+        assert outcome.document["table_info"]["comment"] == ""
+
+    def test_combined_failure_does_not_retry_or_adopt_partial_result(
+        self, sample_config, sample_table_json
+    ):
+        enhancer = JsonLlmEnhancer(sample_config)
+        enhancer.llm_service = self._service(
+            json.dumps(
+                {
+                    "table_category": "fact",
+                    "confidence": 0.9,
+                    "reason": "包含事实指标",
+                    "table_comment": "测试对象",
+                },
+                ensure_ascii=False,
+            )
+        )
+        original = _as_v3(sample_table_json)
+
+        outcome = enhancer.enhance_document(original)
+
+        assert outcome.success is False
+        assert outcome.request_count == 1
+        assert enhancer.llm_service.call_llm.call_count == 1
+        assert outcome.document == original
+
+    def test_combined_success_uses_one_request_and_merges_both_tasks(
+        self, sample_config, sample_table_json
+    ):
+        enhancer = JsonLlmEnhancer(sample_config)
+        enhancer.llm_service = self._service(
+            json.dumps(
+                {
+                    "table_category": "fact",
+                    "confidence": 0.91,
+                    "reason": "包含事实指标",
+                    "table_comment": "测试对象",
+                    "column_comments": {"name": "名称"},
+                },
+                ensure_ascii=False,
+            )
+        )
+
+        outcome = enhancer.enhance_document(_as_v3(sample_table_json))
+
+        assert outcome.success is True
+        assert outcome.request_count == 1
+        assert outcome.comment_task_succeeded is True
+        assert outcome.classification_task_succeeded is True
+        assert outcome.document["table_profile"]["table_category"] == "fact"
+        assert outcome.document["table_info"]["comment"] == "测试对象"
 
 
 class TestClassificationOverride:
@@ -267,9 +440,10 @@ class TestClassificationOverride:
         assert enhanced["table_profile"]["inference_basis"] == ["llm_inferred"]
 
         # 验证规则引擎结果备份
-        assert enhanced["table_profile"]["table_category_rule_based"] == "dim"
-        assert enhanced["table_profile"]["confidence_rule_based"] == 0.8
-        assert "dim_name_pattern" in enhanced["table_profile"]["inference_basis_rule_based"]
+        rule = enhanced["table_profile"]["rule_based_classification"]
+        assert rule["table_category"] == "dim"
+        assert rule["confidence"] == 0.8
+        assert "dim_name_pattern" in rule["inference_basis"]
 
     def test_merge_llm_result_consistent_classification(self, sample_config, sample_table_json):
         """测试 LLM 分类与规则引擎一致"""
@@ -278,6 +452,7 @@ class TestClassificationOverride:
         llm_result = {
             "table_category": "dim",  # 与规则引擎一致
             "confidence": 0.95,
+            "reason": "维度属性为主",
             "table_comment": "测试表",
             "column_comments": {},
         }
@@ -289,8 +464,9 @@ class TestClassificationOverride:
         assert enhanced["table_profile"]["confidence"] == 0.95  # 使用 LLM 的 confidence
 
         # 验证规则引擎结果备份
-        assert enhanced["table_profile"]["table_category_rule_based"] == "dim"
-        assert enhanced["table_profile"]["confidence_rule_based"] == 0.8
+        rule = enhanced["table_profile"]["rule_based_classification"]
+        assert rule["table_category"] == "dim"
+        assert rule["confidence"] == 0.8
 
     def test_merge_llm_result_missing_table_category_raises(self, sample_config, sample_table_json):
         """测试 LLM 未返回 table_category 视为异常，不应落盘覆盖"""
@@ -303,6 +479,122 @@ class TestClassificationOverride:
 
         with pytest.raises(ValueError):
             enhancer._merge_llm_result(sample_table_json, llm_result, need_comments=False)
+
+    def test_v3_merge_records_source_reason_and_original_rule_once(
+        self,
+        sample_config,
+        sample_table_json,
+    ):
+        enhancer = JsonLlmEnhancer(sample_config)
+        original = _as_v3(sample_table_json)
+
+        first = enhancer._merge_llm_result(
+            original,
+            {
+                "table_category": "fact",
+                "confidence": 0.95,
+                "reason": "包含业务度量和事件记录",
+            },
+            need_comments=False,
+        )
+        second = enhancer._merge_llm_result(
+            first,
+            {
+                "table_category": "bridge",
+                "confidence": 0.85,
+                "reason": "第二次分类判断",
+            },
+            need_comments=False,
+        )
+
+        profile = second["table_profile"]
+        assert second["metadata_version"] == "3.0"
+        assert profile["classification_source"] == "llm"
+        assert profile["classification_reason"] == "第二次分类判断"
+        assert profile["rule_based_classification"] == {
+            "table_category": "dim",
+            "confidence": 0.8,
+            "inference_basis": ["dim_name_pattern", "dim_has_primary_key"],
+        }
+
+    def test_v3_merge_requires_nonempty_reason(
+        self,
+        sample_config,
+        sample_table_json,
+    ):
+        enhancer = JsonLlmEnhancer(sample_config)
+        with pytest.raises(ValueError, match="reason"):
+            enhancer._merge_llm_result(
+                _as_v3(sample_table_json),
+                {"table_category": "fact", "confidence": 0.9},
+                need_comments=False,
+            )
+
+    def test_v3_llm_input_uses_facts_and_omits_unknown_statistics(
+        self,
+        sample_config,
+        sample_table_json,
+    ):
+        data = _as_v3(sample_table_json)
+        data["column_profiles"]["name"].pop("statistics")
+        enhancer = JsonLlmEnhancer(sample_config)
+
+        llm_input = enhancer._build_llm_input_view(data)
+
+        id_column = llm_input["column_profiles"]["id"]
+        assert id_column["constraints"] == ["primary_key"]
+        assert id_column["statistics"]["sample_count"] == 100
+        assert id_column["statistics"]["null_rate"] == 0.0
+        assert id_column["statistics"]["uniqueness"] == 1.0
+        assert "structure_flags" not in id_column
+        assert "statistics" not in llm_input["column_profiles"]["name"]
+        assert set(llm_input["sample_records"]) == {"sample_method", "records"}
+
+    def test_failed_v3_enhancement_keeps_file_byte_for_byte(
+        self,
+        sample_config,
+        sample_table_json,
+        tmp_path,
+    ):
+        enhancer = JsonLlmEnhancer(sample_config)
+        enhancer.llm_service = MagicMock(model="test-model")
+        enhancer.llm_service.call_llm = MagicMock(
+            return_value='{"table_category":"fact","confidence":0.9}'
+        )
+        path = tmp_path / "table.json"
+        original_text = json.dumps(
+            _as_v3(sample_table_json),
+            ensure_ascii=False,
+            indent=4,
+        )
+        path.write_text(original_text, encoding="utf-8")
+
+        assert enhancer.enhance_json_files([path]) == 0
+        assert path.read_text(encoding="utf-8") == original_text
+
+    def test_timestamp_option_removes_transition_timestamps(
+        self,
+        sample_config,
+        sample_table_json,
+    ):
+        sample_config["output"] = {
+            "json_options": {"include_generation_timestamps": False}
+        }
+        enhancer = JsonLlmEnhancer(sample_config)
+        data = _as_v3(sample_table_json)
+
+        enhanced = enhancer._merge_llm_result(
+            data,
+            {
+                "table_category": "fact",
+                "confidence": 0.9,
+                "reason": "事实表",
+            },
+            need_comments=False,
+        )
+
+        assert "generated_timestamp" not in enhanced
+        assert "llm_enhanced_at" not in enhanced
 
 
 class TestCommentMerging:
@@ -321,7 +613,7 @@ class TestCommentMerging:
 
     def test_merge_table_comment_overwrite(self, sample_config, sample_table_json):
         """测试覆盖已有表注释"""
-        sample_config["comment_generation"]["overwrite_existing"] = True
+        sample_config["json_generation"]["comments"]["overwrite"] = True
         sample_table_json["table_info"]["comment"] = "旧注释"
         sample_table_json["table_info"]["comment_source"] = "ddl"
 

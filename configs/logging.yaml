@@ -18,7 +18,7 @@ filters:
     allowed_steps: ['ddl']
   json_filter:
     (): metaweave.utils.logger.StepFilter
-    allowed_steps: ['json', 'json_llm']
+    allowed_steps: ['json']
   md_filter:
     (): metaweave.utils.logger.StepFilter
     allowed_steps: ['md']

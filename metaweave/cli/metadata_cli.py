@@ -1,8 +1,6 @@
 """元数据生成 CLI 命令"""
 
-import copy
 import click
-import json
 import logging
 import os
 from pathlib import Path
@@ -73,10 +71,10 @@ def _resolve_domain_params(
 )
 @click.option(
     "--step",
-    type=click.Choice(["ddl", "json", "json_llm", "cql", "cql_llm", "md", "rel", "rel_llm", "standard"], case_sensitive=False),
+    type=click.Choice(["ddl", "json", "cql", "cql_llm", "md", "rel", "rel_llm", "standard"], case_sensitive=False),
     default="standard",
     show_default=True,
-    help="指定要执行的步骤：ddl/json/json_llm/cql/cql_llm/md/rel/rel_llm/standard"
+    help="指定要执行的步骤：ddl/json/cql/cql_llm/md/rel/rel_llm/standard"
 )
 @click.option(
     "--domain",
@@ -196,7 +194,7 @@ def metadata_command(
             """清空指定步骤的输出目录
 
             Args:
-                step_name: 步骤名称（ddl/json/json_llm/md/rel/rel_llm/cql/cql_llm）
+                step_name: 步骤名称（ddl/json/md/rel/rel_llm/cql/cql_llm）
                 loaded_config: 已加载的配置字典
 
             Raises:
@@ -216,7 +214,7 @@ def metadata_command(
 
             if step_name == "ddl":
                 target_dir = _resolve_dir(str(output_config.get("ddl_directory", output_dir / "ddl")))
-            elif step_name in {"json", "json_llm"}:
+            elif step_name == "json":
                 target_dir = _resolve_dir(str(output_config.get("json_directory", output_dir / "json")))
             elif step_name == "md":
                 target_dir = _resolve_dir(str(output_config.get("markdown_directory", output_dir / "md")))
@@ -386,11 +384,12 @@ def metadata_command(
                 ["table"],
             )
         )
-        unsupported_view_steps = {"standard", "md", "json", "json_llm"}
+        unsupported_view_steps = {"standard", "md"}
         if step_lower in unsupported_view_steps and set(ddl_object_types) != {"table"}:
             raise click.UsageError(
-                "当前版本仅在单独执行 --step ddl 时支持 view 和 "
-                "materialized_view；当前步骤的下游处理尚未完成适配。"
+                "当前组合步骤的下游处理尚未完成 view 和 materialized_view "
+                "适配；当前版本仅在单独执行 --step ddl 时支持，单独执行 "
+                "json 时也支持。"
             )
 
         # Step: standard - 串行调度多个步骤（fail-fast）
@@ -613,103 +612,6 @@ def metadata_command(
                 logger.error("❌ 全局未捕获异常: %s", e, exc_info=True)
                 click.echo(f"❌ 未预期错误: {e}", err=True)
                 raise click.Abort()
-
-        # Step: json_llm - 基于 json 的 LLM 增强（两阶段串行）
-        if step == "json_llm":
-            from metaweave.core.metadata.json_llm_enhancer import JsonLlmEnhancer
-
-            click.echo("📦 开始 LLM 增强处理（json_llm）...")
-            click.echo("   ├─ 阶段 1/2: 生成全量 JSON（--step json）")
-            click.echo("   └─ 阶段 2/2: LLM 增强（分类覆盖 + 注释补全）")
-            click.echo("")
-
-            # ====== 阶段 A：生成全量 JSON（失败则直接退出）======
-            click.echo("📊 阶段 1/2: 生成全量 JSON（--step json）...")
-
-            # 注：MetadataGenerator 构造函数接受 config_path，并在内部加载/解析配置（含环境变量替换）
-            generator = MetadataGenerator(config_path)
-            config = generator.config  # 复用已解析配置（避免重复加载/环境变量替换差异）
-
-            if clean:
-                _clean_step_output_dir("json_llm", config)
-
-            # 透传 CLI 参数（否则 json_llm 会忽略 schemas/tables/max_workers 等过滤条件）
-            schemas_list = [s.strip() for s in (schemas or "").split(",") if s.strip()] or None
-            tables_list = [t.strip() for t in (tables or "").split(",") if t.strip()] or None
-
-            result_a = generator.generate(
-                schemas=schemas_list,
-                tables=tables_list,
-                incremental=incremental,
-                max_workers=max_workers,
-                step="json",
-            )
-
-            if (not result_a.success) or result_a.failed_tables > 0:
-                # 阶段A失败：打印错误并退出（阶段B不执行）
-                error_msg = "阶段 A (--step json) 失败，退出。"
-                if result_a.errors:
-                    error_msg += "\n错误详情:\n" + "\n".join(f"  - {e}" for e in result_a.errors[:10])
-                raise click.ClickException(error_msg)
-
-            click.echo(f"✅ 阶段 1 完成：成功处理 {result_a.processed_tables} 张表")
-            click.echo("")
-
-            # ====== 阶段 B：LLM 增强 ======
-            click.echo("🤖 阶段 2/2: LLM 增强处理（原地写回 output/json）...")
-
-            # 阶段B只处理本次阶段A产出的 JSON 文件，且限定在 output/json 目录下，避免误包含其他 JSON
-            json_dir = generator.formatter.json_dir.resolve()
-            json_files = [
-                Path(p)
-                for p in result_a.output_files
-                if Path(p).suffix == ".json" and Path(p).resolve().parent == json_dir
-            ]
-
-            if not json_files:
-                click.echo("⚠️  阶段 A 未生成任何 JSON 文件，跳过阶段 B")
-                click.echo("✨ json_llm 处理完成（仅执行了阶段 A）")
-                return
-
-            # 初始化增强器（不查库，只基于 JSON 调用 LLM）
-            # 通过 runtime_override 强制 CLI 使用同步模式
-            enhancer = JsonLlmEnhancer(
-                config,
-                runtime_override={"langchain_config": {"use_async": False}},
-            )
-
-            # 调用增强方法（同步模式保证返回 int）
-            enhanced_count = enhancer.enhance_json_files(json_files)
-
-            # 统计 table_category 分布（读取已增强的 JSON 文件）
-            category_counts: Dict[str, int] = {}
-            for jf in json_files:
-                try:
-                    with open(jf, "r", encoding="utf-8") as f:
-                        jd = json.load(f)
-                    cat = (jd.get("table_profile", {}).get("table_category") or "unknown").strip().lower()
-                    category_counts[cat] = category_counts.get(cat, 0) + 1
-                except Exception:
-                    pass
-
-            # 显示结果
-            click.echo("")
-            click.echo("=" * 60)
-            click.echo("📊 json_llm 处理结果")
-            click.echo("=" * 60)
-            click.echo(f"✅ 阶段 A (json): 成功处理 {result_a.processed_tables} 张表")
-            click.echo(f"✅ 阶段 B (LLM 增强): 增强 {enhanced_count} 个文件")
-            click.echo(f"📁 输出目录: {json_dir}")
-            click.echo("")
-            click.echo("📂 表分类统计（table_category）")
-            click.echo(f"   ├─ fact   (事实表): {category_counts.get('fact', 0)} 个")
-            click.echo(f"   ├─ dim    (维度表): {category_counts.get('dim', 0)} 个")
-            click.echo(f"   ├─ bridge (桥接表): {category_counts.get('bridge', 0)} 个")
-            click.echo(f"   └─ unknown(未分类): {category_counts.get('unknown', 0)} 个")
-            click.echo("=" * 60)
-            click.echo("✨ json_llm 处理完成！")
-
-            return
 
         # Step: rel_llm - LLM 辅助关系发现
         if step == "rel_llm":
@@ -1017,7 +919,7 @@ def metadata_command(
         click.echo("=" * 60)
         click.echo("📊 生成结果统计")
         click.echo("=" * 60)
-        if step_lower == "ddl":
+        if step_lower in {"ddl", "json"}:
             click.echo(f"✅ 成功处理: {result.processed_tables} 个对象")
             click.echo(
                 f"  - Table: {result.processed_object_counts.get('table', 0)} 个"
@@ -1033,7 +935,7 @@ def metadata_command(
             click.echo(f"✅ 成功处理: {result.processed_tables} 张表")
 
         if result.failed_tables > 0:
-            unit = "个对象" if step_lower == "ddl" else "张表"
+            unit = "个对象" if step_lower in {"ddl", "json"} else "张表"
             click.echo(f"❌ 处理失败: {result.failed_tables} {unit}", err=True)
 
         click.echo(f"💬 生成注释: {result.generated_comments} 个")
@@ -1053,6 +955,34 @@ def metadata_command(
             click.echo("🔑 逻辑主键识别: 未执行")
         elif step_lower == "json":
             click.echo(f"🔑 识别逻辑主键: {result.logical_keys_found} 个")
+            click.echo(f"🤖 LLM 请求: {result.llm_request_count} 次")
+            click.echo(
+                "   - 对象增强: "
+                f"成功 {result.llm_success_count}，失败 {result.llm_failure_count}"
+            )
+            click.echo(
+                "   - 注释任务: "
+                f"成功 {result.llm_comment_success_count}，"
+                f"失败 {result.llm_comment_failure_count}"
+            )
+            click.echo(
+                "   - 分类任务: "
+                f"成功 {result.llm_classification_success_count}，"
+                f"失败 {result.llm_classification_failure_count}"
+            )
+            click.echo("📂 表分类统计（table_category）")
+            click.echo(
+                f"   - fact: {result.table_category_counts.get('fact', 0)}"
+            )
+            click.echo(
+                f"   - dim: {result.table_category_counts.get('dim', 0)}"
+            )
+            click.echo(
+                f"   - bridge: {result.table_category_counts.get('bridge', 0)}"
+            )
+            click.echo(
+                f"   - unknown: {result.table_category_counts.get('unknown', 0)}"
+            )
         click.echo(f"📁 输出文件: {len(result.output_files)} 个")
         
         if result.errors:

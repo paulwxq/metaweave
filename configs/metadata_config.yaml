@@ -40,8 +40,9 @@ database:
 # 数据采样配置
 sampling:
   enabled: true
-  sample_size: 1000            # 数据库采样行数上限：用于 --step ddl / --step json（含 json_llm 阶段A）画像计算；以及 --step rel / --step rel_llm 的评分阶段（inclusion_rate/jaccard/join 等需要查库的计算）
-  sample_method: limit  # limit | tablesample | range
+  sample_size: 1000            # 数据库采样行数上限：用于 --step ddl / --step json 画像计算；以及 --step rel / --step rel_llm 的评分阶段（inclusion_rate/jaccard/join 等需要查库的计算）
+  # 当前 json 画像只实现 limit；其他取值会在作业启动时明确失败。
+  sample_method: limit
   
   # 列统计配置
   column_statistics:
@@ -288,13 +289,29 @@ vector_database:
       use_global_config: true   # 复用 database 配置
       schema: vectors             # 向量数据存储的 schema
 
-# 注释生成配置,启用llm
-comment_generation:
-  enabled: true                 # 总开关
-  language: zh  # 注释语言：zh / en / bilingual
-  max_columns_per_call: 120     # 单批处理的缺失字段上限
-  enable_batch_processing: true # 超过上限时自动分批
-  overwrite_existing: false     # 默认不覆盖已有注释
+# DDL 生成配置
+ddl_generation:
+  comments:
+    llm_enabled: true            # 只控制 DDL 缺失注释补全
+  llm:
+    providers:
+      qwen:
+        model: qwen-plus         # DDL 可独立指定模型；其他参数继承全局 llm
+
+# JSON 生成配置
+json_generation:
+  comments:
+    llm_enabled: true            # 控制 JSON 注释增强
+    language: zh                 # zh / en / bilingual
+    max_columns_per_call: 120
+    enable_batch_processing: true
+    overwrite: false             # 不覆盖从 DDL 读取的已有注释
+  table_classification:
+    llm_enabled: true            # 控制 LLM 表分类；关闭时保留规则分类
+  llm:
+    providers:
+      qwen:
+        model: qwen-plus         # JSON 可独立指定模型；其他参数继承全局 llm
 
 # 逻辑主键识别配置
 logical_key_detection:
@@ -319,8 +336,10 @@ output:
   ddl_directory: output/ddl
 
   # Step 2: 表/列画像输出配置
-  json_directory: output/json      # --step json 和 --step json_llm 统一输出目录 / --step rel & cql 输入
-  # json_llm_directory: output/json_llm  # ⚠️ 已废弃，cql_llm 不再读取此配置
+  json_directory: output/json      # --step json 输出目录 / --step rel & cql 输入
+  json_options:
+    # 关闭后 generated_timestamp / llm_enhanced_at 不写入 JSON，便于稳定 diff。
+    include_generation_timestamps: true
 
   # Step 3: 关系发现输出配置
   rel_directory: output/rel    # --step rel/rel_llm 输出 / --step cql 输入
@@ -476,7 +495,7 @@ loaders:
 
   table_schema_loader:
     md_directory: "output/md"
-    json_llm_directory: "output/json"  # 字段名保持原名，实际指向 json 或 json_llm 目录
+    json_llm_directory: "output/json"  # 下游遗留字段名，当前指向统一的 JSON 目录
     collection_name: "table_schema_embeddings"
     options:
       batch_size: 50
@@ -531,8 +550,8 @@ sql_rag:
 #   - domain_generation.llm  （第一阶段已支持）
 #   - sql_rag.llm            （第二阶段已支持，示例见上方 sql_rag 段）
 #   - relationships.llm      （第三阶段已支持）
-#   - json_llm.llm           （第三阶段已支持）
-#   - comment_generation.llm （第四阶段已支持）
+#   - ddl_generation.llm     （DDL 注释生成）
+#   - json_generation.llm    （JSON 注释增强与表分类）
 # 所有五个模块均已完成模块级 LLM 覆盖接入。
 #
 # 示例：为 LLM 关系发现指定专属模型
@@ -545,7 +564,7 @@ sql_rag:
 #         timeout: 180
 #
 # 示例：为 JSON LLM 增强指定专属模型
-# json_llm:
+# json_generation:
 #   llm:
 #     providers:
 #       qwen:

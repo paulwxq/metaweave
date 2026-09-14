@@ -8,6 +8,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 import json
 
+from metaweave.utils.data_utils import format_data_type
+
 
 SUPPORTED_DATABASE_OBJECT_TYPES = frozenset(
     {"table", "view", "materialized_view"}
@@ -116,9 +118,30 @@ class IndexInfo:
     constraint_name: Optional[str] = None
     definition: Optional[str] = None
 
+    # JSON v3 用于区分普通索引键、表达式键和 INCLUDE 列。None 表示旧抽取
+    # 路径没有提供该事实；空列表表示已抽取且确认为空。
+    included_columns: Optional[List[str]] = None
+    key_expressions: Optional[List[str]] = None
+
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
-        return asdict(self)
+        result = asdict(self)
+        if self.included_columns is None:
+            result.pop("included_columns")
+        if self.key_expressions is None:
+            result.pop("key_expressions")
+        return result
+
+    def to_json_dict(self) -> Dict[str, Any]:
+        """转换为当前 JSON 元数据格式的索引结构。"""
+        result = asdict(self)
+        result["included_columns"] = list(self.included_columns or [])
+        result["key_expressions"] = (
+            list(self.key_expressions)
+            if self.key_expressions is not None
+            else list(self.columns)
+        )
+        return result
 
 
 @dataclass
@@ -155,68 +178,109 @@ class TableMetadata:
     table_profile: Optional["TableProfile"] = None
     view_definition: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典（用于 JSON 序列化 v2.0 格式）"""
-        # 合并 columns 信息到 column_profiles
-        merged_column_profiles = {}
-        
-        # 先创建 columns 的字典映射
-        columns_dict = {col.column_name: col.to_dict() for col in self.columns}
-        
-        # 合并到 column_profiles
-        for name, profile in self.column_profiles.items():
-            profile_dict = profile.to_dict()
-            # 如果该列在 columns 中存在，将基础信息合并进去
-            if name in columns_dict:
-                col_info = columns_dict[name]
-                # 将列的基础信息添加到 profile 的开头
-                merged_profile = {
-                    "column_name": col_info["column_name"],
-                    "ordinal_position": col_info["ordinal_position"],
-                    "data_type": col_info["data_type"],
-                    "character_maximum_length": col_info.get("character_maximum_length"),
-                    "numeric_precision": col_info.get("numeric_precision"),
-                    "numeric_scale": col_info.get("numeric_scale"),
-                    "is_nullable": col_info["is_nullable"],
-                    "column_default": col_info.get("column_default"),
-                    "comment": col_info.get("comment", ""),
-                    "comment_source": col_info.get("comment_source", ""),
-                    "statistics": col_info.get("statistics"),
-                }
-                # 合并 profile 的语义信息（已经重组为 semantic_analysis 和 role_specific_info）
-                merged_profile.update(profile_dict)
-                merged_column_profiles[name] = merged_profile
-            else:
-                # 如果没有对应的 column 信息，只使用 profile
-                merged_column_profiles[name] = profile_dict
-        
-        # 构建 v2.0 格式的 JSON
-        data = {
-            "metadata_version": "2.0",
-            "generated_timestamp": datetime.now().isoformat(),
-            
-            "table_info": {
-                "database": self.database,
-                "schema_name": self.schema_name,
-                "table_name": self.table_name,
-                "table_type": self.table_type,
-                "comment": self.comment,
-                "comment_source": self.comment_source,
-                "total_rows": self.row_count,
-                "total_columns": len(self.columns),
-            },
-            
-            "column_profiles": merged_column_profiles,
-            
-            "table_profile": self.table_profile.to_dict(self) if self.table_profile else None,
-            
-            # 注意：sample_records 将在 formatter 中从 DDL 或 sample_data 提取后添加
+    def to_dict(
+        self,
+        *,
+        include_generation_timestamp: bool = True,
+        profiling_sample_method: str = "limit",
+        profiling_sample_count: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """转换为当前 JSON 元数据格式。"""
+        return self._to_json_dict(
+            include_generation_timestamp=include_generation_timestamp,
+            profiling_sample_method=profiling_sample_method,
+            profiling_sample_count=profiling_sample_count,
+        )
+
+    def _to_json_dict(
+        self,
+        *,
+        include_generation_timestamp: bool,
+        profiling_sample_method: str,
+        profiling_sample_count: Optional[int],
+    ) -> Dict[str, Any]:
+        """转换为精简后的 JSON 元数据格式。"""
+        effective_sample_count = profiling_sample_count
+        if effective_sample_count is None:
+            for column in self.columns:
+                statistics = column.statistics or {}
+                if "sample_count" in statistics:
+                    effective_sample_count = int(statistics["sample_count"])
+                    break
+
+        data: Dict[str, Any] = {"metadata_version": "3.0"}
+        if include_generation_timestamp:
+            data["generated_timestamp"] = datetime.now().isoformat()
+        data["table_info"] = {
+            "database": self.database,
+            "schema_name": self.schema_name,
+            "table_name": self.table_name,
+            "table_type": self.table_type,
+            "comment": self.comment,
+            "comment_source": self.comment_source,
+            "total_rows": self.row_count,
         }
+        if effective_sample_count is not None:
+            data["profiling"] = {
+                "sample_method": profiling_sample_method,
+                "sample_count": effective_sample_count,
+            }
+
+        data["column_profiles"] = {}
+        columns_by_name = {column.column_name: column for column in self.columns}
+        for name, profile in self.column_profiles.items():
+            column = columns_by_name.get(name)
+            if column is None:
+                continue
+            column_data: Dict[str, Any] = {
+                "ordinal_position": column.ordinal_position,
+                "data_type": format_data_type(
+                    column.data_type,
+                    char_length=column.character_maximum_length,
+                    numeric_precision=column.numeric_precision,
+                    numeric_scale=column.numeric_scale,
+                ).lower(),
+                "is_nullable": column.is_nullable,
+                "column_default": column.column_default,
+                "comment": column.comment,
+                "comment_source": column.comment_source,
+                "semantic_analysis": {
+                    "semantic_role": profile.semantic_role,
+                    "semantic_confidence": profile.semantic_confidence,
+                    "inference_basis": list(profile.inference_basis),
+                },
+            }
+            compact_statistics = self._compact_v3_statistics(column.statistics)
+            if compact_statistics:
+                column_data["statistics"] = compact_statistics
+            data["column_profiles"][name] = column_data
+
+        data["table_profile"] = (
+            self.table_profile.to_json_dict(self) if self.table_profile else None
+        )
+
         return data
+
+    @staticmethod
+    def _compact_v3_statistics(
+        statistics: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """只保留 v3 标准产物需要的不可派生统计事实。"""
+        if not statistics:
+            return {}
+        retained = {}
+        for key in ("null_count", "unique_count", "min", "max", "value_distribution"):
+            if key in statistics and statistics[key] is not None:
+                retained[key] = statistics[key]
+        return retained
 
     def to_json(self, indent: int = 2) -> str:
         """转换为 JSON 字符串"""
-        return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent)
+        return json.dumps(
+            self.to_dict(),
+            ensure_ascii=False,
+            indent=indent,
+        )
 
     @property
     def full_name(self) -> str:
@@ -258,6 +322,14 @@ class GenerationResult:
     regular_indexes_found: int = 0
     unique_indexes_found: int = 0
     processed_object_counts: Dict[str, int] = field(default_factory=dict)
+    llm_request_count: int = 0
+    llm_success_count: int = 0
+    llm_failure_count: int = 0
+    llm_comment_success_count: int = 0
+    llm_comment_failure_count: int = 0
+    llm_classification_success_count: int = 0
+    llm_classification_failure_count: int = 0
+    table_category_counts: Dict[str, int] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
@@ -563,4 +635,34 @@ class TableProfile:
         # 已移除：表类型特定信息（fact_table_info/dim_table_info/bridge_table_info）
         # 这些字段在项目中未被使用，已于 2025-12-26 移除以减少维护成本
 
+        return result
+
+    def to_json_dict(self, metadata: 'TableMetadata') -> Dict[str, Any]:
+        """转换为当前 JSON 元数据格式的表画像结构。"""
+        result = {
+            "table_category": self.table_category,
+            "confidence": self.confidence,
+            "inference_basis": list(self.inference_basis),
+            "classification_source": "rule",
+            "physical_constraints": {
+                "primary_key": (
+                    metadata.primary_keys[0].to_dict()
+                    if metadata.primary_keys
+                    else None
+                ),
+                "foreign_keys": [fk.to_dict() for fk in metadata.foreign_keys],
+                "unique_constraints": [
+                    {
+                        "constraint_name": constraint.constraint_name,
+                        "columns": list(constraint.columns),
+                    }
+                    for constraint in metadata.unique_constraints
+                ],
+            },
+            "indexes": [index.to_json_dict() for index in metadata.indexes],
+            "unique_column_sets": [
+                logical_key.to_dict()
+                for logical_key in self.candidate_logical_primary_keys
+            ],
+        }
         return result

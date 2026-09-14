@@ -30,6 +30,10 @@ SAMPLE_BLOCK_PATTERN = re.compile(
     r"(?P<body>\{.*?\})\s*\*/",
     re.DOTALL | re.IGNORECASE,
 )
+OBJECT_METADATA_PATTERN = re.compile(
+    r"/\*\s*OBJECT_METADATA\s*(?P<body>\{.*?\})\s*\*/",
+    re.DOTALL | re.IGNORECASE,
+)
 COLUMN_COMMENT_PATTERN = re.compile(
     r"COMMENT\s+ON\s+COLUMN\s+"
     r"(?P<schema>[A-Za-z0-9_]+)\.(?P<table>[A-Za-z0-9_]+)\.(?P<column>[A-Za-z0-9_]+)\s+"
@@ -120,6 +124,25 @@ class DDLLoader:
 
     def _parse_content(self, content: str, ddl_path: Path) -> ParsedDDL:
         sample_records = self._parse_sample_records(content, ddl_path)
+        object_metadata = self._parse_object_metadata(content, ddl_path)
+        if object_metadata and object_metadata.get("object_type") in {
+            "view",
+            "materialized_view",
+        }:
+            metadata = self._metadata_from_object_block(object_metadata, ddl_path)
+            metadata.indexes = self._parse_indexes(
+                content,
+                metadata.schema_name,
+                metadata.table_name,
+            )
+            metadata.sample_records = sample_records
+            self._apply_comments(content, metadata)
+            return ParsedDDL(
+                metadata=metadata,
+                sample_records=sample_records,
+                ddl_path=ddl_path,
+            )
+
         create_stmt, body = self._extract_create_table_block(content, ddl_path)
         schema_name, table_name = self._parse_table_name(create_stmt, ddl_path)
 
@@ -141,6 +164,81 @@ class DDLLoader:
         self._apply_comments(content, metadata)
 
         return ParsedDDL(metadata=metadata, sample_records=sample_records, ddl_path=ddl_path)
+
+    def _parse_object_metadata(
+        self,
+        content: str,
+        ddl_path: Path,
+    ) -> Optional[Dict]:
+        match = OBJECT_METADATA_PATTERN.search(content)
+        if not match:
+            return None
+        try:
+            value = json.loads(match.group("body"))
+        except json.JSONDecodeError as exc:
+            raise DDLLoaderError(
+                f"OBJECT_METADATA 解析失败 ({ddl_path}): {exc}"
+            ) from exc
+        if not isinstance(value, dict):
+            raise DDLLoaderError(f"OBJECT_METADATA 必须是对象 ({ddl_path})")
+        return value
+
+    def _metadata_from_object_block(
+        self,
+        object_metadata: Dict,
+        ddl_path: Path,
+    ) -> TableMetadata:
+        full_name = str(object_metadata.get("object_name") or "")
+        if "." not in full_name:
+            raise DDLLoaderError(
+                f"OBJECT_METADATA.object_name 缺少 schema ({ddl_path})"
+            )
+        schema_name, table_name = full_name.split(".", 1)
+        object_type = str(object_metadata.get("object_type") or "").lower()
+        columns_value = object_metadata.get("columns")
+        if not isinstance(columns_value, list):
+            raise DDLLoaderError(
+                f"OBJECT_METADATA.columns 必须是数组 ({ddl_path})"
+            )
+
+        columns = []
+        for ordinal, item in enumerate(columns_value, start=1):
+            if not isinstance(item, dict):
+                raise DDLLoaderError(
+                    f"OBJECT_METADATA.columns[] 必须是对象 ({ddl_path})"
+                )
+            column_name = str(item.get("column_name") or "").strip()
+            type_text = str(item.get("data_type") or "").strip()
+            if not column_name or not type_text:
+                raise DDLLoaderError(
+                    f"OBJECT_METADATA 字段缺少 column_name/data_type ({ddl_path})"
+                )
+            data_type, char_len, numeric_precision, numeric_scale = (
+                self._parse_data_type(type_text)
+            )
+            columns.append(
+                ColumnInfo(
+                    column_name=column_name,
+                    ordinal_position=ordinal,
+                    data_type=data_type,
+                    character_maximum_length=char_len,
+                    numeric_precision=numeric_precision,
+                    numeric_scale=numeric_scale,
+                    is_nullable=True,
+                    column_default=None,
+                    comment=str(item.get("column_comment") or ""),
+                    comment_source="ddl",
+                )
+            )
+
+        return TableMetadata(
+            schema_name=schema_name,
+            table_name=table_name,
+            table_type=object_type,
+            comment=str(object_metadata.get("object_comment") or ""),
+            comment_source="ddl",
+            columns=columns,
+        )
 
     def _parse_sample_records(self, content: str, ddl_path: Path) -> List[Dict]:
         match = SAMPLE_BLOCK_PATTERN.search(content)

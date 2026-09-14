@@ -116,8 +116,6 @@ def test_configured_sample_count_flows_from_ddl_to_json(tmp_path):
     json_data = json.loads(json_path.read_text(encoding="utf-8"))
     assert json_data["sample_records"] == {
         "sample_method": "limit",
-        "sample_size": 10,
-        "total_rows": 10,
         "records": [{"event_id": value} for value in range(10)],
     }
 

@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from metaweave.core.metadata.connector import DatabaseConnector
+from metaweave.core.metadata.ddl_loader import DDLLoader
 from metaweave.core.metadata.extractor import MetadataExtractor
 from metaweave.core.metadata.formatter import OutputFormatter
 from metaweave.core.metadata.generator import MetadataGenerator
@@ -19,6 +20,7 @@ from metaweave.core.metadata.models import (
 from metaweave.utils.sql_templates import (
     GET_DATABASE_OBJECT_INFO_SQL,
     GET_INDEXES_SQL,
+    GET_JSON_INDEXES_SQL,
     GET_MATERIALIZED_VIEW_COLUMNS_SQL,
     SAMPLE_DATA_SQL,
 )
@@ -439,3 +441,110 @@ def test_formatter_keeps_standalone_unique_index_for_table(tmp_path) -> None:
         "CREATE UNIQUE INDEX orders_external_id_uidx "
         "ON public.orders(external_id);"
     ) in ddl
+
+
+@pytest.mark.parametrize("object_type", ["view", "materialized_view"])
+def test_ddl_loader_reads_view_object_metadata(tmp_path, object_type) -> None:
+    formatter = OutputFormatter(
+        {
+            "output_dir": tmp_path,
+            "ddl_directory": str(tmp_path),
+            "formats": ["ddl"],
+            "ddl_options": {"sample_records": {"enabled": False}},
+        },
+        database_name="orders",
+    )
+    metadata = TableMetadata(
+        schema_name="public",
+        table_name=f"order_{object_type}",
+        table_type=object_type,
+        comment="订单汇总",
+        columns=[
+            ColumnInfo(
+                "label",
+                1,
+                "character varying",
+                character_maximum_length=40,
+                comment="显示名称",
+            )
+        ],
+        view_definition="SELECT 'sample'::varchar(40) AS label",
+    )
+    formatter._save_ddl(metadata)
+
+    parsed = DDLLoader(tmp_path, database_name="orders").load_table(
+        "public",
+        metadata.table_name,
+    )
+
+    assert parsed.metadata.table_type == object_type
+    assert parsed.metadata.comment == "订单汇总"
+    assert parsed.metadata.columns[0].data_type == "character varying"
+    assert parsed.metadata.columns[0].character_maximum_length == 40
+    assert parsed.metadata.columns[0].comment == "显示名称"
+
+
+def test_json_index_extraction_separates_expressions_and_include_columns() -> None:
+    connector = MagicMock()
+    connector.execute_query.return_value = [
+        {
+            "index_name": "orders_expr_idx",
+            "index_type": "btree",
+            "columns": ["tenant_id"],
+            "included_columns": ["created_at"],
+            "key_expressions": ["tenant_id", "lower(email)"],
+            "is_unique": True,
+            "is_primary": False,
+            "is_constraint_backed": False,
+            "constraint_name": None,
+            "condition": "deleted_at IS NULL",
+            "index_definition": "CREATE UNIQUE INDEX orders_expr_idx ...",
+        }
+    ]
+
+    indexes = MetadataExtractor(connector).extract_json_indexes(
+        "public",
+        "orders",
+    )
+
+    connector.execute_query.assert_called_once_with(
+        GET_JSON_INDEXES_SQL,
+        ("public", "orders"),
+    )
+    assert indexes[0].columns == ["tenant_id"]
+    assert indexes[0].key_expressions == ["tenant_id", "lower(email)"]
+    assert indexes[0].included_columns == ["created_at"]
+
+
+def test_json_step_enumerates_configured_database_object_types() -> None:
+    generator = _generator_with_config(
+        {"include_object_types": ["table", "view", "materialized_view"]}
+    )
+    generator.active_step = "json"
+    generator.connector = MagicMock()
+    generator.connector.get_database_objects.return_value = [
+        DatabaseObjectRef("public", "orders", "table"),
+        DatabaseObjectRef("public", "order_view", "view"),
+        DatabaseObjectRef("public", "order_mv", "materialized_view"),
+    ]
+
+    objects = generator._get_tables_to_process(["public"], tables=None)
+
+    assert objects == [
+        ("public", "orders", "table"),
+        ("public", "order_view", "view"),
+        ("public", "order_mv", "materialized_view"),
+    ]
+    generator.connector.get_database_objects.assert_called_once_with(
+        "public",
+        ["table", "view", "materialized_view"],
+    )
+
+
+@pytest.mark.parametrize("sample_method", ["tablesample", "range", "random"])
+def test_json_step_rejects_unimplemented_sampling_methods(sample_method) -> None:
+    generator = MetadataGenerator.__new__(MetadataGenerator)
+    generator.sampling_config = {"sample_method": sample_method}
+
+    with pytest.raises(ValueError, match="仅支持.*limit"):
+        generator._validate_json_sampling_method()

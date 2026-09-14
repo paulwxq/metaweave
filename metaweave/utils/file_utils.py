@@ -2,7 +2,10 @@
 
 import json
 import logging
+import os
 import shutil
+import stat
+import tempfile
 from pathlib import Path
 from typing import Any, Dict
 import yaml
@@ -71,6 +74,40 @@ def save_json(data: Any, file_path: str | Path, indent: int = 2) -> bool:
     except Exception as e:
         logger.error(f"保存 JSON 文件失败 ({file_path}): {e}")
         return False
+
+
+def atomic_write_json(data: Any, file_path: str | Path, indent: int = 2) -> Path:
+    """将 JSON 写入同目录唯一临时文件，再原子替换目标文件。
+
+    替换已有文件时保留原权限；新文件使用 0644。任一步骤失败都会清理
+    临时文件并向上抛出，已有目标文件保持不变。
+    """
+    target = Path(file_path)
+    ensure_dir(target.parent)
+    target_mode = (
+        stat.S_IMODE(target.stat().st_mode) if target.exists() else 0o644
+    )
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=target.parent,
+            prefix=f".{target.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temp_path = Path(handle.name)
+            json.dump(data, handle, ensure_ascii=False, indent=indent)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(temp_path, target_mode)
+        os.replace(temp_path, target)
+        return target
+    except Exception:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+        raise
 
 
 def load_json(file_path: str | Path) -> Any:

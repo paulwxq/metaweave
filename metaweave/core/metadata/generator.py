@@ -19,6 +19,7 @@ from metaweave.core.metadata.extractor import MetadataExtractor
 from metaweave.core.metadata.comment_generator import CommentGenerator
 from metaweave.core.metadata.logical_key_detector import LogicalKeyDetector
 from metaweave.core.metadata.formatter import OutputFormatter
+from metaweave.core.metadata.generation_config import MetadataGenerationConfig
 from metaweave.core.metadata.models import (
     DatabaseObjectRef,
     GenerationResult,
@@ -72,6 +73,13 @@ class MetadataGenerator:
             config = config_loader.load()
             if not config:
                 raise ValueError(f"配置文件加载失败: {self.config_path}")
+            from metaweave.services.llm_config_resolver import (
+                _validate_declared_module_llm_paths,
+                _validate_nonstandard_llm_paths,
+            )
+
+            _validate_declared_module_llm_paths(config)
+            _validate_nonstandard_llm_paths(config)
             logger.info(f"配置文件加载成功: {self.config_path}")
             return config
         except Exception as e:
@@ -88,21 +96,12 @@ class MetadataGenerator:
         # 元数据提取器（延迟初始化）
         self.extractor = None
         
-        # LLM 服务（如果启用）
-        comment_config = self.config.get("comment_generation", {})
-        self.comment_enabled = comment_config.get("enabled", True)
-        
-        if self.comment_enabled:
-            from metaweave.services.llm_config_resolver import resolve_module_llm_config
-            llm_config = resolve_module_llm_config(self.config, "comment_generation.llm")
-            try:
-                self.llm_service = LLMService(llm_config)
-
-                # 注释生成器（不使用本地 cache）
-                self.comment_generator = CommentGenerator(self.llm_service)
-            except Exception as e:
-                logger.warning(f"LLM 服务初始化失败，注释生成将被禁用: {e}")
-                self.comment_enabled = False
+        # 仅解析配置；LLM 服务在具体 ddl/json 步骤确实需要时再初始化。
+        self.generation_config = MetadataGenerationConfig.from_config(self.config)
+        self.comment_enabled = False
+        self.llm_service = None
+        self.comment_generator = None
+        self._pending_json_documents: List[tuple[Dict[str, Any], Path, str]] = []
         
         # 逻辑主键检测器
         logical_key_config = self.config.get("logical_key_detection", {})
@@ -135,25 +134,52 @@ class MetadataGenerator:
         self.sampling_config = self.config.get("sampling", {})
         self.sampling_enabled = self.sampling_config.get("enabled", True)
         self.sample_size = self.sampling_config.get("sample_size", 1000)
-        ddl_sample_count = self.formatter.sample_record_options["count"]
-        ddl_sampling_needed = bool(self.comment_enabled) or bool(
-            self.formatter.sample_record_options["enabled"]
-        )
-        if (
-            self.sampling_enabled
-            and ddl_sampling_needed
-            and ddl_sample_count > self.sample_size
-        ):
-            raise ValueError(
-                "output.ddl_options.sample_records.count 不能大于 "
-                "sampling.sample_size"
-            )
-        
+        self.ddl_sample_count = self.formatter.sample_record_options["count"]
+
         # 列统计配置
         column_stats_config = self.sampling_config.get("column_statistics", {})
         self.column_stats_enabled = column_stats_config.get("enabled", True)
         self.value_dist_threshold = column_stats_config.get("value_distribution_threshold", 10)
         logger.info(f"列统计配置: enabled={self.column_stats_enabled}, threshold={self.value_dist_threshold}")
+
+    def _validate_ddl_sampling_config(self) -> None:
+        """仅在 DDL 步骤校验 DDL 样例行数，避免影响 JSON 独立执行。"""
+        ddl_sampling_needed = bool(
+            self.generation_config.ddl_comments.llm_enabled
+        ) or bool(
+            self.formatter.sample_record_options["enabled"]
+        )
+        if (
+            self.sampling_enabled
+            and ddl_sampling_needed
+            and self.ddl_sample_count > self.sample_size
+        ):
+            raise ValueError(
+                "output.ddl_options.sample_records.count 不能大于 "
+                "sampling.sample_size"
+            )
+
+    def _configure_step_llm(self) -> None:
+        """按当前步骤配置 LLM，避免构造生成器时初始化无关服务。"""
+        self.comment_enabled = False
+        self.llm_service = None
+        self.comment_generator = None
+        if self.active_step != "ddl":
+            return
+        if not self.generation_config.ddl_comments.llm_enabled:
+            return
+
+        from metaweave.services.llm_config_resolver import resolve_module_llm_config
+
+        try:
+            llm_config = resolve_module_llm_config(
+                self.config, "ddl_generation.llm"
+            )
+            self.llm_service = LLMService(llm_config)
+            self.comment_generator = CommentGenerator(self.llm_service)
+            self.comment_enabled = True
+        except Exception as exc:
+            logger.warning("DDL LLM 服务初始化失败，注释生成将被禁用: %s", exc)
 
     def _ensure_connector(self):
         """延迟初始化数据库连接器（仅在需要时）"""
@@ -218,6 +244,13 @@ class MetadataGenerator:
         result = GenerationResult(success=True)
         self.active_step = self._normalize_step(step)
         self.active_formats = self._resolve_formats_for_step(self.active_step)
+        if self.active_step == "ddl":
+            self._validate_ddl_sampling_config()
+        self._configure_step_llm()
+        if self.active_step == "json":
+            self._pending_json_documents = []
+            self._validate_json_sampling_method()
+            self.formatter.validate_json_options()
         logger.info(f"执行步骤: {self.active_step}")
         
         try:
@@ -266,6 +299,9 @@ class MetadataGenerator:
                 result = self._process_tables_parallel(all_tables, max_workers, result)
             else:
                 result = self._process_tables_sequential(all_tables, result)
+
+            if self.active_step == "json":
+                self._finalize_json_documents(result)
             
             logger.info(
                 "元数据生成完成: 成功 %d，失败 %d",
@@ -345,10 +381,10 @@ class MetadataGenerator:
                     DatabaseObjectRef(schema, table, "table")
                     for table in self._get_tables_from_ddl_dir(schema)
                 ]
-            elif self.active_step == "ddl":
+            elif self.active_step in {"ddl", "json"}:
                 schema_objects = self.connector.get_database_objects(
                     schema,
-                    self._resolve_ddl_object_types(),
+                    self._resolve_database_object_types(),
                 )
             else:
                 # 下游步骤将在各自改造阶段增加对象类型选择；当前保持只处理普通表。
@@ -374,13 +410,28 @@ class MetadataGenerator:
         
         return all_objects
 
-    def _resolve_ddl_object_types(self) -> List[str]:
-        """读取并校验 DDL 阶段允许处理的数据库对象类型。"""
+    def _resolve_database_object_types(self) -> List[str]:
+        """读取并校验 DDL/JSON 阶段允许处理的数据库对象类型。"""
         configured = self.config.get("database", {}).get(
             "include_object_types",
             ["table"],
         )
         return normalize_database_object_types(configured)
+
+    def _resolve_ddl_object_types(self) -> List[str]:
+        """保留既有内部接口，DDL 与 JSON 现共用同一对象类型配置。"""
+        return self._resolve_database_object_types()
+
+    def _validate_json_sampling_method(self) -> None:
+        """本轮 JSON 画像只允许记录已真实实现的 LIMIT 采样。"""
+        sample_method = str(
+            self.sampling_config.get("sample_method", "limit")
+        ).strip().lower()
+        if sample_method != "limit":
+            raise ValueError(
+                "--step json 当前仅支持 sampling.sample_method=limit；"
+                f"收到: {sample_method!r}"
+            )
 
     @staticmethod
     def _match_prefix_or_exact(value: str, pattern: str) -> bool:
@@ -499,7 +550,7 @@ class MetadataGenerator:
     ):
         if self.active_step == "json":
             # json 步骤：从 DDL 读取，但执行 COUNT/采样/画像（需要数据库）
-            self._process_table_from_ddl(schema, table, result)
+            self._process_table_from_ddl(schema, table, object_type, result)
         elif self.active_step == "md":
             # md 步骤：完全 file-only，不访问数据库
             self._process_table_from_ddl_for_md(schema, table, result)
@@ -685,15 +736,45 @@ class MetadataGenerator:
         self,
         schema: str,
         table: str,
+        object_type: str,
         result: GenerationResult
     ):
         logger.info(f"开始处理表 (DDL): {schema}.{table}")
         try:
             parsed = self._get_ddl_loader().load_table(schema, table)
             metadata = parsed.metadata
+            if metadata.table_type != object_type:
+                raise DDLLoaderError(
+                    f"DDL 对象类型为 {metadata.table_type}，数据库对象类型为 "
+                    f"{object_type}"
+                )
             
             # 设置数据库名称（从 DDL loader 获取）
             metadata.database = self._get_ddl_loader().database_name
+            if object_type in {"view", "materialized_view"}:
+                ddl_columns = {
+                    column.column_name: column for column in metadata.columns
+                }
+                catalog_columns = self.extractor.extract_columns(
+                    schema,
+                    table,
+                    object_type,
+                )
+                if not catalog_columns:
+                    raise DDLLoaderError(
+                        f"无法从数据库读取 {object_type} 字段: {schema}.{table}"
+                    )
+                # 类型、可空性和默认值来自 PostgreSQL 目录；DDL 中经人工或
+                # LLM 补全的注释继续作为 JSON 注释来源。
+                for column in catalog_columns:
+                    ddl_column = ddl_columns.get(column.column_name)
+                    if ddl_column and ddl_column.comment:
+                        column.comment = ddl_column.comment
+                        column.comment_source = ddl_column.comment_source
+                metadata.columns = catalog_columns
+            # JSON 使用数据库目录补齐完整索引事实（含约束支撑索引、表达式键
+            # 和 INCLUDE 列）；DDL/MD 的行为不受此刷新影响。
+            metadata.indexes = self.extractor.extract_json_indexes(schema, table)
         except DDLLoaderError as exc:
             logger.error(f"DDL 解析失败 ({schema}.{table}): {exc}")
             result.failed_tables += 1
@@ -732,15 +813,71 @@ class MetadataGenerator:
         table_profile = self.profiler._profile_table(metadata, column_profiles)
         metadata.table_profile = table_profile
 
-        output_files = self.formatter.format_and_save(
-            metadata,
-            sample_data,
-            formats_override=self.active_formats
-        )
-        for file_path in output_files.values():
-            result.add_output_file(file_path)
+        document = self.formatter.build_json_document(metadata, sample_data)
+        output_path = self.formatter.json_output_path(metadata)
+        with self._result_lock:
+            self._pending_json_documents.append(
+                (document, output_path, metadata.full_name)
+            )
+            result.processed_object_counts[metadata.table_type] = (
+                result.processed_object_counts.get(metadata.table_type, 0) + 1
+            )
 
-        logger.info(f"表处理完成 (JSON): {schema}.{table}")
+        logger.info(f"表规则画像完成 (JSON): {schema}.{table}")
+
+    def _finalize_json_documents(self, result: GenerationResult) -> None:
+        """在规则画像完成后统一执行可选 LLM 增强并原子保存。"""
+        from metaweave.core.metadata.json_llm_enhancer import JsonLlmEnhancer
+
+        enhancer = JsonLlmEnhancer(
+            self.config,
+            runtime_override={"langchain_config": {"use_async": False}},
+        )
+        pending = sorted(self._pending_json_documents, key=lambda item: str(item[1]))
+        for document, output_path, object_name in pending:
+            outcome = enhancer.enhance_document(document)
+            result.llm_request_count += outcome.request_count
+            if outcome.llm_called and outcome.success:
+                result.llm_success_count += 1
+            elif not outcome.success:
+                result.llm_failure_count += 1
+            if outcome.comment_task_attempted:
+                if outcome.comment_task_succeeded:
+                    result.llm_comment_success_count += 1
+                else:
+                    result.llm_comment_failure_count += 1
+            if outcome.classification_task_attempted:
+                if outcome.classification_task_succeeded:
+                    result.llm_classification_success_count += 1
+                else:
+                    result.llm_classification_failure_count += 1
+            result.generated_comments += outcome.generated_comments
+
+            try:
+                saved_path = self.formatter.save_json_document(
+                    outcome.document, output_path
+                )
+                result.add_output_file(str(saved_path))
+                category = str(
+                    outcome.document.get("table_profile", {}).get(
+                        "table_category", "unknown"
+                    )
+                    or "unknown"
+                ).strip().lower()
+                result.table_category_counts[category] = (
+                    result.table_category_counts.get(category, 0) + 1
+                )
+            except Exception as exc:
+                result.success = False
+                result.failed_tables += 1
+                result.add_error(f"{object_name}: JSON 保存失败: {exc}")
+                continue
+
+            if not outcome.success:
+                result.success = False
+                result.add_error(
+                    f"{object_name}: LLM 增强失败，已保存规则 JSON: {outcome.error}"
+                )
 
     def _process_table_from_ddl_for_md(
         self,
@@ -816,7 +953,7 @@ class MetadataGenerator:
         summary_lines.append("=" * 60)
         summary_lines.append("元数据生成汇总报告")
         summary_lines.append("=" * 60)
-        unit = "个对象" if self.active_step == "ddl" else "张表"
+        unit = "个对象" if self.active_step in {"ddl", "json"} else "张表"
         summary_lines.append(f"成功处理: {result.processed_tables} {unit}")
         summary_lines.append(f"处理失败: {result.failed_tables} {unit}")
         summary_lines.append(f"生成注释: {result.generated_comments} 个")
@@ -843,7 +980,37 @@ class MetadataGenerator:
             summary_lines.append(f"  - 唯一索引: {result.unique_indexes_found} 个")
             summary_lines.append("逻辑主键识别: 未执行")
         elif self.active_step == "json":
+            summary_lines.append(
+                f"Table: {result.processed_object_counts.get('table', 0)} 个"
+            )
+            summary_lines.append(
+                f"View: {result.processed_object_counts.get('view', 0)} 个"
+            )
+            summary_lines.append(
+                "Materialized View: "
+                f"{result.processed_object_counts.get('materialized_view', 0)} 个"
+            )
             summary_lines.append(f"识别逻辑主键: {result.logical_keys_found} 个")
+            summary_lines.append(f"LLM 请求: {result.llm_request_count} 次")
+            summary_lines.append(f"LLM 增强成功: {result.llm_success_count} 个对象")
+            summary_lines.append(f"LLM 增强失败: {result.llm_failure_count} 个对象")
+            summary_lines.append(
+                "  - 注释任务: "
+                f"成功 {result.llm_comment_success_count}，"
+                f"失败 {result.llm_comment_failure_count}"
+            )
+            summary_lines.append(
+                "  - 分类任务: "
+                f"成功 {result.llm_classification_success_count}，"
+                f"失败 {result.llm_classification_failure_count}"
+            )
+            summary_lines.append(
+                "表分类: "
+                f"fact={result.table_category_counts.get('fact', 0)}，"
+                f"dim={result.table_category_counts.get('dim', 0)}，"
+                f"bridge={result.table_category_counts.get('bridge', 0)}，"
+                f"unknown={result.table_category_counts.get('unknown', 0)}"
+            )
         summary_lines.append(f"输出文件: {len(result.output_files)} 个")
         
         if result.errors:

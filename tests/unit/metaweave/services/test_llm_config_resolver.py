@@ -126,9 +126,9 @@ class TestValidateDeclaredModuleLlmPaths:
         _validate_declared_module_llm_paths(config)  # 不报错
 
     def test_supported_json_llm_llm_passes(self):
-        """json_llm.llm 已接入白名单（Phase 3），不应报错"""
+        """json_generation.llm 已接入白名单（Phase 3），不应报错"""
         config = _base_config()
-        config["json_llm"] = {"llm": {"active": "qwen"}}
+        config["json_generation"] = {"llm": {"active": "qwen"}}
         _validate_declared_module_llm_paths(config)  # 不报错
 
     def test_module_without_llm_key_passes(self):
@@ -445,7 +445,7 @@ class TestValidateNonstandardLlmFields:
 
 
 # ===========================================================================
-# 第三阶段：relationships.llm 与 json_llm.llm 白名单与深合并
+# 第三阶段：relationships.llm 与 json_generation.llm 白名单与深合并
 # ===========================================================================
 
 class TestPhase3RelationshipsLlm:
@@ -487,30 +487,30 @@ class TestPhase3RelationshipsLlm:
 
 
 class TestPhase3JsonLlmLlm:
-    """json_llm.llm 白名单、深合并与 runtime_override 测试"""
+    """json_generation.llm 白名单、深合并与 runtime_override 测试"""
 
     def test_json_llm_llm_in_whitelist(self):
-        """json_llm.llm 在白名单内，预检不报错"""
+        """json_generation.llm 在白名单内，预检不报错"""
         config = _base_config()
-        config["json_llm"] = {
+        config["json_generation"] = {
             "llm": {"providers": {"qwen": {"model": "qwen-max"}}}
         }
         _validate_declared_module_llm_paths(config)  # 不报错
 
     def test_json_llm_llm_deep_merge_override_active(self):
-        """json_llm.llm 可以覆盖 active 字段"""
+        """json_generation.llm 可以覆盖 active 字段"""
         config = _base_config()
-        config["json_llm"] = {"llm": {"active": "deepseek"}}
-        result = resolve_module_llm_config(config, "json_llm.llm")
+        config["json_generation"] = {"llm": {"active": "deepseek"}}
+        result = resolve_module_llm_config(config, "json_generation.llm")
         assert result["active"] == "deepseek"
 
     def test_json_llm_llm_deep_merge_provider_model(self):
-        """json_llm.llm 深合并覆盖 provider model"""
+        """json_generation.llm 深合并覆盖 provider model"""
         config = _base_config()
-        config["json_llm"] = {
+        config["json_generation"] = {
             "llm": {"providers": {"qwen": {"model": "qwen-max"}}}
         }
-        result = resolve_module_llm_config(config, "json_llm.llm")
+        result = resolve_module_llm_config(config, "json_generation.llm")
         assert result["providers"]["qwen"]["model"] == "qwen-max"
         assert result["providers"]["qwen"]["api_key"] == "key-qwen"
 
@@ -519,7 +519,7 @@ class TestPhase3JsonLlmLlm:
         config = _base_config()
         config["llm"]["langchain_config"] = {"use_async": True, "batch_size": 50}
         result = resolve_module_llm_config(
-            config, "json_llm.llm",
+            config, "json_generation.llm",
             runtime_override={"langchain_config": {"use_async": False}},
         )
         assert result["langchain_config"]["use_async"] is False
@@ -530,11 +530,11 @@ class TestPhase3JsonLlmLlm:
         """runtime_override 在模块级覆盖基础上再叠加"""
         config = _base_config()
         config["llm"]["langchain_config"] = {"use_async": True, "batch_size": 50}
-        config["json_llm"] = {
+        config["json_generation"] = {
             "llm": {"providers": {"qwen": {"model": "qwen-max"}}}
         }
         result = resolve_module_llm_config(
-            config, "json_llm.llm",
+            config, "json_generation.llm",
             runtime_override={"langchain_config": {"use_async": False}},
         )
         # 模块级覆盖生效
@@ -545,9 +545,9 @@ class TestPhase3JsonLlmLlm:
         assert result["langchain_config"]["batch_size"] == 50
 
     def test_json_llm_llm_fallback_to_global(self):
-        """无 json_llm.llm 声明时回退到全局 llm"""
+        """无 json_generation.llm 声明时回退到全局 llm"""
         config = _base_config()
-        result = resolve_module_llm_config(config, "json_llm.llm")
+        result = resolve_module_llm_config(config, "json_generation.llm")
         assert result == config["llm"]
 
 
@@ -555,15 +555,15 @@ class TestPhase3CrossModuleIsolation:
     """各模块覆盖互不干扰"""
 
     def test_relationships_and_json_llm_independent(self):
-        """relationships.llm 和 json_llm.llm 的覆盖互不影响"""
+        """relationships.llm 和 json_generation.llm 的覆盖互不影响"""
         config = _base_config()
         config["relationships"] = {"llm": {"active": "deepseek"}}
-        config["json_llm"] = {
+        config["json_generation"] = {
             "llm": {"providers": {"qwen": {"model": "qwen-max"}}}
         }
 
         rel_result = resolve_module_llm_config(config, "relationships.llm")
-        json_result = resolve_module_llm_config(config, "json_llm.llm")
+        json_result = resolve_module_llm_config(config, "json_generation.llm")
 
         # relationships 切换到 deepseek，但 model 不变
         assert rel_result["active"] == "deepseek"
@@ -583,14 +583,14 @@ class TestPhase3CrossModuleIsolation:
         config["relationships"] = {
             "llm": {"providers": {"qwen": {"model": "qwen-max"}}}
         }
-        config["json_llm"] = {
+        config["json_generation"] = {
             "llm": {"providers": {"qwen": {"model": "qwen-long"}}}
         }
 
         d = resolve_module_llm_config(config, "domain_generation.llm")
         s = resolve_module_llm_config(config, "sql_rag.llm")
         r = resolve_module_llm_config(config, "relationships.llm")
-        j = resolve_module_llm_config(config, "json_llm.llm")
+        j = resolve_module_llm_config(config, "json_generation.llm")
 
         assert d["active"] == "deepseek"
         assert s["providers"]["qwen"]["model"] == "qwen-turbo"
@@ -616,10 +616,10 @@ class TestNonDictModuleLlmRaises:
             _validate_declared_module_llm_paths(config)
 
     def test_list_llm_value_raises_on_precheck(self):
-        """预检阶段：json_llm.llm: [] → ValueError"""
+        """预检阶段：json_generation.llm: [] → ValueError"""
         config = _base_config()
-        config["json_llm"] = {"llm": []}
-        with pytest.raises(ValueError, match="json_llm.llm.*dict"):
+        config["json_generation"] = {"llm": []}
+        with pytest.raises(ValueError, match="json_generation.llm.*dict"):
             _validate_declared_module_llm_paths(config)
 
     def test_string_llm_value_raises_on_resolve(self):
@@ -632,9 +632,9 @@ class TestNonDictModuleLlmRaises:
     def test_int_llm_value_raises_on_resolve(self):
         """resolve 阶段：路径值为整数 → ValueError"""
         config = _base_config()
-        config["json_llm"] = {"llm": 42}
-        with pytest.raises(ValueError, match="json_llm.llm.*dict"):
-            resolve_module_llm_config(config, "json_llm.llm")
+        config["json_generation"] = {"llm": 42}
+        with pytest.raises(ValueError, match="json_generation.llm.*dict"):
+            resolve_module_llm_config(config, "json_generation.llm")
 
 
 # ===========================================================================
@@ -659,30 +659,29 @@ class TestDeepMergeReferenceIsolation:
     def test_resolve_result_does_not_pollute_module_config(self):
         """resolve 结果的修改不应影响 full_config 中的模块 override"""
         config = _base_config()
-        config["json_llm"] = {
+        config["json_generation"] = {
             "llm": {
                 "providers": {"qwen": {"model": "qwen-max", "timeout": 60}},
             }
         }
-        result = resolve_module_llm_config(config, "json_llm.llm")
+        result = resolve_module_llm_config(config, "json_generation.llm")
 
         # 修改 resolve 结果中的 provider timeout
         result["providers"]["qwen"]["timeout"] = 999
 
         # 原始配置不应被污染
-        assert config["json_llm"]["llm"]["providers"]["qwen"]["timeout"] == 60
+        assert config["json_generation"]["llm"]["providers"]["qwen"]["timeout"] == 60
 
 
 class TestPhase4CommentGenerationLlm:
-    """Phase 4: comment_generation.llm 白名单与深合并测试"""
+    """Phase 4: ddl_generation.llm 白名单与深合并测试"""
 
     def test_comment_generation_in_whitelist(self):
-        """comment_generation.llm 已纳入白名单"""
-        from metaweave.services.llm_config_resolver import SUPPORTED_MODULE_LLM_PATHS
-        assert "comment_generation.llm" in SUPPORTED_MODULE_LLM_PATHS
+        """ddl_generation.llm 已纳入白名单"""
+        assert "ddl_generation.llm" in SUPPORTED_MODULE_LLM_PATHS
 
     def test_comment_generation_llm_resolve(self):
-        """comment_generation.llm 深合并正确执行"""
+        """ddl_generation.llm 深合并正确执行"""
         config = {
             "llm": {
                 "active": "qwen",
@@ -695,7 +694,7 @@ class TestPhase4CommentGenerationLlm:
                     },
                 },
             },
-            "comment_generation": {
+            "ddl_generation": {
                 "enabled": True,
                 "language": "zh",
                 "llm": {
@@ -707,7 +706,7 @@ class TestPhase4CommentGenerationLlm:
                 },
             },
         }
-        result = resolve_module_llm_config(config, "comment_generation.llm")
+        result = resolve_module_llm_config(config, "ddl_generation.llm")
         # 覆盖生效
         assert result["providers"]["qwen"]["timeout"] == 180
         # 继承保留
@@ -715,7 +714,7 @@ class TestPhase4CommentGenerationLlm:
         assert result["active"] == "qwen"
 
     def test_comment_generation_precheck_passes(self):
-        """comment_generation.llm 预检通过（不再报错）"""
+        """ddl_generation.llm 预检通过（不再报错）"""
         config = {
             "llm": {
                 "active": "qwen",
@@ -723,7 +722,7 @@ class TestPhase4CommentGenerationLlm:
                     "qwen": {"model": "qwen-plus", "api_key": "k", "api_base": "u"},
                 },
             },
-            "comment_generation": {
+            "ddl_generation": {
                 "llm": {"active": "qwen"},
             },
         }
@@ -731,7 +730,7 @@ class TestPhase4CommentGenerationLlm:
         _validate_declared_module_llm_paths(config)
 
     def test_comment_generation_no_override_inherits_global(self):
-        """不声明 comment_generation.llm 时完全继承全局"""
+        """不声明 ddl_generation.llm 时完全继承全局"""
         config = {
             "llm": {
                 "active": "qwen",
@@ -743,17 +742,45 @@ class TestPhase4CommentGenerationLlm:
                     },
                 },
             },
-            "comment_generation": {
+            "ddl_generation": {
                 "enabled": True,
             },
         }
-        result = resolve_module_llm_config(config, "comment_generation.llm")
+        result = resolve_module_llm_config(config, "ddl_generation.llm")
         assert result["active"] == "qwen"
         assert result["providers"]["qwen"]["model"] == "qwen-plus"
 
 
 class TestDeprecatedTopLevelKeyRejection:
-    """P1-Fix: 旧顶层键 llm_comment_generation 必须被立即拒绝"""
+    """旧的注释/JSON LLM 顶层配置必须被立即拒绝。"""
+
+    @pytest.mark.parametrize(
+        "old_root",
+        ["comment_generation", "llm_comment_generation", "json_llm"],
+    )
+    def test_each_deprecated_root_is_rejected_without_llm_child(self, old_root):
+        config = _base_config()
+        config[old_root] = {"enabled": False, "language": "zh"}
+
+        with pytest.raises(ValueError, match=old_root):
+            _validate_nonstandard_llm_paths(config)
+
+    @pytest.mark.parametrize(
+        ("old_root", "expected_path"),
+        [
+            ("comment_generation", "ddl_generation.comments"),
+            ("llm_comment_generation", "json_generation.comments"),
+            ("json_llm", "json_generation.llm"),
+        ],
+    )
+    def test_deprecated_root_error_points_to_final_path(
+        self, old_root, expected_path
+    ):
+        config = _base_config()
+        config[old_root] = {"enabled": True}
+
+        with pytest.raises(ValueError, match=expected_path):
+            _validate_nonstandard_llm_paths(config)
 
     def test_old_key_without_llm_child_raises(self):
         """llm_comment_generation.enabled: false 被检测到并报错"""
@@ -772,7 +799,7 @@ class TestDeprecatedTopLevelKeyRejection:
             _validate_nonstandard_llm_paths(config)
 
     def test_old_key_with_llm_child_raises(self):
-        """llm_comment_generation.llm 也被检测到并报错"""
+        """llm_ddl_generation.llm 也被检测到并报错"""
         config = {
             "llm": {
                 "active": "qwen",
@@ -784,11 +811,11 @@ class TestDeprecatedTopLevelKeyRejection:
                 "llm": {"active": "qwen"},
             },
         }
-        with pytest.raises(ValueError, match="comment_generation"):
+        with pytest.raises(ValueError, match="ddl_generation"):
             _validate_nonstandard_llm_paths(config)
 
     def test_new_key_passes(self):
-        """新键名 comment_generation 不触发废弃检测"""
+        """新 DDL/JSON 生成根节点不触发废弃检测。"""
         config = {
             "llm": {
                 "active": "qwen",
@@ -796,11 +823,13 @@ class TestDeprecatedTopLevelKeyRejection:
                     "qwen": {"model": "qwen-plus", "api_key": "k", "api_base": "u"},
                 },
             },
-            "comment_generation": {
-                "enabled": True,
+            "ddl_generation": {
+                "comments": {"llm_enabled": True},
+            },
+            "json_generation": {
+                "comments": {"llm_enabled": True},
+                "table_classification": {"llm_enabled": True},
             },
         }
         # 不应抛异常
         _validate_nonstandard_llm_paths(config)
-
-

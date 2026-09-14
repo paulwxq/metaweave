@@ -9,7 +9,7 @@ from click.testing import CliRunner
 
 from metaweave.cli import metadata_cli
 from metaweave.core.metadata.models import GenerationResult
-from metaweave.core.relationships.models import RelationshipDiscoveryResult, Relation
+from metaweave.core.relationships.models import RelationshipDiscoveryResult
 from metaweave.core.cql_generator.models import CQLGenerationResult
 
 
@@ -28,7 +28,11 @@ def _write_config(tmp_path: Path) -> Path:
             "rel_directory": str((out_dir / "rel").relative_to(Path.cwd().resolve())),
             "cql_directory": str((out_dir / "cql").relative_to(Path.cwd().resolve())),
         },
-        "comment_generation": {"enabled": False},
+        "ddl_generation": {"comments": {"llm_enabled": False}},
+        "json_generation": {
+            "comments": {"llm_enabled": False},
+            "table_classification": {"llm_enabled": False},
+        },
     }
     path = tmp_path / "config.yaml"
     path.write_text(yaml.safe_dump(cfg, allow_unicode=True), encoding="utf-8")
@@ -153,6 +157,19 @@ def test_step_all_orchestrates_in_order(tmp_path: Path, monkeypatch):
     assert sub_steps == ["ddl", "md", "json", "rel", "cql"]
     assert "开始步骤: ddl" in result.output
     assert "开始步骤: cql" in result.output
+
+
+def test_json_llm_is_no_longer_a_valid_step(tmp_path: Path):
+    cfg = _write_config(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        metadata_cli.metadata_command,
+        ["--config", str(cfg), "--step", "json_llm"],
+    )
+
+    assert result.exit_code == 2
+    assert "Invalid value for '--step'" in result.output
 
 
 def test_step_all_with_clean_flag(tmp_path: Path, monkeypatch):
@@ -302,5 +319,3 @@ def test_step_all_stops_after_first_failure(tmp_path: Path, monkeypatch):
     sub_steps = [s for s in steps if s != "standard"]
     assert sub_steps == ["ddl", "md", "json"]
     assert "❌ json 失败" in result.output
-
-
