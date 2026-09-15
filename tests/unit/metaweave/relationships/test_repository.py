@@ -110,8 +110,51 @@ class TestMetadataRepository:
         for rel in fk_relations:
             assert rel.relationship_id.startswith("rel_")
             assert rel.relationship_type == "foreign_key"
+            assert rel.composite_score == 1.0
+            assert rel.score_details is None
             assert len(rel.source_columns) > 0
             assert len(rel.target_columns) > 0
+
+    def test_collect_foreign_keys_assigns_fixed_score(self, tmp_path):
+        """外键直通在入库时就把综合分设为 1.0，不带五维明细。"""
+        repo = MetadataRepository(tmp_path)
+        tables = {
+            "public.screenings": {
+                "table_info": {
+                    "schema_name": "public",
+                    "table_name": "screenings",
+                },
+                "table_profile": {
+                    "physical_constraints": {
+                        "foreign_keys": [
+                            {
+                                "constraint_name": "screenings_hall_id_fkey",
+                                "source_columns": ["hall_id"],
+                                "target_schema": "public",
+                                "target_table": "cinema_halls",
+                                "target_columns": ["hall_id"],
+                            }
+                        ]
+                    }
+                },
+            },
+            "public.cinema_halls": {
+                "table_info": {
+                    "schema_name": "public",
+                    "table_name": "cinema_halls",
+                },
+                "table_profile": {"physical_constraints": {"foreign_keys": []}},
+            },
+        }
+
+        fk_relations, _ = repo.collect_foreign_keys(tables)
+        assert len(fk_relations) == 1
+        rel = fk_relations[0]
+        assert rel.source_table == "screenings"
+        assert rel.target_table == "cinema_halls"
+        assert rel.composite_score == 1.0
+        assert rel.score_details is None
+        assert rel.constraint_name == "screenings_hall_id_fkey"
 
     def test_compute_relationship_id_static_method(self):
         """测试静态方法 compute_relationship_id"""

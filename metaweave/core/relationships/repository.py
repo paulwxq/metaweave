@@ -8,7 +8,7 @@ import hashlib
 from pathlib import Path
 from typing import Dict, List, Tuple, Set, Any
 
-from metaweave.core.relationships.models import Relation
+from metaweave.core.relationships.models import FOREIGN_KEY_COMPOSITE_SCORE, Relation
 from metaweave.utils.logger import get_metaweave_logger
 
 logger = get_metaweave_logger("relationships.repository")
@@ -134,7 +134,8 @@ class MetadataRepository:
                         target_columns=target_columns,
                         relationship_type="foreign_key",
                         cardinality=self._infer_cardinality(fk, tables, full_name, target_schema, target_table),
-                        constraint_name=fk.get("constraint_name")  # ✅ 提取外键约束名
+                        constraint_name=fk.get("constraint_name"),
+                        composite_score=FOREIGN_KEY_COMPOSITE_SCORE,
                     )
 
                     pre_existing_relations.append(relation)

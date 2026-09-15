@@ -260,10 +260,10 @@ embedding:
   providers:
     # Qwen Embedding 配置
     qwen:
-      model: text-embedding-v3
+      model: qwen3.7-text-embedding
       api_key: ${DASHSCOPE_API_KEY}
       api_base: ${DASHSCOPE_BASE_URI}   # 复用系统已有 DashScope 地址
-      dimensions: 1024                  # 模型输出维度（用于预分配与校验）
+      dimensions: 1024                  # 请求输出维度（用于预分配与校验）
 
 # 向量数据库配置
 vector_database:
@@ -446,12 +446,13 @@ relationships:
         - 备注
         - 描述
 
-  # 评分权重（name_similarity 替换为 comment_similarity，按列对回退）
+  # 评分权重（五维，name_similarity 与 comment_similarity 并列）
   weights:
-    inclusion_rate: 0.50        # 数据包含率（核心指标）
-    comment_similarity: 0.20    # 替代 name_similarity，按列对回退
-    type_compatibility: 0.20    # 类型兼容性（体现JOIN性能，对不过闸的LLM候选仍有防幻觉价值）
-    jaccard_index: 0.10         # Jaccard相似度（辅助判断）
+    inclusion_rate: 0.40        # 数据包含率
+    name_similarity: 0.10       # 列名相似度
+    comment_similarity: 0.10    # 注释相似度（不可用时用 scoring.comment_fallback_score）
+    type_compatibility: 0.20    # 类型兼容性
+    jaccard_index: 0.20         # Jaccard相似度
 
   # 评分新增参数（weights 保持现状路径，新增参数集中放这里）
   scoring:

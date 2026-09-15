@@ -6,6 +6,9 @@
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Optional, Any
 
+# 物理外键直通：约束已存在，置信度固定为 1.0（不经过五维评分）
+FOREIGN_KEY_COMPOSITE_SCORE = 1.0
+
 
 @dataclass
 class Relation:
@@ -22,8 +25,8 @@ class Relation:
         relationship_type: 关系类型（foreign_key | inferred）
         cardinality: 基数（1:1 | 1:N | N:1 | M:N）
         constraint_name: 外键约束名（仅外键关系有值）
-        composite_score: 综合评分（仅推断关系有值，0-1）
-        score_details: 评分明细（4个维度：inclusion_rate, name_similarity, type_compatibility, jaccard_index）
+        composite_score: 综合评分（0-1）。推断关系来自五维加权；外键直通固定为 1.0
+        score_details: 评分明细（5个维度：inclusion_rate, name_similarity, comment_similarity, type_compatibility, jaccard_index）
         inference_method: 推断方法（v3 新分类体系，见 doc 15 §3.15：
             rule_physical_key / rule_logical_key / llm_inferred；仅推断关系有值）
         candidate_origin: 候选来源（v3 统计口径，见 doc 15 §3.8：rule / llm /
@@ -48,9 +51,12 @@ class Relation:
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典（用于JSON序列化）"""
         data = asdict(self)
-        # 确保空值字段也被包含
-        if self.composite_score is None and self.relationship_type == "foreign_key":
-            data.pop("composite_score", None)
+        if self.relationship_type == "foreign_key":
+            data["composite_score"] = (
+                FOREIGN_KEY_COMPOSITE_SCORE
+                if self.composite_score is None
+                else self.composite_score
+            )
             data.pop("score_details", None)
             data.pop("inference_method", None)
             data.pop("candidate_origin", None)

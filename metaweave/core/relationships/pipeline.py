@@ -6,7 +6,7 @@
 1. JSON加载 + 外键直通（登记身份）
 2. 规则候选生成 + （可选）LLM 候选产出 → 合并入池 → 池内统一去重
    （含最小键过滤）→ 排除与物理 FK 重复的候选
-3. 候选评分（4维度 + 数据库采样）
+3. 候选评分（5维度 + 数据库采样）
 4. 决策过滤 + 抑制
 5. 结果输出（JSON + Markdown）
 """
@@ -41,7 +41,7 @@ class RelationshipDiscoveryPipeline:
     协调统一管线的各阶段：
     1. JSON加载 + 外键直通
     2. 候选生成（规则 + 可选 LLM，池内统一去重）
-    3. 候选评分（4维度 + 数据库采样）
+    3. 候选评分（5维度 + 数据库采样）
     4. 决策过滤 + 抑制
     5. 结果输出（JSON + Markdown）
     """
@@ -275,7 +275,7 @@ class RelationshipDiscoveryPipeline:
             result.llm_failed_pairs = llm_stats["llm_failed_pairs"]
 
             # Stage 3: 候选评分
-            logger.info("阶段3: 评分候选关系（4维度 + 数据库采样）")
+            logger.info("阶段3: 评分候选关系（5维度 + 数据库采样）")
             scored_candidates = self.scorer.score_candidates(candidates, tables)
             logger.info(f"评分完成: {len(scored_candidates)} 个")
             if logger.isEnabledFor(logging.DEBUG):
@@ -335,6 +335,7 @@ class RelationshipDiscoveryPipeline:
             }
             output_files = self.writer.write_results(
                 all_relations, suppressed, self.config, tables,
+                generated_by=self.writer.generated_by_label(self.llm_candidates_enabled),
                 extra_statistics=extra_statistics,
             )
             for file_path in output_files:

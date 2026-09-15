@@ -32,10 +32,11 @@ class TestRelationshipWriter:
                 "medium_confidence_threshold": 0.80
             },
             "weights": {
-                "inclusion_rate": 0.50,
-                "comment_similarity": 0.20,
+                "inclusion_rate": 0.40,
+                "name_similarity": 0.10,
+                "comment_similarity": 0.10,
                 "type_compatibility": 0.20,
-                "jaccard_index": 0.10
+                "jaccard_index": 0.20
             },
         }
 
@@ -72,6 +73,7 @@ class TestRelationshipWriter:
                 composite_score=0.85,
                 score_details={
                     "inclusion_rate": 0.8,
+                    "name_similarity": 1.0,
                     "jaccard_index": 0.6,
                     "comment_similarity": 1.0,
                     "type_compatibility": 1.0
@@ -94,7 +96,7 @@ class TestRelationshipWriter:
             data = json.load(f)
 
         # 顶层字段验证
-        assert data["json_metadata_version"] == "2.0"
+        assert data["json_metadata_version"] == "3.0"
         assert data["metadata_source"] == "json_files"
         assert data["database"] == config["database"]["database"]
         assert "generated_timestamp" in data
@@ -134,6 +136,12 @@ class TestRelationshipWriter:
         assert rel1["cardinality"] == "N:1"
         assert data["relationships"][1]["cardinality"] == "N:1"
 
+        assert rel1["discovery_method"] == "foreign_key_constraint"
+        assert rel1["composite_score"] == 1.0
+        assert rel1["confidence_level"] == "high"
+        assert "metrics" not in rel1
+        assert data["relationships"][1]["metrics"]
+
     def test_write_markdown_output(self, writer, sample_relations, temp_output_dir, config):
         """测试Markdown输出"""
         output_files = writer.write_results(sample_relations, [], config)
@@ -158,6 +166,76 @@ class TestRelationshipWriter:
         for idx, line in enumerate(lines[:-1]):
             if line.startswith("# ") or line.startswith("## ") or line.startswith("### "):
                 assert lines[idx + 1].strip() != ""
+
+        assert "- **关系类型**: foreign_key" in content
+        assert "- **置信度**: 1.000 (高)" in content
+        fk_block = content.split("### 2.")[0]
+        assert "**评分明细**" not in fk_block
+        assert "**推断方法**" not in fk_block
+
+    def test_foreign_key_confidence_json_and_md_are_aligned(
+        self, writer, sample_relations, temp_output_dir, config
+    ):
+        """外键置信度 1.0 由同一套 writer 逻辑写入 JSON 与 Markdown。"""
+        output_files = writer.write_results(sample_relations, [], config)
+        json_file = next(p for p in output_files if p.endswith(".json"))
+        md_file = next(p for p in output_files if p.endswith(".md"))
+
+        with open(json_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        fk = next(r for r in data["relationships"] if r["discovery_method"] == "foreign_key_constraint")
+        inferred = next(r for r in data["relationships"] if r.get("discovery_method") != "foreign_key_constraint")
+
+        assert fk["composite_score"] == 1.0
+        assert fk["confidence_level"] == "high"
+        assert "metrics" not in fk
+        assert inferred["composite_score"] == 0.85
+        assert "metrics" in inferred
+
+        md_content = Path(md_file).read_text(encoding="utf-8")
+        assert "- **置信度**: 1.000 (高)" in md_content
+        assert "- **置信度**: 0.850 (中)" in md_content
+        assert "高置信度 (≥0.9): 1" in md_content or "高置信度 (≥0.90): 1" in md_content
+
+    def test_generated_by_and_json_metadata_version_json_md_aligned(
+        self, writer, sample_relations, temp_output_dir, config
+    ):
+        """generated_by / json_metadata_version 由同一套 writer 逻辑写入 JSON 与 Markdown。"""
+        tables = {
+            "public.users": {"metadata_version": "3.0", "table_info": {"table_name": "users"}},
+            "public.orders": {"metadata_version": "3.0", "table_info": {"table_name": "orders"}},
+        }
+        output_files = writer.write_results(
+            sample_relations, [], config,
+            tables=tables,
+            generated_by=RelationshipWriter.generated_by_label(True),
+        )
+        json_file = next(p for p in output_files if p.endswith(".json"))
+        md_file = next(p for p in output_files if p.endswith(".md"))
+
+        with open(json_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        assert data["generated_by"] == "rel_llm"
+        assert data["json_metadata_version"] == "3.0"
+
+        md_content = Path(md_file).read_text(encoding="utf-8")
+        assert "生成方式: rel_llm" in md_content
+
+        output_files_off = writer.write_results(
+            sample_relations, [], config,
+            generated_by=RelationshipWriter.generated_by_label(False),
+        )
+        json_off = next(p for p in output_files_off if p.endswith(".json"))
+        md_off = next(p for p in output_files_off if p.endswith(".md"))
+        with open(json_off, "r", encoding="utf-8") as f:
+            data_off = json.load(f)
+        assert data_off["generated_by"] == "rel"
+        assert data_off["json_metadata_version"] == "3.0"
+        assert "生成方式: rel" in Path(md_off).read_text(encoding="utf-8")
+
+    def test_generated_by_label(self):
+        assert RelationshipWriter.generated_by_label(True) == "rel_llm"
+        assert RelationshipWriter.generated_by_label(False) == "rel"
 
     def test_suppressed_embedded_in_composite(self, writer, temp_output_dir, config):
         """测试被抑制关系嵌入复合键（v3.2格式）"""
@@ -311,6 +389,9 @@ class TestRelationshipWriter:
         # FK 关系不应携带 candidate_origin（见 Relation.to_dict 的 pop 逻辑）
         fk_output = next(r for r in data["relationships"] if r["discovery_method"] == "foreign_key_constraint")
         assert "candidate_origin" not in fk_output
+        assert fk_output["composite_score"] == 1.0
+        assert fk_output["confidence_level"] == "high"
+        assert "metrics" not in fk_output
 
     def test_json_files_loaded_and_db_queries(self, writer, sample_relations, config):
         """测试 json_files_loaded 和 database_queries_executed 反映真实值"""

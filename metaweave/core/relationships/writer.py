@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from collections import defaultdict
 
-from metaweave.core.relationships.models import Relation
+from metaweave.core.metadata.metadata_document import CURRENT_METADATA_VERSION
+from metaweave.core.relationships.models import FOREIGN_KEY_COMPOSITE_SCORE, Relation
 from metaweave.utils.file_utils import ensure_dir
 from metaweave.utils.logger import get_metaweave_logger
 
@@ -56,8 +57,48 @@ class RelationshipWriter:
 
         # 确保输出目录存在
         ensure_dir(self.rel_dir)
+        self.tables: Dict[str, dict] = {}
 
         logger.info(f"关系输出器已初始化: {self.rel_dir}")
+
+    @staticmethod
+    def generated_by_label(llm_candidates_enabled: bool) -> str:
+        """JSON / Markdown 共用的生成方式标记。"""
+        return "rel_llm" if llm_candidates_enabled else "rel"
+
+    def _json_metadata_version(self) -> str:
+        """从读入的表画像带出 metadata_version；缺省为当前表 JSON 契约版本。"""
+        versions = {
+            table.get("metadata_version")
+            for table in self.tables.values()
+            if isinstance(table, dict) and table.get("metadata_version")
+        }
+        if not versions:
+            return CURRENT_METADATA_VERSION
+        if len(versions) > 1:
+            logger.warning(
+                "读入的表 JSON metadata_version 不一致: %s，按 %s 标记",
+                sorted(str(v) for v in versions),
+                CURRENT_METADATA_VERSION,
+            )
+            return CURRENT_METADATA_VERSION
+        return next(iter(versions))
+
+    @staticmethod
+    def _relation_score(rel: Relation) -> Optional[float]:
+        """JSON 与 Markdown 共用的有效综合分。外键直通固定为 1.0。"""
+        if rel.relationship_type == "foreign_key":
+            return FOREIGN_KEY_COMPOSITE_SCORE
+        return rel.composite_score
+
+    def _confidence_level(self, score: Optional[float]) -> Optional[str]:
+        if score is None:
+            return None
+        if score >= self.high_confidence_threshold:
+            return "high"
+        if score >= self.medium_confidence_threshold:
+            return "medium"
+        return "low"
 
     def write_results(
             self,
@@ -75,7 +116,7 @@ class RelationshipWriter:
             suppressed: 被抑制的候选列表
             config: 完整配置
             tables: 表元数据字典（用于获取列的约束信息）
-            generated_by: 生成命令标识（"rel" 或 "rel_llm"）
+            generated_by: 生成模式。未启用 LLM 候选为 "rel"，启用为 "rel_llm"
             extra_statistics: 额外的统计项（如 llm_assisted_relationships）
 
         Returns:
@@ -158,7 +199,7 @@ class RelationshipWriter:
             "generated_by": generated_by,
             "database": self.database_name,
             "metadata_source": "json_files",
-            "json_metadata_version": "2.0",
+            "json_metadata_version": self._json_metadata_version(),
             "json_files_loaded": stats["json_files_loaded"],
             "database_queries_executed": db_queries,
             "generated_timestamp": datetime.now().isoformat(),
@@ -244,15 +285,9 @@ class RelationshipWriter:
         else:
             rel_type = "single_column"
 
-        # 确定置信度级别
-        if rel.composite_score is None:
-            confidence_level = None
-        elif rel.composite_score >= self.high_confidence_threshold:
-            confidence_level = "high"
-        elif rel.composite_score >= self.medium_confidence_threshold:
-            confidence_level = "medium"
-        else:
-            confidence_level = "low"
+        # 确定置信度级别（外键与推断共用同一套分数 → 档位规则）
+        score = self._relation_score(rel)
+        confidence_level = self._confidence_level(score)
 
         # 基础字段
         result = {
@@ -288,11 +323,12 @@ class RelationshipWriter:
             result["target_source_type"] = discovery_info.get("target_source_type")
             result["source_constraint"] = discovery_info.get("source_constraint")
 
-        # 评分相关字段（仅推断关系有）
-        if rel.composite_score is not None:
-            result["composite_score"] = rel.composite_score
+        # 评分：JSON 与 MD 共用 _relation_score。推断关系带 metrics；外键无评分明细。
+        if score is not None:
+            result["composite_score"] = score
             result["confidence_level"] = confidence_level
-            result["metrics"] = rel.score_details or {}
+            if rel.relationship_type != "foreign_key":
+                result["metrics"] = rel.score_details or {}
 
         # 关系基数（所有关系都有）
         result["cardinality"] = rel.cardinality
@@ -545,7 +581,7 @@ class RelationshipWriter:
 
         Args:
             relations: 关系列表
-            generated_by: 生成命令标识（"rel" 或 "rel_llm"）
+            generated_by: 生成模式。未启用 LLM 候选为 "rel"，启用为 "rel_llm"
 
         Returns:
             输出文件路径
@@ -566,11 +602,15 @@ class RelationshipWriter:
         foreign_key_count = len([r for r in relations if r.relationship_type == "foreign_key"])
         inferred_count = len([r for r in relations if r.relationship_type == "inferred"])
 
-        high_conf = len([r for r in relations
-                         if r.composite_score and r.composite_score >= self.high_confidence_threshold])
-        medium_conf = len([r for r in relations
-                           if r.composite_score and
-                           self.medium_confidence_threshold <= r.composite_score < self.high_confidence_threshold])
+        scores = [self._relation_score(r) for r in relations]
+        high_conf = len([
+            s for s in scores if s is not None and s >= self.high_confidence_threshold
+        ])
+        medium_conf = len([
+            s for s in scores
+            if s is not None
+            and self.medium_confidence_threshold <= s < self.high_confidence_threshold
+        ])
 
         lines.append(f"- 外键直通: {foreign_key_count}")
         lines.append(f"- 推断关系: {inferred_count}")
@@ -600,24 +640,17 @@ class RelationshipWriter:
             # 关系类型
             lines.append(f"- **关系类型**: {rel.relationship_type}")
 
-            if rel.composite_score is not None:
-                # 置信度分类
-                if rel.composite_score >= self.high_confidence_threshold:
-                    conf_label = "高"
-                elif rel.composite_score >= self.medium_confidence_threshold:
-                    conf_label = "中"
-                else:
-                    conf_label = "低"
+            score = self._relation_score(rel)
+            if score is not None:
+                level = self._confidence_level(score)
+                conf_label = {"high": "高", "medium": "中", "low": "低"}.get(level, "")
+                lines.append(f"- **置信度**: {score:.3f} ({conf_label})")
 
-                lines.append(f"- **置信度**: {rel.composite_score:.3f} ({conf_label})")
-
-                # 评分明细
                 if rel.score_details:
                     lines.append("- **评分明细**:")
-                    for dim, score in rel.score_details.items():
-                        lines.append(f"  - {dim}: {score:.3f}")
+                    for dim, dim_score in rel.score_details.items():
+                        lines.append(f"  - {dim}: {dim_score:.3f}")
 
-                # 推断方法
                 if rel.inference_method:
                     lines.append(f"- **推断方法**: {rel.inference_method}")
 
