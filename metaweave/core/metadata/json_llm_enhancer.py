@@ -12,11 +12,11 @@ import copy
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, List
 
 from metaweave.core.metadata.connector import DatabaseConnector
+from metaweave.core.metadata.comment_utils import normalize_comment
 from metaweave.core.metadata.generation_config import MetadataGenerationConfig
 from metaweave.core.metadata.metadata_document import MetadataDocument
 from metaweave.services.llm_service import LLMService
@@ -36,6 +36,10 @@ class JsonEnhancementResult:
     llm_called: bool = False
     request_count: int = 0
     generated_comments: int = 0
+    object_comment_success_count: int = 0
+    object_comment_failure_count: int = 0
+    column_comment_success_count: int = 0
+    column_comment_failure_count: int = 0
     comment_task_attempted: bool = False
     comment_task_succeeded: bool = False
     classification_task_attempted: bool = False
@@ -157,8 +161,9 @@ class JsonLlmEnhancer:
                 original = self._load_json(json_file)
                 outcome = self.enhance_document(original)
                 if outcome.success:
-                    if outcome.llm_called:
+                    if outcome.llm_called or outcome.document != original:
                         atomic_write_json(outcome.document, json_file)
+                    if outcome.llm_called:
                         enhanced_count += 1
                 else:
                     logger.error("增强失败 %s: %s", json_file.name, outcome.error)
@@ -170,7 +175,10 @@ class JsonLlmEnhancer:
         """在内存中完成一个规则 JSON 文档的可选 LLM 增强。"""
         MetadataDocument.from_dict(table_json)
         original = copy.deepcopy(table_json)
+        original.pop("llm_enhanced_at", None)
         table_name = original["table_info"].get("table_name", "<unknown>")
+
+        self._normalize_document_comments(original)
 
         comment_needs = self._analyze_comment_needs(original)
         need_comments = self.comment_generation_enabled and (
@@ -182,134 +190,226 @@ class JsonLlmEnhancer:
             return JsonEnhancementResult(document=original, success=True)
 
         request_count = 0
+        errors: List[str] = []
         try:
             service = self._ensure_llm_service()
-            llm_input = self._build_llm_input_view(original)
-            columns = comment_needs["columns_need_comment"]
-            batches = [columns]
-            if need_comments and columns and len(columns) > self.max_columns_per_call:
-                if self.enable_batch_processing:
-                    batches = [
-                        columns[i : i + self.max_columns_per_call]
-                        for i in range(0, len(columns), self.max_columns_per_call)
-                    ]
-                else:
-                    batches = [columns[: self.max_columns_per_call]]
-                    logger.warning(
-                        "列注释任务过多且分批被禁用，仅处理前 %s 个列",
-                        self.max_columns_per_call,
-                    )
-
-            first_needs = {
-                "need_table_comment": comment_needs["need_table_comment"],
-                "columns_need_comment": batches[0],
-            }
-            if need_comments and need_classification:
-                prompt = self._build_combined_prompt(llm_input, first_needs)
-            elif need_classification:
-                prompt = self._build_classification_only_prompt(llm_input)
-            else:
-                prompt = self._build_comments_only_prompt(llm_input, first_needs)
-
-            logger.debug("JsonLlmEnhancer 当前 LLM 模型: %s", service.model)
-            request_count += 1
-            first_result = self._parse_llm_response(
-                service.call_llm(prompt), table_name
-            )
-            if not first_result:
-                raise ValueError(f"LLM 响应不是有效 JSON 对象，表: {table_name}")
+        except Exception as exc:
+            logger.error("LLM 服务初始化失败 %s: %s", table_name, exc, exc_info=True)
+            enhanced = copy.deepcopy(original)
+            object_success = object_failure = 0
+            column_success = column_failure = 0
+            errors = [f"LLM 服务初始化失败: {exc}"]
             if need_comments:
-                self._validate_comment_response(first_result, first_needs, table_name)
-
-            merged_result = dict(first_result)
-            if need_comments:
-                merged_result.setdefault("column_comments", {})
-                for batch_columns in batches[1:]:
-                    batch_needs = {
-                        "need_table_comment": False,
-                        "columns_need_comment": batch_columns,
-                    }
-                    batch_prompt = self._build_comments_only_prompt(
-                        llm_input, batch_needs
-                    )
-                    request_count += 1
-                    batch_result = self._parse_llm_response(
-                        service.call_llm(batch_prompt), table_name
-                    )
-                    self._validate_comment_response(
-                        batch_result, batch_needs, table_name
-                    )
-                    merged_result["column_comments"].update(
-                        batch_result["column_comments"]
-                    )
-
-            enhanced = self._merge_llm_result(
-                original,
-                merged_result,
-                need_comments,
-                classification_enabled=need_classification,
-            )
+                (
+                    object_success,
+                    object_failure,
+                    column_success,
+                    column_failure,
+                    comment_errors,
+                ) = self._apply_requested_comments(enhanced, {}, comment_needs)
+                errors.extend(comment_errors)
+            self._finalize_enhanced_document(enhanced)
             return JsonEnhancementResult(
                 document=enhanced,
-                success=True,
-                llm_called=True,
-                request_count=request_count,
-                generated_comments=self._count_comment_changes(original, enhanced),
-                comment_task_attempted=need_comments,
-                comment_task_succeeded=need_comments,
-                classification_task_attempted=need_classification,
-                classification_task_succeeded=need_classification,
-            )
-        except Exception as exc:
-            logger.error("LLM 增强失败 %s: %s", table_name, exc, exc_info=True)
-            return JsonEnhancementResult(
-                document=original,
                 success=False,
-                llm_called=request_count > 0,
-                request_count=request_count,
+                generated_comments=object_success + column_success,
+                object_comment_success_count=object_success,
+                object_comment_failure_count=object_failure,
+                column_comment_success_count=column_success,
+                column_comment_failure_count=column_failure,
                 comment_task_attempted=need_comments,
                 classification_task_attempted=need_classification,
-                error=str(exc),
+                error="；".join(errors),
             )
+        llm_input = self._build_llm_input_view(original)
+        columns = comment_needs["columns_need_comment"]
+        batches = [columns]
+        if need_comments and columns and len(columns) > self.max_columns_per_call:
+            if self.enable_batch_processing:
+                batches = [
+                    columns[i : i + self.max_columns_per_call]
+                    for i in range(0, len(columns), self.max_columns_per_call)
+                ]
+            else:
+                batches = [columns[: self.max_columns_per_call]]
+                logger.warning(
+                    "列注释任务过多且分批被禁用，仅请求前 %s 个列；其余列计为失败",
+                    self.max_columns_per_call,
+                )
+
+        first_needs = {
+            "need_table_comment": comment_needs["need_table_comment"],
+            "columns_need_comment": batches[0],
+        }
+        if need_comments and need_classification:
+            prompt = self._build_combined_prompt(llm_input, first_needs)
+        elif need_classification:
+            prompt = self._build_classification_only_prompt(llm_input)
+        else:
+            prompt = self._build_comments_only_prompt(llm_input, first_needs)
+
+        logger.debug("JsonLlmEnhancer 当前 LLM 模型: %s", service.model)
+
+        def call_llm(current_prompt: str, task_label: str) -> Dict:
+            nonlocal request_count
+            request_count += 1
+            try:
+                parsed = self._parse_llm_response(
+                    service.call_llm(current_prompt), table_name
+                )
+                if not parsed:
+                    errors.append(f"{task_label}: LLM 响应不是有效 JSON 对象")
+                return parsed
+            except Exception as exc:
+                logger.error(
+                    "LLM 请求失败 %s (%s): %s",
+                    table_name,
+                    task_label,
+                    exc,
+                    exc_info=True,
+                )
+                errors.append(f"{task_label}: {exc}")
+                return {}
+
+        first_result = call_llm(prompt, "首批增强")
+        merged_result = dict(first_result)
+        merged_column_comments = first_result.get("column_comments")
+        if not isinstance(merged_column_comments, dict):
+            merged_column_comments = {}
+        else:
+            merged_column_comments = dict(merged_column_comments)
+        merged_result["column_comments"] = merged_column_comments
+
+        if need_comments:
+            for batch_number, batch_columns in enumerate(batches[1:], start=2):
+                batch_needs = {
+                    "need_table_comment": False,
+                    "columns_need_comment": batch_columns,
+                }
+                batch_result = call_llm(
+                    self._build_comments_only_prompt(llm_input, batch_needs),
+                    f"第 {batch_number} 批字段注释",
+                )
+                batch_comments = batch_result.get("column_comments")
+                if isinstance(batch_comments, dict):
+                    merged_column_comments.update(batch_comments)
+
+        enhanced = copy.deepcopy(original)
+        classification_succeeded = False
+        if need_classification:
+            try:
+                self._merge_classification_result(enhanced, merged_result)
+                classification_succeeded = True
+            except Exception as exc:
+                errors.append(f"表分类: {exc}")
+                logger.warning("LLM 表分类失败 %s: %s", table_name, exc)
+
+        object_success = object_failure = 0
+        column_success = column_failure = 0
+        if need_comments:
+            (
+                object_success,
+                object_failure,
+                column_success,
+                column_failure,
+                comment_errors,
+            ) = self._apply_requested_comments(
+                enhanced,
+                merged_result,
+                comment_needs,
+            )
+            errors.extend(comment_errors)
+
+        self._finalize_enhanced_document(enhanced)
+        for error in errors:
+            logger.warning("LLM 增强项失败 %s: %s", table_name, error)
+
+        comment_failures = object_failure + column_failure
+        return JsonEnhancementResult(
+            document=enhanced,
+            success=not errors,
+            llm_called=request_count > 0,
+            request_count=request_count,
+            generated_comments=object_success + column_success,
+            object_comment_success_count=object_success,
+            object_comment_failure_count=object_failure,
+            column_comment_success_count=column_success,
+            column_comment_failure_count=column_failure,
+            comment_task_attempted=need_comments,
+            comment_task_succeeded=need_comments and comment_failures == 0,
+            classification_task_attempted=need_classification,
+            classification_task_succeeded=classification_succeeded,
+            error="；".join(errors) if errors else None,
+        )
 
     @staticmethod
-    def _validate_comment_response(
+    def _normalize_document_comments(document: Dict) -> None:
+        table_info = document.get("table_info", {})
+        table_info.pop("comment_original", None)
+        table_info.pop("comment_source_original", None)
+        table_info["comment"] = normalize_comment(table_info.get("comment"))
+        if not table_info["comment"]:
+            table_info["comment_source"] = ""
+        for column in document.get("column_profiles", {}).values():
+            column.pop("comment_original", None)
+            column.pop("comment_source_original", None)
+            column["comment"] = normalize_comment(column.get("comment"))
+            if not column["comment"]:
+                column["comment_source"] = ""
+
+    def _apply_requested_comments(
+        self,
+        enhanced: Dict,
         llm_result: Dict,
         comment_needs: Dict,
-        table_name: str,
-    ) -> None:
-        if not isinstance(llm_result, dict):
-            raise ValueError(f"LLM 注释响应必须是对象，表: {table_name}")
-        if comment_needs["need_table_comment"] and not str(
-            llm_result.get("table_comment") or ""
-        ).strip():
-            raise ValueError(f"LLM 注释响应缺少 table_comment，表: {table_name}")
-        column_comments = llm_result.get("column_comments")
-        if not isinstance(column_comments, dict):
-            raise ValueError(f"LLM 注释响应缺少 column_comments，表: {table_name}")
-        missing = [
-            column
-            for column in comment_needs["columns_need_comment"]
-            if not str(column_comments.get(column) or "").strip()
-        ]
-        if missing:
-            raise ValueError(
-                f"LLM 注释响应缺少字段注释 {missing}，表: {table_name}"
-            )
+    ) -> tuple[int, int, int, int, List[str]]:
+        """逐项应用注释结果；缺失或空白响应按失败并置空。"""
+        object_success = object_failure = 0
+        column_success = column_failure = 0
+        errors: List[str] = []
 
-    @staticmethod
-    def _count_comment_changes(before: Dict, after: Dict) -> int:
-        count = int(
-            (before.get("table_info", {}).get("comment") or "")
-            != (after.get("table_info", {}).get("comment") or "")
+        if comment_needs["need_table_comment"]:
+            comment = normalize_comment(llm_result.get("table_comment"))
+            if comment:
+                enhanced["table_info"]["comment"] = comment
+                enhanced["table_info"]["comment_source"] = "llm_generated"
+                object_success = 1
+            else:
+                enhanced["table_info"]["comment"] = ""
+                enhanced["table_info"]["comment_source"] = ""
+                object_failure = 1
+                errors.append("对象注释: LLM 未返回有效内容")
+
+        llm_comments = llm_result.get("column_comments")
+        if not isinstance(llm_comments, dict):
+            llm_comments = {}
+        for column_name in comment_needs["columns_need_comment"]:
+            profile = enhanced["column_profiles"][column_name]
+            comment = normalize_comment(llm_comments.get(column_name))
+            if comment:
+                profile["comment"] = comment
+                profile["comment_source"] = "llm_generated"
+                column_success += 1
+            else:
+                profile["comment"] = ""
+                profile["comment_source"] = ""
+                column_failure += 1
+                errors.append(f"字段注释 {column_name}: LLM 未返回有效内容")
+
+        return (
+            object_success,
+            object_failure,
+            column_success,
+            column_failure,
+            errors,
         )
-        before_columns = before.get("column_profiles", {})
-        for name, column in after.get("column_profiles", {}).items():
-            if (before_columns.get(name, {}).get("comment") or "") != (
-                column.get("comment") or ""
-            ):
-                count += 1
-        return count
+
+    def _finalize_enhanced_document(self, enhanced: Dict) -> None:
+        document = MetadataDocument.from_dict(enhanced)
+        enhanced["metadata_version"] = document.version
+        enhanced.pop("llm_enhanced_at", None)
+        if not self.include_generation_timestamps:
+            enhanced.pop("generated_timestamp", None)
 
     def _run_async(self, coro):
         """在无事件循环环境中执行协程
@@ -399,7 +499,6 @@ class JsonLlmEnhancer:
         classification_enabled: bool = True,
     ) -> Dict:
         """合并 LLM 结果，并在落盘前完成契约校验。"""
-        document = MetadataDocument.from_dict(table_json)
         enhanced = copy.deepcopy(table_json)
 
         if classification_enabled:
@@ -409,14 +508,8 @@ class JsonLlmEnhancer:
             self._merge_table_comment(enhanced, llm_result)
             self._merge_column_comments(enhanced, llm_result)
 
-        enhanced["metadata_version"] = document.version
-        if self.include_generation_timestamps:
-            enhanced["llm_enhanced_at"] = datetime.now().isoformat()
-        else:
-            enhanced.pop("generated_timestamp", None)
-            enhanced.pop("llm_enhanced_at", None)
-
-        MetadataDocument.from_dict(enhanced)
+        self._normalize_document_comments(enhanced)
+        self._finalize_enhanced_document(enhanced)
 
         return enhanced
 
@@ -472,23 +565,22 @@ class JsonLlmEnhancer:
 
     def _merge_table_comment(self, enhanced: Dict, llm_result: Dict):
         """合并表注释"""
-        current_comment = enhanced["table_info"].get("comment", "")
-        llm_comment = llm_result.get("table_comment")
+        current_comment = normalize_comment(enhanced["table_info"].get("comment"))
+        llm_comment = normalize_comment(llm_result.get("table_comment"))
 
         if not llm_comment:
             return
 
-        if not current_comment or current_comment.strip() == "":
+        if not current_comment:
             # 缺失补全
             enhanced["table_info"]["comment"] = llm_comment
             enhanced["table_info"]["comment_source"] = "llm_generated"
         elif self.overwrite_existing:
-            # 覆盖模式（仅首次备份，保证幂等性）
-            if "comment_original" not in enhanced["table_info"]:
-                enhanced["table_info"]["comment_original"] = current_comment
-                enhanced["table_info"]["comment_source_original"] = enhanced["table_info"].get("comment_source", "")
+            # 覆盖模式直接替换，不在产物中保留旧注释审计副本。
             enhanced["table_info"]["comment"] = llm_comment
             enhanced["table_info"]["comment_source"] = "llm_generated"
+            enhanced["table_info"].pop("comment_original", None)
+            enhanced["table_info"].pop("comment_source_original", None)
 
     def _merge_column_comments(self, enhanced: Dict, llm_result: Dict):
         """合并字段注释"""
@@ -498,20 +590,22 @@ class JsonLlmEnhancer:
             if col_name not in llm_comments:
                 continue
 
-            current_comment = col_profile.get("comment", "")
-            llm_comment = llm_comments[col_name]
+            current_comment = normalize_comment(col_profile.get("comment"))
+            llm_comment = normalize_comment(llm_comments[col_name])
 
-            if not current_comment or current_comment.strip() == "":
+            if not llm_comment:
+                continue
+
+            if not current_comment:
                 # 缺失补全
                 col_profile["comment"] = llm_comment
                 col_profile["comment_source"] = "llm_generated"
             elif self.overwrite_existing:
-                # 覆盖模式（仅首次备份，保证幂等性）
-                if "comment_original" not in col_profile:
-                    col_profile["comment_original"] = current_comment
-                    col_profile["comment_source_original"] = col_profile.get("comment_source", "")
+                # 覆盖模式直接替换，不在产物中保留旧注释审计副本。
                 col_profile["comment"] = llm_comment
                 col_profile["comment_source"] = "llm_generated"
+                col_profile.pop("comment_original", None)
+                col_profile.pop("comment_source_original", None)
 
     def _load_json(self, file_path: Path) -> Dict:
         """加载 JSON 文件"""
@@ -574,13 +668,14 @@ class JsonLlmEnhancer:
 
         # 构建注释任务描述（明确要生成的列名列表，避免模型擅自扩展）
         comment_tasks = []
+        action = "重新生成并覆盖" if self.overwrite_existing else "生成"
         if comment_needs["need_table_comment"]:
-            comment_tasks.append("- 为表生成描述性注释（table_comment）")
+            comment_tasks.append(f"- 为表{action}描述性注释（table_comment）")
         if comment_needs["columns_need_comment"]:
             cols_str = "、".join(comment_needs["columns_need_comment"][:10])
             if len(comment_needs["columns_need_comment"]) > 10:
                 cols_str += f"等 {len(comment_needs['columns_need_comment'])} 个列"
-            comment_tasks.append(f"- 为以下列生成注释：{cols_str}")
+            comment_tasks.append(f"- 为以下列{action}注释：{cols_str}")
             comment_tasks.append("- column_comments 只能包含上述列名，不得生成其他列的注释")
 
         return f"""你是一名数据仓库建模专家，请根据我提供的"表结构"和"样例数据"完成任务。
@@ -603,13 +698,14 @@ class JsonLlmEnhancer:
 - confidence：置信度（0-1之间的小数）
 - reason：判断理由（必填，简短说明，1-2句话）
 
-## 任务二：生成缺失的注释
+## 任务二：{"重新生成并覆盖注释" if self.overwrite_existing else "补全缺失注释"}
 {chr(10).join(comment_tasks)}
 
 **重要**：
 - 仅为上述明确列出的字段生成注释，不要生成其他字段的注释
 - 如果本次没有需要生成列注释的字段，请返回 `"column_comments": {{}}`（空对象）
 - 注释应简洁、准确、描述业务含义
+- {"请根据结构与样例重新生成，不要照抄输入中的原注释" if self.overwrite_existing else "输入中的已有注释必须保持不变"}
 - {language_req}
 
 ## 输出格式（JSON）
@@ -663,13 +759,14 @@ class JsonLlmEnhancer:
 
         # 构建任务描述
         task_items = []
+        action = "重新生成并覆盖" if self.overwrite_existing else "生成"
         if comment_needs["need_table_comment"]:
-            task_items.append("1. 为表生成描述性注释（table_comment）")
+            task_items.append(f"1. 为表{action}描述性注释（table_comment）")
         if comment_needs["columns_need_comment"]:
             cols_str = "、".join(comment_needs["columns_need_comment"][:10])
             if len(comment_needs["columns_need_comment"]) > 10:
                 cols_str += f"等 {len(comment_needs['columns_need_comment'])} 个列"
-            task_items.append(f"2. 为以下列生成注释：{cols_str}")
+            task_items.append(f"2. 为以下列{action}注释：{cols_str}")
 
         return f"""你是一名数据仓库建模专家，请根据表结构生成注释。
 
@@ -683,6 +780,7 @@ class JsonLlmEnhancer:
 - 仅为上述明确列出的字段生成注释，不要生成其他字段的注释
 - 如果本次没有需要生成列注释的字段，请返回 `"column_comments": {{}}`（空对象）
 - 注释应简洁、准确、描述业务含义
+- {"请根据结构与样例重新生成，不要照抄输入中的原注释" if self.overwrite_existing else "输入中的已有注释必须保持不变"}
 - {language_req}
 
 ## 输出格式（JSON）

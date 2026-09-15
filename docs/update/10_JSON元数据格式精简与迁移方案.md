@@ -551,7 +551,7 @@ v3 建议保留当前 `table_category`、`confidence`、`inference_basis` 作为
 
 ### 5.9 生成时间和作业审计
 
-`generated_timestamp` 和 `llm_enhanced_at` 当前没有下游消费者，而且会导致每次生成都产生文件差异。但在 REST 作业系统尚未实现前，它们仍有基本追溯价值。
+当前对象 JSON 只保留受配置控制的 `generated_timestamp`；`llm_enhanced_at` 已决定从对象 JSON 中彻底删除，不再由时间戳开关控制。LLM 执行时间若有审计需求，应记录在作业日志或未来的作业记录中。
 
 过渡阶段建议增加：
 
@@ -573,7 +573,7 @@ output:
 
 - `job_id`
 - `generated_at`
-- `llm_enhanced_at`
+- LLM 任务执行时间
 - LLM provider 和 model
 - 配置文件摘要或 hash
 - 源数据库标识
@@ -689,7 +689,7 @@ LLM 返回候选后，关系代码仍从完整元数据文档读取 `semantic_an
 | `column_profiles.*.statistics.length_std` | 移出标准 JSON | 可选的详细画像产物 | 当前无下游程序消费 |
 | `table_profile.physical_constraints.unique_constraints[].is_partial` | 删除 | 部分唯一性由 `indexes[].is_unique` 和 `indexes[].condition` 表达 | 当前格式不输出 |
 | `generated_timestamp` | 过渡审计 | 过渡期受开关控制；最终迁至作业记录或 manifest | 重复生成的 diff |
-| `llm_enhanced_at` | 过渡审计 | 最终迁至作业记录或 manifest | `json_llm` 审计 |
+| `llm_enhanced_at` | 删除 | 对象 JSON 不再输出；执行时间留在作业日志或未来的作业记录中 | 无下游消费者，重复生成产生 diff |
 
 整组删除范围明确如下：
 
@@ -1064,7 +1064,7 @@ LLM 返回候选后，关系代码仍从完整元数据文档读取 `semantic_an
 - `rule_based_classification` 只在 `classification_source="llm"` 时输出，用于保存被 LLM 覆盖前的规则结果。
 - 模板中 `classification_source` 为 `"llm"`，因此必须同时输出非空 `classification_reason`；标准规则分类不输出该字段。
 - `job_id` 在作业系统建立前可以省略。
-- 过渡期根据 `output.json_options.include_generation_timestamps` 决定是否继续输出旧时间戳。
+- 过渡期根据 `output.json_options.include_generation_timestamps` 决定是否输出 `generated_timestamp`；不再输出 `llm_enhanced_at`。
 - `view` 和 `materialized_view` 继续使用相同四个主要分组，通过 `table_info.table_type` 区分。
 - 物化视图可以包含索引；普通视图通常没有物理约束和索引。
 - 表达式索引允许 `columns` 为空，但必须通过 `key_expressions` 和 `definition` 保留完整事实。

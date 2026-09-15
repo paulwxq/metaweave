@@ -3,6 +3,7 @@ from pathlib import Path
 from threading import Lock
 
 from click.testing import CliRunner
+import pytest
 
 from metaweave.cli import metadata_cli
 from metaweave.core.metadata.generator import MetadataGenerator
@@ -193,6 +194,105 @@ def test_standard_rejects_non_table_ddl_objects(tmp_path) -> None:
 
     assert result.exit_code != 0
     assert "--step ddl、--step json 或 --step md" in result.output
+
+
+def test_invalid_overwrite_mode_is_rejected_before_clean(tmp_path) -> None:
+    ddl_dir = tmp_path / "ddl"
+    ddl_dir.mkdir()
+    marker = ddl_dir / "keep.sql"
+    marker.write_text("keep", encoding="utf-8")
+    config_path = tmp_path / "metadata_config.yaml"
+    config_path.write_text(
+        "ddl_generation:\n"
+        "  comments:\n"
+        "    llm_enabled: false\n"
+        "    overwrite: true\n"
+        "output:\n"
+        f"  ddl_directory: {ddl_dir}\n",
+        encoding="utf-8",
+    )
+
+    result = CliRunner().invoke(
+        metadata_cli.metadata_command,
+        ["--config", str(config_path), "--step", "ddl", "--clean"],
+    )
+
+    assert result.exit_code != 0
+    assert "ddl_generation.comments.overwrite=true" in result.output
+    assert marker.read_text(encoding="utf-8") == "keep"
+
+
+@pytest.mark.parametrize("step", ["ddl", "json"])
+def test_clean_only_removes_top_level_files_for_ddl_and_json(
+    step, tmp_path, monkeypatch
+) -> None:
+    target_dir = tmp_path / step
+    target_dir.mkdir()
+    top_file = target_dir / ("old.sql" if step == "ddl" else "old.json")
+    top_file.write_text("old", encoding="utf-8")
+    nested_dir = target_dir / "archive"
+    nested_dir.mkdir()
+    nested_file = nested_dir / "keep.txt"
+    nested_file.write_text("keep", encoding="utf-8")
+    config_path = tmp_path / "metadata_config.yaml"
+    config_path.write_text(
+        "output:\n"
+        f"  output_dir: {tmp_path / 'output'}\n"
+        f"  {step}_directory: {target_dir}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(metadata_cli, "get_project_root", lambda: tmp_path)
+    monkeypatch.setattr(metadata_cli, "MetadataGenerator", _SummaryMetadataGenerator)
+
+    result = CliRunner().invoke(
+        metadata_cli.metadata_command,
+        ["--config", str(config_path), "--step", step, "--clean"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert not top_file.exists()
+    assert nested_dir.is_dir()
+    assert nested_file.read_text(encoding="utf-8") == "keep"
+
+
+def test_md_clean_only_removes_top_level_files(tmp_path, monkeypatch) -> None:
+    ddl_dir = tmp_path / "ddl"
+    ddl_dir.mkdir()
+    (ddl_dir / "store_db.public.orders.sql").write_text(
+        "CREATE TABLE public.orders (order_id INTEGER);\n",
+        encoding="utf-8",
+    )
+    md_dir = tmp_path / "md"
+    md_dir.mkdir()
+    top_file = md_dir / "old.md"
+    top_file.write_text("old", encoding="utf-8")
+    nested_dir = md_dir / "archive"
+    nested_dir.mkdir()
+    nested_file = nested_dir / "keep.md"
+    nested_file.write_text("keep", encoding="utf-8")
+    config_path = tmp_path / "metadata_config.yaml"
+    config_path.write_text(
+        "database:\n"
+        "  database: store_db\n"
+        "  include_object_types: [table]\n"
+        "output:\n"
+        f"  output_dir: {tmp_path / 'output'}\n"
+        f"  ddl_directory: {ddl_dir}\n"
+        f"  markdown_directory: {md_dir}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(metadata_cli, "get_project_root", lambda: tmp_path)
+    monkeypatch.setattr(metadata_cli, "MetadataGenerator", _SummaryMetadataGenerator)
+
+    result = CliRunner().invoke(
+        metadata_cli.metadata_command,
+        ["--config", str(config_path), "--step", "md", "--clean"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert not top_file.exists()
+    assert nested_dir.is_dir()
+    assert nested_file.read_text(encoding="utf-8") == "keep"
 
 
 def test_cli_md_summary_uses_database_object_counts(tmp_path, monkeypatch) -> None:

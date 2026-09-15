@@ -620,8 +620,32 @@ class MetadataGenerator:
             
             # 3. 生成注释（如果启用）
             if self.comment_enabled:
-                comment_count = self.comment_generator.enrich_metadata_with_comments(metadata, sample_data)
-                result.generated_comments += comment_count
+                comment_result = self.comment_generator.enrich_metadata_with_comments(
+                    metadata,
+                    sample_data,
+                    overwrite=self.generation_config.ddl_comments.overwrite,
+                )
+                with self._result_lock:
+                    result.generated_comments += comment_result.generated_count
+                    result.llm_request_count += comment_result.request_count
+                    result.llm_object_comment_success_count += (
+                        comment_result.object_success_count
+                    )
+                    result.llm_object_comment_failure_count += (
+                        comment_result.object_failure_count
+                    )
+                    result.llm_column_comment_success_count += (
+                        comment_result.column_success_count
+                    )
+                    result.llm_column_comment_failure_count += (
+                        comment_result.column_failure_count
+                    )
+                    if comment_result.has_failures:
+                        result.success = False
+                        for failure in comment_result.failures:
+                            result.add_error(
+                                f"{failure.target}: {failure.reason}"
+                            )
             
             if not ddl_only_mode:
                 # 4. 生成列画像
@@ -789,7 +813,7 @@ class MetadataGenerator:
                 # LLM 补全的注释继续作为 JSON 注释来源。
                 for column in catalog_columns:
                     ddl_column = ddl_columns.get(column.column_name)
-                    if ddl_column and ddl_column.comment:
+                    if ddl_column:
                         column.comment = ddl_column.comment
                         column.comment_source = ddl_column.comment_source
                 metadata.columns = catalog_columns
@@ -867,6 +891,18 @@ class MetadataGenerator:
                     result.llm_comment_success_count += 1
                 else:
                     result.llm_comment_failure_count += 1
+            result.llm_object_comment_success_count += (
+                outcome.object_comment_success_count
+            )
+            result.llm_object_comment_failure_count += (
+                outcome.object_comment_failure_count
+            )
+            result.llm_column_comment_success_count += (
+                outcome.column_comment_success_count
+            )
+            result.llm_column_comment_failure_count += (
+                outcome.column_comment_failure_count
+            )
             if outcome.classification_task_attempted:
                 if outcome.classification_task_succeeded:
                     result.llm_classification_success_count += 1
@@ -897,7 +933,8 @@ class MetadataGenerator:
             if not outcome.success:
                 result.success = False
                 result.add_error(
-                    f"{object_name}: LLM 增强失败，已保存规则 JSON: {outcome.error}"
+                    f"{object_name}: LLM 增强存在失败项，已保存可用 JSON: "
+                    f"{outcome.error}"
                 )
 
     def _process_table_from_ddl_for_md(
@@ -992,6 +1029,17 @@ class MetadataGenerator:
         summary_lines.append(f"处理失败: {result.failed_tables} {unit}")
         summary_lines.append(f"生成注释: {result.generated_comments} 个")
         if self.active_step == "ddl":
+            summary_lines.append(f"LLM 请求: {result.llm_request_count} 次")
+            summary_lines.append(
+                "  - 对象注释: "
+                f"成功 {result.llm_object_comment_success_count}，"
+                f"失败 {result.llm_object_comment_failure_count}"
+            )
+            summary_lines.append(
+                "  - 字段注释: "
+                f"成功 {result.llm_column_comment_success_count}，"
+                f"失败 {result.llm_column_comment_failure_count}"
+            )
             summary_lines.append(
                 f"Table: {result.processed_object_counts.get('table', 0)} 个"
             )
@@ -1032,6 +1080,16 @@ class MetadataGenerator:
                 "  - 注释任务: "
                 f"成功 {result.llm_comment_success_count}，"
                 f"失败 {result.llm_comment_failure_count}"
+            )
+            summary_lines.append(
+                "    - 对象注释项: "
+                f"成功 {result.llm_object_comment_success_count}，"
+                f"失败 {result.llm_object_comment_failure_count}"
+            )
+            summary_lines.append(
+                "    - 字段注释项: "
+                f"成功 {result.llm_column_comment_success_count}，"
+                f"失败 {result.llm_column_comment_failure_count}"
             )
             summary_lines.append(
                 "  - 分类任务: "

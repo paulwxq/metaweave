@@ -56,7 +56,7 @@ def test_llm_failure_saves_rule_document_once_and_marks_result_failed(tmp_path):
     assert result.llm_classification_failure_count == 1
     assert result.output_files == [str(output_path)]
     assert result.table_category_counts == {"fact": 1}
-    assert "已保存规则 JSON" in result.errors[0]
+    assert "已保存可用 JSON" in result.errors[0]
 
 
 def test_successful_enhancement_is_saved_once_as_final_document(tmp_path):

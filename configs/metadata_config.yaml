@@ -292,7 +292,8 @@ vector_database:
 # DDL 生成配置
 ddl_generation:
   comments:
-    llm_enabled: true            # 只控制 DDL 缺失注释补全
+    llm_enabled: true            # 控制 DDL 注释生成或刷新
+    overwrite: false             # false 仅补数据库缺失注释；true 全量刷新
   llm:
     providers:
       qwen:
@@ -338,7 +339,7 @@ output:
   # Step 2: 表/列画像输出配置
   json_directory: output/json      # --step json 输出目录 / --step rel & cql 输入
   json_options:
-    # 关闭后 generated_timestamp / llm_enhanced_at 不写入 JSON，便于稳定 diff。
+    # 关闭后 generated_timestamp 不写入 JSON，便于稳定 diff。
     include_generation_timestamps: true
 
   # Step 3: 关系发现输出配置

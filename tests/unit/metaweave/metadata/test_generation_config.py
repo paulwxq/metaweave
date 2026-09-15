@@ -9,6 +9,7 @@ def test_generation_config_defaults_enable_all_llm_tasks():
     config = MetadataGenerationConfig.from_config({})
 
     assert config.ddl_comments.llm_enabled is True
+    assert config.ddl_comments.overwrite is False
     assert config.json_comments.llm_enabled is True
     assert config.json_table_classification.llm_enabled is True
     assert config.json_comments.overwrite is False
@@ -20,10 +21,12 @@ def test_generation_config_defaults_enable_all_llm_tasks():
 def test_generation_config_reads_independent_switches():
     config = MetadataGenerationConfig.from_config(
         {
-            "ddl_generation": {"comments": {"llm_enabled": False}},
+            "ddl_generation": {
+                "comments": {"llm_enabled": True, "overwrite": True}
+            },
             "json_generation": {
                 "comments": {
-                    "llm_enabled": False,
+                    "llm_enabled": True,
                     "language": "en",
                     "overwrite": True,
                     "max_columns_per_call": 8,
@@ -34,8 +37,9 @@ def test_generation_config_reads_independent_switches():
         }
     )
 
-    assert config.ddl_comments.llm_enabled is False
-    assert config.json_comments.llm_enabled is False
+    assert config.ddl_comments.llm_enabled is True
+    assert config.ddl_comments.overwrite is True
+    assert config.json_comments.llm_enabled is True
     assert config.json_comments.language == "en"
     assert config.json_comments.overwrite is True
     assert config.json_comments.max_columns_per_call == 8
@@ -53,6 +57,22 @@ def test_generation_config_reads_independent_switches():
         (
             {"json_generation": {"comments": {"overwrite": 1}}},
             "json_generation.comments.overwrite",
+        ),
+        (
+            {
+                "ddl_generation": {
+                    "comments": {"llm_enabled": False, "overwrite": True}
+                }
+            },
+            "ddl_generation.comments.overwrite=true",
+        ),
+        (
+            {
+                "json_generation": {
+                    "comments": {"llm_enabled": False, "overwrite": True}
+                }
+            },
+            "json_generation.comments.overwrite=true",
         ),
         (
             {

@@ -18,6 +18,7 @@ from metaweave.core.metadata.models import (
     UniqueConstraint,
     IndexInfo,
 )
+from metaweave.core.metadata.comment_utils import normalize_comment
 from metaweave.utils.sql_templates import (
     GET_COLUMNS_SQL,
     GET_DATABASE_OBJECT_INFO_SQL,
@@ -115,8 +116,7 @@ class MetadataExtractor:
                 
                 # 安全地处理 column_comment
                 column_comment = row.get("column_comment")
-                if column_comment and not isinstance(column_comment, str):
-                    column_comment = str(column_comment)
+                column_comment = normalize_comment(column_comment)
                 
                 column = ColumnInfo(
                     column_name=row["column_name"],
@@ -127,7 +127,7 @@ class MetadataExtractor:
                     numeric_scale=row.get("numeric_scale"),
                     is_nullable=is_nullable,
                     column_default=column_default,
-                    comment=column_comment or "",
+                    comment=column_comment,
                     comment_source="db" if column_comment else "",
                 )
                 columns.append(column)
@@ -415,12 +415,13 @@ class MetadataExtractor:
                 return None
             
             # 创建 TableMetadata 对象
+            object_comment = normalize_comment(table_info.get("object_comment"))
             metadata = TableMetadata(
                 schema_name=schema,
                 table_name=table,
                 table_type=object_type,
-                comment=table_info.get("object_comment") or "",
-                comment_source="db" if table_info.get("object_comment") else "",
+                comment=object_comment,
+                comment_source="db" if object_comment else "",
             )
             
             # 提取字段信息

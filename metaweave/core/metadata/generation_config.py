@@ -40,6 +40,7 @@ def _positive_integer(
 @dataclass(frozen=True)
 class DdlCommentsConfig:
     llm_enabled: bool = True
+    overwrite: bool = False
 
 
 @dataclass(frozen=True)
@@ -92,29 +93,51 @@ class MetadataGenerationConfig:
                 "zh、en 或 bilingual"
             )
 
+        ddl_llm_enabled = _boolean(
+            ddl_comments,
+            "llm_enabled",
+            True,
+            "ddl_generation.comments",
+        )
+        ddl_overwrite = _boolean(
+            ddl_comments,
+            "overwrite",
+            False,
+            "ddl_generation.comments",
+        )
+        json_llm_enabled = _boolean(
+            json_comments,
+            "llm_enabled",
+            True,
+            "json_generation.comments",
+        )
+        json_overwrite = _boolean(
+            json_comments,
+            "overwrite",
+            False,
+            "json_generation.comments",
+        )
+
+        if ddl_overwrite and not ddl_llm_enabled:
+            raise ValueError(
+                "配置错误：'ddl_generation.comments.overwrite=true' 要求 "
+                "'ddl_generation.comments.llm_enabled=true'"
+            )
+        if json_overwrite and not json_llm_enabled:
+            raise ValueError(
+                "配置错误：'json_generation.comments.overwrite=true' 要求 "
+                "'json_generation.comments.llm_enabled=true'"
+            )
+
         return cls(
             ddl_comments=DdlCommentsConfig(
-                llm_enabled=_boolean(
-                    ddl_comments,
-                    "llm_enabled",
-                    True,
-                    "ddl_generation.comments",
-                )
+                llm_enabled=ddl_llm_enabled,
+                overwrite=ddl_overwrite,
             ),
             json_comments=JsonCommentsConfig(
-                llm_enabled=_boolean(
-                    json_comments,
-                    "llm_enabled",
-                    True,
-                    "json_generation.comments",
-                ),
+                llm_enabled=json_llm_enabled,
                 language=language,
-                overwrite=_boolean(
-                    json_comments,
-                    "overwrite",
-                    False,
-                    "json_generation.comments",
-                ),
+                overwrite=json_overwrite,
                 max_columns_per_call=_positive_integer(
                     json_comments,
                     "max_columns_per_call",

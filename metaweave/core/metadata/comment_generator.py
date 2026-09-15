@@ -4,14 +4,44 @@
 """
 
 import logging
-from typing import List, Dict, Optional, Any
+from dataclasses import dataclass, field
+from typing import List, Dict, Optional
 import pandas as pd
 
 from metaweave.services.llm_service import LLMService
 from metaweave.core.metadata.models import TableMetadata
+from metaweave.core.metadata.comment_utils import normalize_comment
 from metaweave.utils.data_utils import dataframe_to_sample_dict
 
 logger = logging.getLogger("metaweave.comment_generator")
+
+
+@dataclass(frozen=True)
+class CommentGenerationFailure:
+    """一个对象或字段注释生成失败。"""
+
+    target: str
+    reason: str
+
+
+@dataclass
+class CommentGenerationResult:
+    """单个数据库对象的 DDL 注释生成结果。"""
+
+    request_count: int = 0
+    object_success_count: int = 0
+    object_failure_count: int = 0
+    column_success_count: int = 0
+    column_failure_count: int = 0
+    failures: List[CommentGenerationFailure] = field(default_factory=list)
+
+    @property
+    def generated_count(self) -> int:
+        return self.object_success_count + self.column_success_count
+
+    @property
+    def has_failures(self) -> bool:
+        return bool(self.failures)
 
 
 class CommentGenerator:
@@ -70,6 +100,7 @@ class CommentGenerator:
                 sample_data=sample_dict
             )
             
+            comment = normalize_comment(comment)
             if comment:
                 logger.info(f"生成表注释: {metadata.full_name}")
                 return comment
@@ -100,7 +131,7 @@ class CommentGenerator:
         # 筛选需要生成注释的字段
         columns_need_comment = [
             col for col in metadata.columns
-            if not col.comment or force_regenerate
+            if not normalize_comment(col.comment) or force_regenerate
         ]
         
         if not columns_need_comment:
@@ -152,35 +183,93 @@ class CommentGenerator:
         self,
         metadata: TableMetadata,
         sample_data: Optional[pd.DataFrame] = None,
-    ) -> int:
+        overwrite: bool = False,
+    ) -> CommentGenerationResult:
         """使用 LLM 增强元数据的注释
         
         Args:
             metadata: 表元数据（会被修改）
             sample_data: 样本数据（可选）
-            
+            overwrite: ``False`` 仅补缺失注释；``True`` 全量刷新注释。
+
         Returns:
-            生成的注释数量
+            包含逐项成功、失败和请求次数的结构化结果。当前每个对象注释任务
+            计一次逻辑请求，所有待处理字段合并为一次字段注释请求；如将来增加
+            DDL 字段分批调用，必须同步按实际调用次数更新 ``request_count``。
         """
-        generated_count = 0
-        
-        # 生成表注释（仅缺失时生成）
+        result = CommentGenerationResult()
+
+        metadata.comment = normalize_comment(metadata.comment)
         if not metadata.comment:
-            comment = self.generate_table_comment(metadata, sample_data)
+            metadata.comment_source = ""
+        for column in metadata.columns:
+            column.comment = normalize_comment(column.comment)
+            if not column.comment:
+                column.comment_source = ""
+
+        # 对象注释与字段注释分别判定和统计，允许部分成功。
+        if overwrite or not metadata.comment:
+            result.request_count += 1
+            comment = normalize_comment(
+                self.generate_table_comment(
+                    metadata,
+                    sample_data,
+                    force_regenerate=overwrite,
+                )
+            )
             if comment:
                 metadata.comment = comment
                 metadata.comment_source = "llm_generated"
-                generated_count += 1
-        
-        # 生成字段注释（仅缺失字段会被 generate_column_comments 筛选）
-        column_comments = self.generate_column_comments(metadata, sample_data)
+                result.object_success_count += 1
+            else:
+                metadata.comment = ""
+                metadata.comment_source = ""
+                result.object_failure_count += 1
+                result.failures.append(
+                    CommentGenerationFailure(
+                        target=metadata.full_name,
+                        reason="LLM 未返回有效对象注释",
+                    )
+                )
 
-        # 更新字段注释
-        for column in metadata.columns:
-            if column.column_name in column_comments:
-                column.comment = column_comments[column.column_name]
+        requested_columns = [
+            column
+            for column in metadata.columns
+            if overwrite or not column.comment
+        ]
+        if requested_columns:
+            result.request_count += 1
+            column_comments = self.generate_column_comments(
+                metadata,
+                sample_data,
+                force_regenerate=overwrite,
+            )
+        else:
+            column_comments = {}
+
+        for column in requested_columns:
+            comment = normalize_comment(column_comments.get(column.column_name))
+            if comment:
+                column.comment = comment
                 column.comment_source = "llm_generated"
-                generated_count += 1
-        
-        logger.info(f"生成注释完成: {metadata.full_name}, {generated_count} 个注释")
-        return generated_count
+                result.column_success_count += 1
+            else:
+                column.comment = ""
+                column.comment_source = ""
+                result.column_failure_count += 1
+                result.failures.append(
+                    CommentGenerationFailure(
+                        target=f"{metadata.full_name}.{column.column_name}",
+                        reason="LLM 未返回有效字段注释",
+                    )
+                )
+
+        for failure in result.failures:
+            logger.warning("注释生成失败 %s: %s", failure.target, failure.reason)
+        logger.info(
+            "生成注释完成: %s，成功 %d，失败 %d",
+            metadata.full_name,
+            result.generated_count,
+            result.object_failure_count + result.column_failure_count,
+        )
+        return result

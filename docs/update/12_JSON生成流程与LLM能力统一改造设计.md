@@ -10,6 +10,7 @@
 4. 允许 DDL 和 JSON 分别配置模型名称及模型参数。
 5. 在内存中完成规则画像和可选 LLM 增强，最终只写一次 JSON 文件。
 6. 保持当前 JSON 3.0 格式，本阶段只修改 `--step ddl` 和 `--step json` 及其直接依赖的配置解析代码。
+7. 为 DDL 和 JSON 注释分别提供增量与覆盖模式，并对每个对象、字段独立记录生成结果。
 
 本设计中的“统一”只指将 `json` 和 `json_llm` 两个命令入口统一为一个
 `--step json`。它不表示合并 DDL 与 JSON，也不表示让两个步骤共用模型。
@@ -97,10 +98,11 @@ comment_generation:
 - 它从 DDL 文件读取已有注释；
 - `overwrite_existing: false` 时只补充 JSON 中的空注释；
 - `overwrite_existing: true` 时只覆盖 JSON 中的注释；
-- 覆盖时保存 `comment_original` 和 `comment_source_original`；
+- 覆盖时直接替换，不保留原注释审计；
 - 无论开关如何，都不会把 JSON 注释反向写回 DDL 文件或数据库。
 
-DDL 的注释生成器当前只补充缺失注释，不支持通过这个配置覆盖已有数据库注释。
+DDL 的注释生成器当前只补充缺失注释（增量模式），本设计为其增加覆盖模式（见 4.5）。
+两种模式均不写回数据库。
 
 ### 2.4 当前表分类始终由规则开始
 
@@ -167,6 +169,7 @@ llm:
 ddl_generation:
   comments:
     llm_enabled: true
+    overwrite: false   # false=增量(仅补缺失注释);true=覆盖(LLM 全量刷新)
 
   # DDL 阶段专属模型覆盖
   llm:
@@ -199,7 +202,8 @@ json_generation:
 
 | 配置路径 | 含义 |
 |---|---|
-| `ddl_generation.comments.llm_enabled` | DDL 阶段是否调用 LLM 补充缺失的表和字段注释 |
+| `ddl_generation.comments.llm_enabled` | DDL 阶段是否调用 LLM 生成或刷新表和字段注释 |
+| `ddl_generation.comments.overwrite` | DDL 注释模式：`false` 增量（仅补缺失，现状行为）；`true` 覆盖（LLM 全量刷新） |
 | `ddl_generation.llm` | DDL 阶段独立的模型和参数覆盖 |
 | `json_generation.comments.llm_enabled` | JSON 阶段是否调用 LLM 生成或增强注释 |
 | `json_generation.comments.overwrite` | 是否允许覆盖从 DDL 读取的已有 JSON 注释 |
@@ -220,6 +224,7 @@ json_generation:
 | `ddl_generation.comments.llm_enabled` | `true` |
 | `json_generation.comments.llm_enabled` | `true` |
 | `json_generation.table_classification.llm_enabled` | `true` |
+| `ddl_generation.comments.overwrite` | `false` |
 | `json_generation.comments.overwrite` | `false` |
 | `json_generation.comments.language` | `zh` |
 | `json_generation.comments.max_columns_per_call` | `120` |
@@ -244,6 +249,11 @@ DDL 注释开关关闭时不得初始化 DDL LLM，JSON 两个开关都关闭时
   不接受字符串形式的 `"true"` 或 `"false"`。
 - `language` 未声明时使用 `zh`；显式声明非法值时直接报错，不再警告后回退。
 - `max_columns_per_call` 必须是大于零的整数。
+- 同一注释配置中，`overwrite: true` 要求 `llm_enabled: true`。如果
+  `llm_enabled: false` 且 `overwrite: true`，属于非法配置，必须输出明确错误并以非零
+  状态退出。
+- 上述非法组合必须在 `--clean` 删除已有产物、连接数据库、初始化 LLM 和写入任何文件
+  之前完成校验。
 - 只有实际需要调用 LLM 时才校验该步骤最终合并后的模型配置；相关 LLM 任务全部关闭时，
   不应因缺少 API Key 或模型配置而失败。
 
@@ -314,7 +324,91 @@ llm_comment_generation.llm
 
 配置迁移还必须明确提示默认行为：统一后的 `--step json` 在新开关缺失时默认启用 JSON
 注释 LLM 和表分类 LLM。希望保持原来纯规则 `--step json` 行为的用户，需要在新配置中
-显式关闭这两个开关。
+显式关闭这两个开关。DDL 与 JSON 的注释模式缺省均为**增量模式**（`overwrite: false`），
+覆盖模式需要显式开启。
+
+### 4.5 DDL/JSON 注释双模式（增量 / 覆盖）
+
+DDL 与 JSON 的注释生成各自支持两种模式，由 `overwrite` 开关控制（默认
+`false` = 增量，即现状行为）：
+
+| 步骤 | 增量模式（`overwrite: false`，默认） | 覆盖模式（`overwrite: true`） |
+|---|---|---|
+| `ddl` | 以 PostgreSQL 当前 COMMENT 为基准，仅对缺失注释的对象和字段生成注释；数据库已有注释不动 | 全部对象和字段统一用 LLM 刷新；生成成功则替换数据库原注释，生成失败则在 DDL 产物中留空 |
+| `json` | 以 DDL `*.sql` 中的注释为基准，仅补充缺失的对象和字段注释；DDL 已有注释不动 | 全部对象和字段统一用 LLM 刷新；生成成功则替换 DDL 原注释，生成失败则在 JSON 产物中留空 |
+
+补充规则：
+
+- 增量模式下，基准产物中的全部对象和字段注释均已存在时，不产生注释调用；
+- DDL 每次以 PostgreSQL 为权威输入，不读取上一次生成的 DDL 文件合并注释。数据库中仍
+  缺少注释的字段在重复执行 DDL 时仍会再次调用 LLM，即使上一次 DDL 产物已生成过注释；
+- JSON 每次以当前 DDL 文件为注释权威输入，不以 PostgreSQL 当前 COMMENT 覆盖 DDL 中的
+  空注释。表、View 和 Materialized View 使用相同基准；
+- 覆盖模式下，对象和字段全部进入注释生成任务；JSON 继续使用现有
+  `max_columns_per_call` / `enable_batch_processing`，本阶段不为 DDL 新增批处理能力；
+- 两种模式都**不写回数据库**（不修改 PG 的 COMMENT）；
+- 覆盖模式直接替换原注释、不保留审计；成功项的 `comment_source` 标记为
+  `llm_generated`，失败置空项的来源也置空，DDL 与 JSON 的内存语义一致；
+- 注释结果按对象和字段分别采纳，允许部分成功；
+- 增量模式下生成失败的待补注释保持为空；覆盖模式下生成失败的对象或字段注释置空，
+  不保留原有 PostgreSQL/DDL 注释；
+- 每个失败项均输出 WARNING 或 ERROR，步骤结束时分别汇总对象注释失败数和字段注释失败数；
+- 影响范围：`pipeline generate` 的 ddl / json_llm 阶段共享同一生成器与配置，
+  `overwrite` 配置对其同样生效（记入 12.7 Pipeline 影响审计）。
+
+#### 4.5.1 缺失注释的统一定义
+
+DDL 和 JSON 必须使用同一个注释归一化规则：
+
+```python
+normalized_comment = (comment or "").strip()
+```
+
+- `None`、空字符串、仅包含空格、换行或制表符的内容均视为缺失；
+- 非空注释去除首尾空白后再参与判断和输出；
+- 正文内部的正常空格必须保留，不得删除。
+
+#### 4.5.2 `comment_source` 语义
+
+`comment_source` 不是整张表共用的模式参数。表级注释和每个字段注释各自具有该属性，
+用于记录当前注释的直接来源：
+
+- `db`：当前步骤直接从 PostgreSQL COMMENT 读取；
+- `ddl`：当前步骤直接从 DDL 文件读取；
+- `llm_generated`：当前步骤成功调用 LLM 生成或刷新；
+- 空字符串或省略：当前没有有效注释。
+
+增量生成和覆盖生成都使用 `llm_generated`，不新增 `llm_overwriter`。更新模式只由配置
+中的 `overwrite` 表达。DDL SQL 本身不持久化 `comment_source`；后续 JSON 从 DDL 读取
+注释时，直接来源记为 `ddl`，不追溯该注释是否最初由 DDL 阶段的 LLM 生成。
+
+#### 4.5.3 开关与单项结果决策表
+
+DDL 和 JSON 的注释开关分别应用下表，不受另一步骤的注释开关影响：
+
+| `llm_enabled` | `overwrite` | 配置是否有效 | 行为 |
+|---:|---:|---:|---|
+| `false` | `false` | 是 | 不初始化、不调用注释 LLM，原基准注释保持不变 |
+| `true` | `false` | 是 | 增量模式，只提交基准中缺失的对象和字段注释 |
+| `true` | `true` | 是 | 覆盖模式，提交全部对象和字段注释 |
+| `false` | `true` | 否 | 在清理输出和访问外部资源前报错并退出 |
+
+每个进入 LLM 任务的对象注释和字段注释按下表独立处理：
+
+| 模式 | 返回有效非空注释 | 未返回、纯空白、非法或调用失败 |
+|---|---|---|
+| 增量 | 写入新注释，来源为 `llm_generated` | 保持空注释，来源为空，失败数加一 |
+| 覆盖 | 替换原注释，来源为 `llm_generated` | 清空原注释及来源，失败数加一 |
+
+步骤结束时的控制台和日志至少输出：
+
+```text
+LLM 对象注释：成功 N 个，失败 M 个
+LLM 字段注释：成功 X 个，失败 Y 个
+```
+
+“成功”表示该项得到并采纳了有效非空 LLM 注释；“失败”表示该项已进入 LLM 任务但最终
+没有得到可采纳注释。没有进入任务的已有注释不计入成功或失败。
 
 ## 5. 两个 JSON LLM 开关的组合行为
 
@@ -492,6 +586,9 @@ result = enhancer.enhance_document(
 - 是否实际调用 LLM；
 - 注释任务是否成功；
 - 分类任务是否成功；
+- 对象注释成功数和失败数；
+- 字段注释成功数和失败数；
+- 每个失败对象或字段的名称与失败原因；
 - 错误信息。
 
 metadata CLI 的新 `json` 路径不再使用目录扫描、读取旧 JSON 和原地覆盖接口。由于
@@ -584,26 +681,38 @@ LLM 并发数量。
 - 没有实际生成或覆盖的注释保持原 `comment_source`。
 - LLM 生成的注释标记为 `comment_source: "llm_generated"`。
 - `overwrite: false` 时保留所有非空原注释。
-- `overwrite: true` 时仅覆盖 JSON 注释，并保留原注释审计字段。
+- `overwrite: true` 时覆盖原注释（直接替换，不保留原注释审计）。
+- 注释按对象和字段逐项合并，合法的非空结果立即作为该项的最终注释；未返回、返回空白、
+  格式错误或调用失败的待处理项计为失败。
+- 增量模式的失败项保持空注释；覆盖模式的失败项清空原注释，同时清空
+  `comment_source`。
+- DDL 和 JSON 分别汇总对象注释、字段注释的成功数与失败数，不能只按“整张表的注释
+  请求是否成功”统计。
 - JSON 注释变化不得修改 DDL SQL 或数据库 COMMENT。
 
 ### 9.4 LLM 失败
 
-LLM 是可选增强，规则 JSON 仍然是合法产物。建议采用以下固定策略，不额外增加失败
-策略配置：
+LLM 是可选增强，但启用后的失败必须可见，并允许其他对象或字段继续处理。本设计采用
+以下固定策略，不额外增加失败策略配置：
 
-1. 分类失败时保留规则分类及 `classification_source: "rule"`。
-2. 注释失败时保留原注释或空注释。
-3. 最终仍校验并写出完整规则 JSON，不能写半完成的 LLM 字段组合。
-4. CLI 汇总必须分别报告请求数、成功数和失败数。
-5. 只要用户启用了某项 LLM 能力而该项发生失败，命令应返回非成功状态，但保留可用的
-   规则 JSON，便于排查和重试。
-6. 组合提示词失败后不自动拆成分类请求和注释请求再次调用，避免隐式增加调用次数、
-   费用和结果不确定性。
-7. 组合响应缺少任一已启用任务的必要字段，或其中任一字段不合法时，本次组合增强整体
-   失败，不采纳同一响应中的部分结果。
-8. 组合增强失败时，最终写出未经该响应修改的完整规则 JSON，并分别把已启用的注释、
-   分类任务记录为失败。
+1. 分类失败时保留规则分类及 `classification_source: "rule"`，不输出残缺的 LLM 分类字段。
+2. 注释按对象和字段逐项判定。有效结果可以采纳，其他待处理项分别记录失败，不能因为
+   一个字段失败而丢弃同一批次中的全部有效字段注释。
+3. 增量模式的注释失败项原本就是缺失注释，失败后继续留空。
+4. 覆盖模式的注释失败项必须置空，不回退到原 PostgreSQL 或 DDL 注释，以准确体现本次
+   “全量刷新”没有成功完成该项。
+5. 整次调用异常或响应无法解析时，该调用覆盖的全部待处理注释项均记为失败，并按对应
+   模式处理为空；其他批次或对象可以继续执行。
+6. 组合提示词中的分类结果和每个注释结果分别校验：分类失败不阻止有效注释被采纳，某个
+   注释失败也不阻止有效分类和其他有效注释被采纳。
+7. 组合提示词失败后不自动拆成分类请求和注释请求再次调用，避免隐式增加调用次数、费用
+   和结果不确定性。
+8. 最终产物仍必须通过 DDL/JSON 契约校验。单项注释失败表现为空注释，不允许写入空白
+   字符串、非法类型或半完成审计字段。
+9. 每个失败项输出 WARNING 或 ERROR，内容至少包含对象名、字段名（对象注释除外）和失败
+   原因；CLI 汇总分别报告 LLM 请求、对象注释、字段注释和分类的成功数、失败数。
+10. 只要用户启用了某项 LLM 能力且发生任何调用、对象注释、字段注释或分类失败，命令应
+    返回非成功状态，但仍保留已经生成的可用产物，便于排查和重试。
 
 ## 10. 代码修改范围
 
@@ -623,6 +732,8 @@ LLM 是可选增强，规则 JSON 仍然是合法产物。建议采用以下固�
 - `metaweave/core/metadata/generation_config.py`（新增）
   - 集中解析和校验 `ddl_generation`、`json_generation`。
   - 统一应用 4.2.1 的缺省值和 4.2.2 的类型、取值约束。
+  - 为 DDL 和 JSON 注释配置都解析 `overwrite`，并拒绝
+    `llm_enabled: false`、`overwrite: true` 的非法组合。
   - 返回规范化且不可由调用方随意改变缺省语义的配置对象，供 generator 和 enhancer
     共用，避免两处分别使用 `.get()` 形成不同默认行为。
 
@@ -630,17 +741,31 @@ LLM 是可选增强，规则 JSON 仍然是合法产物。建议采用以下固�
 
 - `metaweave/core/metadata/generator.py`
   - `ddl` 改读 `ddl_generation.comments.llm_enabled`。
+  - 读取并透传 `ddl_generation.comments.overwrite`。
   - 只在 DDL 注释 LLM 开启且确实进入 DDL 步骤时初始化服务。
   - 改用 `ddl_generation.llm` 解析 DDL 专属模型。
+  - 以 PostgreSQL 提取出的当前注释作为 DDL 增量/覆盖输入，不读取旧 DDL 文件回填。
+  - 汇总对象注释和字段注释的成功数、失败数；部分字段失败不阻止其他字段及对象继续处理。
 - `metaweave/core/metadata/comment_generator.py`
-  - 保持“只补缺失注释、不覆盖已有注释”的行为。
-  - 仅在配置接口调整确实需要时修改，不顺带改变注释算法。
+  - `enrich_metadata_with_comments` 增加 `overwrite` 参数（默认 `false`，保持
+    现状“只补缺失注释”行为）；
+  - `overwrite: true` 时：表注释与全部字段注释进入生成任务，替换已有注释，
+    `comment_source` 标记为 `llm_generated`；
+  - 对 LLM 返回结果逐项校验和应用：非空结果成功，缺失、空白或非法结果失败；
+  - 覆盖模式的失败项清空旧注释，增量模式的失败项保持为空；
+  - 返回结构化结果，至少包含对象/字段成功数、失败数及失败明细，不能继续只返回生成数量；
+  - 保持现有调用形态和提示词，本阶段不新增 DDL 字段批处理能力。
+- `metaweave/core/metadata/models.py`
+  - 增加可表达逐项注释结果的数据结构；
+  - `GenerationResult` 增加对象注释和字段注释的成功/失败计数，供 DDL/JSON 汇总共用。
 
 ### 10.3 Metadata CLI
 
 - `metaweave/cli/metadata_cli.py`
+  - 在任何 `--clean`、数据库连接、LLM 初始化和产物写入之前构造并校验规范化生成配置；
+    非法的 `overwrite`/`llm_enabled` 组合立即输出配置错误并以非零状态退出。
   - 删除 `json_llm` 的 `click.Choice` 值和专用编排分支。
-  - 调整独立 `ddl`、`json` 的日志和汇总。
+  - 调整独立 `ddl`、`json` 的日志和汇总，分别显示对象注释与字段注释的成功/失败数。
   - 上一项“专用编排分支”只指独立执行的 `if step == "json_llm"` 分支。
   - `standard` 的步骤列表当前不含 `json_llm`，其循环内部的
     `elif child_step == "json_llm"` 是不可达死代码。本阶段保留并记录该分支，不删除、
@@ -653,6 +778,8 @@ LLM 是可选增强，规则 JSON 仍然是合法产物。建议采用以下固�
   - 按当前步骤延迟初始化对应 LLM。
   - 在 JSON 文档保存前执行可选增强。
   - 合并规则生成与 LLM 增强结果统计。
+  - 对 View/MV 使用 PostgreSQL 目录补齐字段结构时，字段注释仍严格以 DDL 解析结果为准；
+    DDL 注释为空时不能用数据库 COMMENT 回填，确保三类对象使用同一 JSON 注释基准。
 - `metaweave/core/metadata/formatter.py`
   - 拆分 JSON 文档构造和原子保存。
 - `metaweave/utils/file_utils.py`
@@ -665,6 +792,10 @@ LLM 是可选增强，规则 JSON 仍然是合法产物。建议采用以下固�
   - 改为内存文档增强。
   - 支持注释和分类独立开关。
   - 拆分分类合并与注释合并。
+  - 表注释和每个字段注释分别校验、采纳和统计，允许同一响应或批次部分成功；
+  - 增量模式失败项保持为空，覆盖模式失败项清空原 DDL 注释及 `comment_source`；
+  - 覆盖模式不再写入 `comment_original` / `comment_source_original`
+    审计字段（直接替换）。
   - 本阶段保留仍被 pipeline 使用的文件扫描和原地覆盖入口。
 - `metaweave/core/metadata/metadata_document.py`
   - 继续负责最终 JSON 3.0 契约校验和 LLM 白名单输入构造。
@@ -688,14 +819,15 @@ LLM 是可选增强，规则 JSON 仍然是合法产物。建议采用以下固�
 ## 11. 实施顺序
 
 1. 增加新配置结构和校验，建立模型独立解析测试。
-2. 修改 DDL 的配置读取和 LLM 延迟初始化，保持 DDL 注释生成行为不变。
-3. 为 formatter 增加“构造文档”和“保存文档”两个接口。
-4. 将增强器改为支持内存文档接口，并支持四种 JSON 开关组合。
-5. 在 `MetadataGenerator` 的 JSON 流程中接入可选增强和统一统计。
-6. 删除 metadata CLI 的 `json_llm` 参数和独立分支。
-7. 更新 DDL/JSON 配置示例、帮助文本和测试。
-8. 执行独立 `--step ddl`、规则 `--step json` 和 LLM `--step json` 回归。
-9. 记录 standard、pipeline 和下游的待适配点、过渡期运行限制及恢复条件，不修改其代码。
+2. 增加 DDL/JSON `overwrite` 解析、非法组合预检和统一空白注释归一化。
+3. 修改 DDL 注释生成器，使其支持增量/覆盖、逐项采纳、失败置空和结构化统计。
+4. 为 formatter 增加“构造文档”和“保存文档”两个接口。
+5. 将增强器改为支持内存文档接口、四种 JSON 开关组合和逐项注释结果。
+6. 在 `MetadataGenerator` 的 JSON 流程中接入可选增强和统一统计，并修正 View/MV 注释基准。
+7. 删除 metadata CLI 的 `json_llm` 参数和独立分支。
+8. 更新 DDL/JSON 配置示例、帮助文本和测试。
+9. 执行独立 `--step ddl`、规则 `--step json` 和 LLM `--step json` 回归。
+10. 记录 standard、pipeline 和下游的待适配点、过渡期运行限制及恢复条件，不修改其代码。
 
 ## 12. 测试计划
 
@@ -704,8 +836,11 @@ LLM 是可选增强，规则 JSON 仍然是合法产物。建议采用以下固�
 - DDL 和 JSON 使用不同模型，解析结果互不影响。
 - 步骤未配置专属模型时正确继承全局配置。
 - 三个 `llm_enabled` 均未声明时，缺省值都是 `true`。
-- `overwrite`、`language`、`max_columns_per_call` 和 `enable_batch_processing` 未声明时，
-  分别使用 `false`、`zh`、`120` 和 `true`。
+- DDL 和 JSON 的 `overwrite` 未声明时均使用 `false`；`language`、
+  `max_columns_per_call` 和 `enable_batch_processing` 未声明时分别使用 `zh`、`120` 和
+  `true`。
+- DDL 或 JSON 任一注释配置出现 `llm_enabled: false`、`overwrite: true` 时，必须在
+  `--clean`、数据库连接和文件写入之前报错退出；已有输出文件保持不变。
 - `comment_generation`、`llm_comment_generation` 和 `json_llm` 三个旧顶层根节点只要
   存在就明确报错，包括仅包含 `enabled`、`language` 等非 LLM 字段的情况。
 - 三种旧根节点的错误信息直接给出最终的新配置路径，不把
@@ -718,8 +853,21 @@ LLM 是可选增强，规则 JSON 仍然是合法产物。建议采用以下固�
 ### 12.2 DDL 测试
 
 - `ddl_generation.comments.llm_enabled: false` 时不初始化、不调用 DDL LLM。
-- `ddl_generation.comments.llm_enabled: true` 时只补充缺失注释。
-- DDL 已有注释不被覆盖。
+- `overwrite: false`（默认）时以 PostgreSQL COMMENT 为基准，只补充缺失注释，数据库
+  已有注释不被覆盖。
+- 增量模式重复执行时，数据库中仍缺少注释的字段会再次进入 LLM 任务；不从旧 DDL 文件
+  回填上一次生成的注释。
+- `overwrite: true` 时全部对象/字段注释进入刷新任务；成功项替换原注释并将内存中的
+  `comment_source` 标记为 `llm_generated`，失败项注释及来源置空。
+- 表注释成功、部分字段成功、部分字段缺失或返回空白时，只采纳有效结果并准确逐项统计；
+  不因单个字段失败回滚其他成功字段。
+- 整次字段调用失败时，该调用包含的所有待处理字段均记为失败：增量模式保持为空，覆盖
+  模式清空原注释。
+- 只有空格、换行或制表符的数据库注释视为缺失；非空注释去除首尾空白，保留正文内部空格。
+- DDL SQL 不持久化 `comment_source`；从该 DDL 生成 JSON 时，注释的直接来源为 `ddl`。
+- 覆盖模式不写回数据库：执行前后 PG 的 COMMENT 不变。
+- 汇总分别显示对象注释成功/失败数和字段注释成功/失败数，每个失败项有 WARNING 或
+  ERROR 日志。
 - DDL 与 JSON 使用不同模型时，实际调用的模型分别正确。
 - 配置改名之外，表、视图、物化视图、约束、索引和样例产物保持一致。
 
@@ -730,13 +878,23 @@ LLM 是可选增强，规则 JSON 仍然是合法产物。建议采用以下固�
 - 仅分类开启时，不要求 LLM 返回注释字段。
 - 两项都开启时，组合调用和分批注释正确工作。
 - 注释开启但没有缺失注释、覆盖关闭、分类关闭时，零 LLM 调用。
-- 组合调用失败或响应缺少任一必要字段时，不拆分为独立请求重试、不采纳部分结果，
-  最终保留规则 JSON 并准确报告失败。
+- 组合响应中的分类和每个注释分别校验：有效项被采纳，失败项按模式置空并计数。
+- 组合调用整体失败时不拆分为独立请求重试；分类保留规则结果，该调用中的全部待处理
+  注释按模式置空，并准确报告失败。
 
 ### 12.4 JSON 注释测试
 
-- `overwrite: false` 保留 DDL 注释，只补空注释。
-- `overwrite: true` 覆盖 JSON 注释并只备份一次原值。
+- `overwrite: false` 严格以 DDL 注释为基准，保留有效 DDL 注释，只补空注释。
+- Table、View、Materialized View 的 JSON 注释基准一致；数据库 COMMENT 不能回填 DDL 中
+  缺失的 View/MV 字段注释。
+- `overwrite: true` 对全部对象和字段执行刷新；成功项覆盖 DDL 注释，失败项置空，不保留
+  原值及 `comment_original` / `comment_source_original`。
+- 部分字段缺失、返回空白或格式非法时，其他有效字段和分类结果仍然保留。
+- DDL 及 LLM 返回的注释统一执行 `strip()`；纯空白注释视为失败或缺失，正文内部空格保留。
+- LLM 成功生成或覆盖的注释来源为 `llm_generated`；未实际处理的 DDL 注释来源保持 `ddl`；
+  失败置空项的来源也置空。
+- 汇总分别显示对象注释成功/失败数和字段注释成功/失败数，每个失败项有 WARNING 或
+  ERROR 日志。
 - JSON 注释增强前后，DDL SQL 文件字节完全不变。
 - DDL 注释开关关闭不影响 JSON 注释开关，反之亦然。
 
@@ -777,8 +935,9 @@ LLM 是可选增强，规则 JSON 仍然是合法产物。建议采用以下固�
   临时文件。
 - 全部产物通过 `MetadataDocument` 3.0 校验。
 - 两个开关关闭时，除时间戳外与当前规则 `--step json` 产物一致。
-- 两个开关开启时，使用固定 LLM 测试替身和固定响应，最终分类、注释、覆盖行为及审计
-  字段与当前 `--step json_llm` 完全一致。
+- 两个开关开启时，使用固定 LLM 测试替身和固定响应，验证最终分类、逐项注释、覆盖失败
+  置空、来源字段和失败统计符合本文新契约；不再要求与旧 `--step json_llm` 的审计字段
+  完全一致。
 - 真实 LLM 冒烟测试只验证 JSON 契约、分类枚举、来源字段、注释覆盖规则和成功/失败
   汇总，不要求 `reason`、置信度、注释文本或分类结果逐次完全相同。
 - 表、视图和物化视图都覆盖。
@@ -788,15 +947,22 @@ LLM 是可选增强，规则 JSON 仍然是合法产物。建议采用以下固�
 完成改造后应满足：
 
 1. CLI 只暴露 `--step json`，不存在 `--step json_llm`。
-2. DDL 和 JSON 的注释开关互不影响。
-3. JSON 注释与表分类可以独立启停。
-4. 两个 JSON 开关都关闭时，不初始化、不调用任何 JSON LLM。
-5. 关闭分类 LLM 时仍能得到规则分类，最差为 `unknown`，不会为空。
-6. DDL 和 JSON 能分别配置模型与参数。
-7. JSON LLM 注释不会修改 DDL SQL。
-8. 规则文档和可选 LLM 增强在内存中完成，最终只写一次 JSON。
-9. LLM 失败不会生成半完成 JSON，执行结果能够准确报告失败。
-10. JSON 3.0 格式不变；范围外流程的已知被动影响已经完整记录，不以“源码未修改”推断其行为不变。
-11. 本阶段没有修改 pipeline、关系发现、CQL、Dim Config、加载器及其他下游源代码。
-12. 文档明确说明 pipeline 的旧配置启动失败风险、重复增强风险、过渡期可用性和后续恢复条件。
-13. 三个 LLM 开关缺省为 `true`；需要纯规则 JSON 时必须显式关闭 JSON 的两个开关。
+2. DDL 和 JSON 的注释开关互不影响；两者注释均支持增量 / 覆盖双模式
+   （`overwrite` 开关，默认 `false` = 增量）。
+3. DDL 增量模式以 PostgreSQL COMMENT 为基准；JSON 增量模式以 DDL 文件注释为基准。
+4. 覆盖模式成功项替换原注释，失败项置空；允许对象和字段部分成功，不保留原注释审计。
+5. `llm_enabled: false` 与 `overwrite: true` 的非法组合在清理产物及访问外部资源前报错退出。
+6. JSON 注释与表分类可以独立启停。
+7. 两个 JSON 开关都关闭时，不初始化、不调用任何 JSON LLM。
+8. 关闭分类 LLM 时仍能得到规则分类，最差为 `unknown`，不会为空。
+9. DDL 和 JSON 能分别配置模型与参数。
+10. 注释统一清理首尾空白，纯空白视为缺失或失败，正文内部空格保留。
+11. DDL 和 JSON 分别准确汇总对象注释、字段注释的成功数和失败数，失败项有可定位日志。
+12. JSON LLM 注释不会修改 DDL SQL，DDL/JSON 注释均不会写回 PostgreSQL。
+13. 规则文档和可选 LLM 增强在内存中完成，最终只写一次 JSON。
+14. LLM 部分失败只产生符合契约的有效注释或空注释，不生成非法类型、纯空白值或半完成
+    审计字段。
+15. JSON 3.0 格式不变；范围外流程的已知被动影响已经完整记录，不以“源码未修改”推断其行为不变。
+16. 本阶段没有修改 pipeline、关系发现、CQL、Dim Config、加载器及其他下游源代码。
+17. 文档明确说明 pipeline 的旧配置启动失败风险、重复增强风险、过渡期可用性和后续恢复条件。
+18. 三个 LLM 开关缺省为 `true`；需要纯规则 JSON 时必须显式关闭 JSON 的两个开关。

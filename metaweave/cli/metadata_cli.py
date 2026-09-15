@@ -67,7 +67,7 @@ def _resolve_domain_params(
     "--clean",
     is_flag=True,
     default=False,
-    help="在写入前清空该 step 的输出目录"
+    help="在写入前清理该 step 的输出目录；ddl/json/md 仅删除顶层文件"
 )
 @click.option(
     "--step",
@@ -191,7 +191,10 @@ def metadata_command(
             return resolved
 
         def _clean_step_output_dir(step_name: str, loaded_config: Dict) -> None:
-            """清空指定步骤的输出目录
+            """清理指定步骤的输出目录。
+
+            DDL/JSON/MD 只删除目录顶层文件，保留子目录；其他步骤沿用
+            ``clear_dir_contents`` 的现有行为。
 
             Args:
                 step_name: 步骤名称（ddl/json/md/rel/rel_llm/cql/cql_llm）
@@ -225,8 +228,15 @@ def metadata_command(
             else:
                 raise click.UsageError(f"❌ --clean 不支持的 step: {step_name}")
 
-            clear_dir_contents(target_dir)
-            logger.debug(f"🧹 已清空输出目录: {target_dir}")
+            if step_name in {"ddl", "json", "md"}:
+                target_dir.mkdir(parents=True, exist_ok=True)
+                for child in target_dir.iterdir():
+                    if child.is_file():
+                        child.unlink()
+                logger.debug("🧹 已清理输出目录顶层文件: %s", target_dir)
+            else:
+                clear_dir_contents(target_dir)
+                logger.debug("🧹 已清空输出目录: %s", target_dir)
 
         def _log_step_failure(step_name: str, message: str, errors: Optional[List[str]] = None):
             """记录步骤失败日志（不抛出异常）
@@ -350,6 +360,13 @@ def metadata_command(
         loaded_config = load_config(config_path)
         _validate_declared_module_llm_paths(loaded_config)
         _validate_nonstandard_llm_paths(loaded_config)
+        if step_lower in {"ddl", "json"}:
+            # 必须先于 --clean、数据库连接和 LLM 初始化校验注释模式。
+            from metaweave.core.metadata.generation_config import (
+                MetadataGenerationConfig,
+            )
+
+            MetadataGenerationConfig.from_config(loaded_config)
 
         # 阶段 3: CLI > yaml > null 合并
         effective_domain, effective_cross_domain = _resolve_domain_params(
@@ -954,6 +971,17 @@ def metadata_command(
 
         click.echo(f"💬 生成注释: {result.generated_comments} 个")
         if step_lower == "ddl":
+            click.echo(f"🤖 LLM 请求: {result.llm_request_count} 次")
+            click.echo(
+                "   - 对象注释: "
+                f"成功 {result.llm_object_comment_success_count}，"
+                f"失败 {result.llm_object_comment_failure_count}"
+            )
+            click.echo(
+                "   - 字段注释: "
+                f"成功 {result.llm_column_comment_success_count}，"
+                f"失败 {result.llm_column_comment_failure_count}"
+            )
             click.echo(
                 f"🔐 物理主键约束: "
                 f"{result.physical_primary_key_constraints_found} 个"
@@ -978,6 +1006,16 @@ def metadata_command(
                 "   - 注释任务: "
                 f"成功 {result.llm_comment_success_count}，"
                 f"失败 {result.llm_comment_failure_count}"
+            )
+            click.echo(
+                "     - 对象注释项: "
+                f"成功 {result.llm_object_comment_success_count}，"
+                f"失败 {result.llm_object_comment_failure_count}"
+            )
+            click.echo(
+                "     - 字段注释项: "
+                f"成功 {result.llm_column_comment_success_count}，"
+                f"失败 {result.llm_column_comment_failure_count}"
             )
             click.echo(
                 "   - 分类任务: "

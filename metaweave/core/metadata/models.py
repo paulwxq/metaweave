@@ -58,7 +58,7 @@ class ColumnInfo:
     is_nullable: bool = True
     column_default: Optional[str] = None
     comment: str = ""
-    comment_source: str = "db"  # 'db' or 'llm_generated'
+    comment_source: str = "db"  # db / ddl / llm_generated / 空字符串
     statistics: Optional[Dict[str, Any]] = None  # 列统计信息
 
     def to_dict(self) -> Dict[str, Any]:
@@ -165,7 +165,7 @@ class TableMetadata:
     database: Optional[str] = None  # 数据库名称
     table_type: str = "table"  # table, view, materialized_view
     comment: str = ""
-    comment_source: str = "db"  # 'db' or 'llm_generated'
+    comment_source: str = "db"  # db / ddl / llm_generated / 空字符串
     row_count: int = 0
     columns: List[ColumnInfo] = field(default_factory=list)
     primary_keys: List[PrimaryKey] = field(default_factory=list)
@@ -327,6 +327,10 @@ class GenerationResult:
     llm_failure_count: int = 0
     llm_comment_success_count: int = 0
     llm_comment_failure_count: int = 0
+    llm_object_comment_success_count: int = 0
+    llm_object_comment_failure_count: int = 0
+    llm_column_comment_success_count: int = 0
+    llm_column_comment_failure_count: int = 0
     llm_classification_success_count: int = 0
     llm_classification_failure_count: int = 0
     table_category_counts: Dict[str, int] = field(default_factory=dict)

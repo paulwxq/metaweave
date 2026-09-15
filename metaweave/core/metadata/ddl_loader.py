@@ -22,6 +22,7 @@ from metaweave.core.metadata.models import (
     TableMetadata,
     UniqueConstraint,
 )
+from metaweave.core.metadata.comment_utils import normalize_comment
 
 logger = logging.getLogger("metaweave.ddl_loader")
 
@@ -228,8 +229,10 @@ class DDLLoader:
                     numeric_scale=numeric_scale,
                     is_nullable=True,
                     column_default=None,
-                    comment=str(item.get("column_comment") or ""),
-                    comment_source="ddl",
+                    comment=normalize_comment(item.get("column_comment")),
+                    comment_source=(
+                        "ddl" if normalize_comment(item.get("column_comment")) else ""
+                    ),
                 )
             )
 
@@ -237,8 +240,10 @@ class DDLLoader:
             schema_name=schema_name,
             table_name=table_name,
             table_type=object_type,
-            comment=str(object_metadata.get("object_comment") or ""),
-            comment_source="ddl",
+            comment=normalize_comment(object_metadata.get("object_comment")),
+            comment_source=(
+                "ddl" if normalize_comment(object_metadata.get("object_comment")) else ""
+            ),
             columns=columns,
         )
 
@@ -726,13 +731,20 @@ class DDLLoader:
     def _apply_comments(self, content: str, metadata: TableMetadata):
         table_comment = self._extract_table_comment(content, metadata.schema_name, metadata.table_name)
         if table_comment is not None:
-            metadata.comment = table_comment
+            metadata.comment = normalize_comment(table_comment)
+            metadata.comment_source = "ddl" if metadata.comment else ""
+        else:
+            metadata.comment = normalize_comment(metadata.comment)
+            metadata.comment_source = "ddl" if metadata.comment else ""
 
         column_comments = self._extract_column_comments(content, metadata.schema_name, metadata.table_name)
         for column in metadata.columns:
             comment = column_comments.get(column.column_name)
             if comment is not None:
-                column.comment = comment
+                column.comment = normalize_comment(comment)
+            else:
+                column.comment = normalize_comment(column.comment)
+            column.comment_source = "ddl" if column.comment else ""
 
     def _extract_table_comment(self, content: str, schema: str, table: str) -> Optional[str]:
         for match in TABLE_COMMENT_PATTERN.finditer(content):
