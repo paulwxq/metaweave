@@ -24,7 +24,11 @@ class Relation:
         constraint_name: 外键约束名（仅外键关系有值）
         composite_score: 综合评分（仅推断关系有值，0-1）
         score_details: 评分明细（4个维度：inclusion_rate, name_similarity, type_compatibility, jaccard_index）
-        inference_method: 推断方法（如single_active_search, composite_physical等）
+        inference_method: 推断方法（v3 新分类体系，见 doc 15 §3.15：
+            rule_physical_key / rule_logical_key / llm_inferred；仅推断关系有值）
+        candidate_origin: 候选来源（v3 统计口径，见 doc 15 §3.8：rule / llm /
+            rule+llm；仅推断关系有值，物理外键直通不设置——FK 关系的来源分档
+            直接按 relationship_type == "foreign_key" 判断，不需要此字段）
     """
     relationship_id: str
     source_schema: str
@@ -39,6 +43,7 @@ class Relation:
     composite_score: Optional[float] = None
     score_details: Optional[Dict[str, float]] = None
     inference_method: Optional[str] = None
+    candidate_origin: Optional[str] = None  # rule / llm / rule+llm（仅推断关系）
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典（用于JSON序列化）"""
@@ -48,6 +53,7 @@ class Relation:
             data.pop("composite_score", None)
             data.pop("score_details", None)
             data.pop("inference_method", None)
+            data.pop("candidate_origin", None)
         return data
 
     @property
@@ -113,7 +119,12 @@ class RelationshipDiscoveryResult:
         inferred_relations: 推断关系数
         high_confidence_count: 高置信度关系数（≥0.90）
         medium_confidence_count: 中置信度关系数（0.80-0.90）
-        suppressed_count: 被抑制的关系数
+        suppressed_count: 被复合键抑制的关系数（不含未达阈值）
+        below_threshold_count: 未达 accept_threshold 的候选数
+        llm_candidates_enabled: 是否启用了 LLM 候选产出
+        llm_total_pairs: LLM 处理的表对数
+        llm_success_pairs: LLM 成功的表对数
+        llm_failed_pairs: LLM 失败的表对数
         output_files: 输出文件路径列表
         errors: 错误信息列表
     """
@@ -124,6 +135,11 @@ class RelationshipDiscoveryResult:
     high_confidence_count: int = 0
     medium_confidence_count: int = 0
     suppressed_count: int = 0
+    below_threshold_count: int = 0
+    llm_candidates_enabled: bool = False
+    llm_total_pairs: int = 0
+    llm_success_pairs: int = 0
+    llm_failed_pairs: int = 0
     output_files: List[str] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
 

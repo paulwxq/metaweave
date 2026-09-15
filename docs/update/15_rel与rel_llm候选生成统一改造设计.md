@@ -336,10 +336,24 @@ composite.exclude_semantic_roles
   检查反向身份，避免漏掉已有物理 FK；
 - **来源标记**：候选新增内存字段 `candidate_origin`（取值 `rule` / `llm` /
   `rule+llm`）。不得占用 `candidate["source"]` 键——那是源表对象，评分器
-  （`scorer.py:84`）与决策器直接读取。该标签只存在于管线内存，不写入
-  output/json；候选转 Relation 时映射到输出关系的来源字段（沿用
-  `inference_method` 或新增来源字段）；
-- **统计口径**：最终关系统计按来源分档——物理 FK / 仅规则 / 仅 LLM / 重叠。
+  （`scorer.py:84`）与决策器直接读取；
+- **落地实现（P7 勘误，见代码审核）**：`candidate_origin` 不能只留在管线内存——
+  若不透传到 `Relation`，`inference_method` 会把 `llm` 与 `rule+llm` 一并折叠成
+  `llm_inferred`（见 §3.15），导致"仅 LLM / 重叠"这两档统计口径无法从输出关系
+  反推。因此 `Relation` 数据模型新增 `candidate_origin: Optional[str]` 字段
+  （`decision_engine._candidate_to_relation` 透传 `candidate.get("candidate_origin")`），
+  仅推断关系有值；物理外键直通（`relationship_type == "foreign_key"`）不设置
+  该字段（`Relation.to_dict()` 与 `composite_score`/`score_details`/
+  `inference_method` 一并 pop 掉），其来源分档直接按 `relationship_type` 判断，
+  不占用 `candidate_origin` 值域（因此不新增 `physical_foreign_key` 之类的值）；
+- **统计口径（P7 勘误）**：最终关系统计按来源分档——物理 FK（`foreign_key_
+  relationships`，按 `relationship_type` 判断）/ 仅规则（`rule_only_
+  relationships`，`candidate_origin == "rule"`）/ 仅 LLM（`llm_only_
+  relationships`，`candidate_origin == "llm"`）/ 重叠（`rule_llm_overlap_
+  relationships`，`candidate_origin == "rule+llm"`）。替代旧版恒为 0 的
+  `active_search_discoveries` / `dynamic_composite_discoveries`（依赖已删除的
+  `single_active_search` / `composite_dynamic_same_name`，见 `writer.
+  _calculate_statistics_v32`）。
 
 ### 3.9 候选池与最小键优先；LLM 候选 top-K
 
@@ -350,10 +364,11 @@ composite.exclude_semantic_roles
 - **LLM 候选 top-K**：LLM 一个表对可返回多条关系，总候选量 = 表对数 × 每对关系数，
   是评分成本的主要风险源。**时机：收到 LLM 返回的候选列后立即执行**——在代码中按
   `confidence`（见 3.14）降序排序，**全局**取前 `top_k` 个（配置
-  `relationships.llm_candidates.top_k`，默认 50），其余丢弃；**先截断、后入池**，
+  `relationships.llm_candidates.top_k`，默认 50，**必须是 ≥1 的正整数**），其余丢弃；**先截断、后入池**，
   截断后的候选进入候选池，参与池内统一去重（见 3.1 第 ⑦⑧ 步）；
   confidence 并列时按返回顺序稳定截断。该截断仅用于限制评分阶段 DB 采样成本，
-  发生在四维评分之前；
+  发生在四维评分之前。`top_k: 0` / 负数不是"不限量"：配置校验拒绝非正整数；
+  关闭 LLM 候选请用 `llm_candidates.enabled: false`；
 - **最小键过滤（池内统一去重时执行，见 3.1 第 ⑧b 步）**：同池内，若单列键 col
   与目标列 X 的候选已存在，且复合键（col, other）的某指派同样把 col 配到 X，
   则该复合候选视为 superkey 冗余，丢弃。此规则**不区分候选来源**：逻辑键来源
@@ -401,6 +416,13 @@ composite.exclude_semantic_roles
 任一缺失     → 退回名称相似度（生成层已认定语义资格,评分层不二次惩罚）
 两者都缺     → 低默认值(`relationships.scoring.comment_fallback_score`,默认 0.3)
 ```
+
+能力关闭 vs 数据缺失（P6 / 本次审核补充）：`name_similarity_service is None`
+（无 embedding 环境）与 `comment_channel.enabled: false`（通道显式禁用）都是
+评分能力不可用，统一退回名称相似度，**不**落到"两者都缺 → 0.3"。0.3 仅用于
+通道已启用、但该列两侧注释确实不可用（空 / 黑名单）的数据级缺失。否则所有
+候选一律拿 0.3 会整体压低 `composite_score`，边缘候选可能被 `accept_threshold`
+误杀（排序不变，绝对分下移）。
 
 配套要求：
 
@@ -509,14 +531,22 @@ target_source_type / source_constraint（`writer.py:305-350+`）——两者都�
 旧 JSON 属性与旧字符串不参与新管线。下游消费方（CQL 生成、统计）随新值集同步
 适配，记入影响备忘录。
 
-新值集：
+新值集（仅覆盖推断关系，`relationship_type == "inferred"`）：
 
 | inference_method | 来源 | discovery_method（writer 输出） |
 |---|---|---|
 | `rule_physical_key` | 规则候选，源键集为物理 PK / UK | `physical_key_matching` |
 | `rule_logical_key` | 规则候选，源键集为逻辑键 | `logical_key_matching` |
 | `llm_inferred` | LLM 候选（与规则重叠时同样记此值，来源分档靠 `candidate_origin`） | `llm_inferred` |
-| `physical_foreign_key` | 物理外键直通 | `foreign_key` |
+
+**勘误（P5，见代码审核）**：初版本表曾列 `physical_foreign_key` → `foreign_key`，
+但物理外键直通（`relationship_type == "foreign_key"`）走 `repository.
+collect_foreign_keys` 构造、`writer.py` 独立分支序列化，从不设置
+`inference_method`、也不经过 `_parse_discovery_info`；其 `discovery_method`
+固定沿用历史既有值 `foreign_key_constraint`（早于本次改造，见
+`REFACTOR_SUMMARY_V32.md`），维持不变，不纳入本次 v3 taxonomy 改造范围。
+`physical_foreign_key` 已从值集与 `_INFERENCE_METHOD_DISCOVERY_MAP` 中删除，
+避免死代码。
 
 配套要求：
 
@@ -524,7 +554,9 @@ target_source_type / source_constraint（`writer.py:305-350+`）——两者都�
   `standard_matching`，而是报错**（新体系内所有值必须显式覆盖），避免静默丢失
   `target_source_type` / `source_constraint`；
 - 删除 `single_active_search` 等一切向后兼容分支；
-- `target_source_type` / `source_constraint` 字段语义保持不变（仅映射来源变化）。
+- `target_source_type` / `source_constraint` 字段语义保持不变（仅映射来源变化）；
+- 物理外键直通不纳入 `inference_method` 体系，维持独立的 `foreign_key_constraint`
+  契约（见上方勘误）。
 
 ## 4. 配置设计
 
@@ -535,7 +567,7 @@ relationships:
   # LLM 候选来源开关(放在 llm 节点之外,避免 resolver 白名单报错)
   llm_candidates:
     enabled: true
-    top_k: 50             # LLM 候选按 confidence 排序后全局保留的前 K 个
+    top_k: 50             # 必须 ≥1；关闭 LLM 候选请用 enabled: false，0 不是"不限量"
 
   # LLM 模型覆盖与重试(全部为 resolver 白名单字段)
   llm:

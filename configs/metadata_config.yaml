@@ -329,6 +329,20 @@ logical_key_detection:
     - number
     - pk
 
+  # 单列逻辑主键检测时排除的语义角色（原 single_column.exclude_semantic_roles 迁移而来）
+  single_column_exclude_roles:
+    - audit
+    - metric
+    - description
+    - complex
+
+  # 复合逻辑主键检测/关系匹配阶段排除的语义角色（原 composite.exclude_semantic_roles 迁移而来）
+  composite_exclude_roles:
+    - metric
+    - description
+    - attribute
+    - complex
+
 # 输出配置
 output:
   output_dir: output
@@ -386,63 +400,66 @@ relationships:
   # 是否包含跨域表对（CLI --cross-domain/--no-cross-domain 可覆盖）
   # null/false=仅域内, true=包含跨域; domain为null时此项被忽略
   cross_domain: null
+
+  # LLM 候选来源开关（放在 llm 节点之外，避免 resolver 白名单报错）
+  llm_candidates:
+    enabled: true      # 是否启用 LLM 候选来源（默认启用）
+    top_k: 5          # LLM 候选按 confidence 排序后全局保留的前 K 个（必须 ≥1；关闭 LLM 用 enabled: false）
+
+  # LLM 模型覆盖与重试（全部为 resolver 白名单字段）
   llm:
+    retry_times: 3          # 重试次数（含首次共4次尝试）
+    retry_delay: 1          # 重试间隔（秒）
+    langchain_config:
+      use_async: true       # 异步并发开关（大表场景必保）
+      batch_size: 50         # 表对分批大小（发现器读取 langchain_config.batch_size）
+                             # ⚠️ 顶层 llm.batch_size 是 LLMService 遗留死字段，与表对分批无关，勿用
     providers:
       qwen:
         model: qwen3-max
 
   # sample_size: 1000  # 已废弃：关系评分阶段统一使用 sampling.sample_size
+
+  # 候选匹配统一配置（替代 single_column / composite 的匹配部分）
+  candidate_matching:
+    max_columns: 3                    # 键集最大列数
+    name_threshold: 0.9               # 英文名 embedding 闸门
+    comment_threshold: 0.85           # 中文注释 embedding 闸门
+    type_threshold: 0.8               # 类型兼容硬门槛
+    logical_key_min_confidence: 0.8   # 逻辑键进入源键集的最低置信度
+    exclude_target_semantic_roles:    # 目标列池剔除角色
+      - metric
+    exclude_target_complex_types: true
+
+  # 名称相似度（移除 method: string）
   name_similarity:
-    method: embedding
+    method: embedding                 # 唯一取值
     cache_size: 5000
-  
-  # 评分权重（4维度评分体系）
+    comment_channel:                  # 注释通道独立配置（生成闸门与评分维度共用）
+      enabled: true
+      method: embedding
+      cache_size: 5000
+      generic_comment_blacklist:      # 低信息量注释黑名单：两处消费者共用一份
+        - 编号
+        - 名称
+        - 状态
+        - 备注
+        - 描述
+
+  # 评分权重（name_similarity 替换为 comment_similarity，按列对回退）
   weights:
-    inclusion_rate: 0.55        # 数据包含率（核心指标）
-    name_similarity: 0.20       # 列名相似度（防止假阳性）
-    type_compatibility: 0.15    # 类型兼容性（体现JOIN性能）
+    inclusion_rate: 0.50        # 数据包含率（核心指标）
+    comment_similarity: 0.20    # 替代 name_similarity，按列对回退
+    type_compatibility: 0.20    # 类型兼容性（体现JOIN性能，对不过闸的LLM候选仍有防幻觉价值）
     jaccard_index: 0.10         # Jaccard相似度（辅助判断）
 
-# 单列候选配置
-single_column:
-  important_constraints:
-    - single_field_primary_key
-    - single_field_unique_constraint
-  exclude_semantic_roles:
-    - audit
-    - metric
-    - description  # 新增：description 字段不适合作为关联键
-    - complex      # 复杂类型字段（json/jsonb/array/bytea等）不适合作为关联键
-  logical_key_min_confidence: 0.8
-  min_type_compatibility: 0.8  # 最低类型兼容性阈值
-  name_similarity_important_target: 0.6  # 目标列是关键字段时的名称相似度阈值,非embedding方式建议0.6,embedding方式建议0.9
-  name_similarity_normal_target: 0.9     # 目标列是普通字段时的名称相似度阈值,非embedding方式建议0.9
-
-# 复合键候选配置
-composite:
-  max_columns: 3  # 最多考虑3列的复合键
-  # ❌ target_sources 配置已废弃（2025-12-30）
-  # 说明：索引已完全排除在关系发现逻辑之外，此配置项不再生效
-  # target_sources: []  
-  min_type_compatibility: 0.8  # 类型兼容性阈值
-  logical_key_min_confidence: 0.8  # 逻辑主键最低置信度
-  name_similarity_important_target: 0.6  # 特权模式目标列的名称相似度阈值,非embedding方式建议0.6,embedding方式建议0.9
-
-  # === 复合键排除的语义角色（可配置） ===
-  # 说明：
-  # - 用于逻辑主键生成阶段（LogicalKeyDetector）：在生成复合逻辑主键时排除这些角色的字段
-  # - 用于候选生成阶段（CandidateGenerator）：在匹配关系时过滤目标表逻辑约束中的这些角色
-  # - 不影响物理约束（PK/UK）：物理约束始终完全不过滤
-  exclude_semantic_roles:
-    - metric        # 度量字段（如 amount, sales）明确不适合作为关联键
-    # 可选：如果发现 description 字段影响关系质量，可以取消下面的注释
-    - description   # 长文本说明字段（如 remark, note）
-    - attribute     # 属性字段（如 address, phone）
-    - complex       # 复杂类型字段（json/jsonb/array/bytea等）不适合作为关联键
+  # 评分新增参数（weights 保持现状路径，新增参数集中放这里）
+  scoring:
+    comment_fallback_score: 0.3   # 双方均无注释时 comment_similarity 维度的得分
 
 # 决策配置
 decision:
-  accept_threshold: 0.65  # 最低接受阈值
+  accept_threshold: 0.8  # 最低接受阈值
   high_confidence_threshold: 0.90
   medium_confidence_threshold: 0.80
   suppress_single_if_composite: true  # 复合关系存在时抑制单列关系

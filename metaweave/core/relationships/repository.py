@@ -164,6 +164,13 @@ class MetadataRepository:
 
         格式: rel_ + MD5[:12]
 
+        身份口径（2025 统一改造）：身份 = 两张表身份 + 完整列对应对集合。
+        对应对集合按 "source_col=target_col" 字符串排序后再拼接，
+        不再对 source_columns / target_columns 分别单独排序——分别排序会把
+        不同的字段指派错误合并（如 (A.id→B.id, A.code→B.code) 与
+        (A.id→B.code, A.code→B.id) 应视为不同关系）。列对应对顺序不同但
+        对应关系相同（如整体反转顺序）会生成相同 ID。
+
         Args:
             source_schema: 源schema
             source_table: 源表
@@ -176,14 +183,18 @@ class MetadataRepository:
         Returns:
             relationship_id（格式: rel_abc123def456）
         """
-        # 列名排序确保一致性（不同顺序应生成相同ID）
-        src_cols = sorted(source_columns)
-        tgt_cols = sorted(target_columns)
+        if len(source_columns) != len(target_columns):
+            raise ValueError(
+                "compute_relationship_id: source_columns 与 target_columns "
+                "长度必须一致才能生成列对应对身份"
+            )
 
-        # 构建签名字符串
+        # 按列对应对（而非分别排序两侧列表）生成规范化签名
+        pairs = sorted(f"{s}={t}" for s, t in zip(source_columns, target_columns))
+
         signature = (
-            f"{source_schema}.{source_table}.[{','.join(src_cols)}]->"
-            f"{target_schema}.{target_table}.[{','.join(tgt_cols)}]"
+            f"{source_schema}.{source_table}->{target_schema}.{target_table}:"
+            f"[{','.join(pairs)}]"
             f"{rel_id_salt}"
         )
 
@@ -333,23 +344,26 @@ class MetadataRepository:
         profiles = table.get("column_profiles", {})
         table_profile = table.get("table_profile", {})
 
-        # === 1. 检查物理约束（优先） ===
+        # === 1. 检查物理约束（优先，统一读取表级 physical_constraints） ===
 
-        # 单列情况
+        physical = table_profile.get("physical_constraints", {})
+
+        # 单列情况：判断该列是否为单列主键或单列唯一约束
         if len(columns) == 1:
             col_name = columns[0]
-            col_profile = profiles.get(col_name, {})
-            flags = col_profile.get("structure_flags", {})
 
-            # 主键或唯一约束 → 唯一
-            if flags.get("is_primary_key") or flags.get("is_unique_constraint"):
-                logger.debug(f"{full_name}.{col_name}: 物理约束判定为唯一")
+            pk = physical.get("primary_key")
+            if pk and list(pk.get("columns", [])) == [col_name]:
+                logger.debug(f"{full_name}.{col_name}: 单列主键，判定为唯一")
                 return True
+
+            for uk in physical.get("unique_constraints", []):
+                if list(uk.get("columns", [])) == [col_name]:
+                    logger.debug(f"{full_name}.{col_name}: 单列唯一约束，判定为唯一")
+                    return True
 
         # 复合列情况：检查复合主键/唯一约束
         else:
-            physical = table_profile.get("physical_constraints", {})
-
             # 检查复合主键
             pk = physical.get("primary_key")
             if pk and set(pk.get("columns", [])) == set(columns):

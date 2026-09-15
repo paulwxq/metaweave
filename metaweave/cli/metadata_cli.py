@@ -29,6 +29,36 @@ def _resolve_domain_params(
     return d, bool(cd)
 
 
+# doc 15 §4.3：single_column / composite（匹配部分）已废弃，搬迁至
+# relationships.candidate_matching + logical_key_detection.*_exclude_roles。
+# 校验放在 metadata_cli.py（而非 llm_config_resolver.py），因为设计明确要求
+# 不修改 llm_config_resolver.py（其 _DEPRECATED_TOP_LEVEL_KEYS 白名单专注 LLM 配置）。
+_DEPRECATED_RELATIONSHIP_CONFIG_NODES: Dict[str, str] = {
+    "single_column": (
+        "节点 'single_column' 已废弃（doc 15）。"
+        "匹配相关配置请迁移到 'relationships.candidate_matching'；"
+        "exclude_semantic_roles 请迁移到 "
+        "'logical_key_detection.single_column_exclude_roles'。"
+    ),
+    "composite": (
+        "节点 'composite' 已废弃（doc 15）。"
+        "匹配相关配置请迁移到 'relationships.candidate_matching'；"
+        "exclude_semantic_roles 请迁移到 "
+        "'logical_key_detection.composite_exclude_roles'。"
+    ),
+}
+
+
+def _validate_deprecated_relationship_config_nodes(loaded_config: Dict) -> None:
+    """检测已废弃的顶层配置节点 single_column / composite，检测到即报错。
+
+    不做静默兼容（沿用 doc 12/15 一致的迁移策略）。
+    """
+    for key, guidance in _DEPRECATED_RELATIONSHIP_CONFIG_NODES.items():
+        if key in loaded_config:
+            raise click.UsageError(f"❌ 配置错误：检测到已废弃的顶层配置节点 '{key}'。\n{guidance}")
+
+
 @click.command(name="metadata")
 @click.option(
     "--config",
@@ -71,10 +101,11 @@ def _resolve_domain_params(
 )
 @click.option(
     "--step",
-    type=click.Choice(["ddl", "json", "cql", "cql_llm", "md", "rel", "rel_llm", "standard"], case_sensitive=False),
+    type=click.Choice(["ddl", "json", "cql", "cql_llm", "md", "rel", "standard"], case_sensitive=False),
     default="standard",
     show_default=True,
-    help="指定要执行的步骤：ddl/json/cql/cql_llm/md/rel/rel_llm/standard"
+    help="指定要执行的步骤：ddl/json/cql/cql_llm/md/rel/standard"
+    "（rel_llm 已并入 rel，由 relationships.llm_candidates.enabled 配置开关控制，见 doc 15）"
 )
 @click.option(
     "--domain",
@@ -197,7 +228,7 @@ def metadata_command(
             ``clear_dir_contents`` 的现有行为。
 
             Args:
-                step_name: 步骤名称（ddl/json/md/rel/rel_llm/cql/cql_llm）
+                step_name: 步骤名称（ddl/json/md/rel/cql/cql_llm）
                 loaded_config: 已加载的配置字典
 
             Raises:
@@ -221,7 +252,7 @@ def metadata_command(
                 target_dir = _resolve_dir(str(output_config.get("json_directory", output_dir / "json")))
             elif step_name == "md":
                 target_dir = _resolve_dir(str(output_config.get("markdown_directory", output_dir / "md")))
-            elif step_name in {"rel", "rel_llm"}:
+            elif step_name == "rel":
                 target_dir = _resolve_dir(str(output_config.get("rel_directory", output_dir / "rel")))
             elif step_name in {"cql", "cql_llm"}:
                 target_dir = _resolve_dir(str(output_config.get("cql_directory", output_dir / "cql")))
@@ -360,6 +391,7 @@ def metadata_command(
         loaded_config = load_config(config_path)
         _validate_declared_module_llm_paths(loaded_config)
         _validate_nonstandard_llm_paths(loaded_config)
+        _validate_deprecated_relationship_config_nodes(loaded_config)
         if step_lower in {"ddl", "json"}:
             # 必须先于 --clean、数据库连接和 LLM 初始化校验注释模式。
             from metaweave.core.metadata.generation_config import (
@@ -529,48 +561,18 @@ def metadata_command(
                         elif child_step == "rel":
                             from metaweave.core.relationships.pipeline import RelationshipDiscoveryPipeline
 
-                            pipeline = RelationshipDiscoveryPipeline(config_path)
+                            pipeline = RelationshipDiscoveryPipeline(
+                                config_path,
+                                domain_filter=effective_domain,
+                                cross_domain=effective_cross_domain,
+                                domain_resolver=domain_resolver,
+                            )
                             result = pipeline.discover()
                             if not result.success:
                                 step_error_msg = "关系发现失败"
                                 step_errors = result.errors
                             else:
                                 step_success = True
-
-                        elif child_step == "rel_llm":
-                            from metaweave.core.relationships.llm_relationship_discovery import LLMRelationshipDiscovery
-                            from metaweave.core.relationships.writer import RelationshipWriter
-                            from metaweave.core.metadata.connector import DatabaseConnector
-
-                            connector = DatabaseConnector(loaded_config.get("database", {}))
-                            try:
-                                discovery = LLMRelationshipDiscovery(
-                                    config=loaded_config,
-                                    connector=connector,
-                                    domain_filter=effective_domain,
-                                    cross_domain=effective_cross_domain,
-                                    domain_resolver=domain_resolver,
-                                )
-
-                                if not discovery.json_dir.exists():
-                                    raise FileNotFoundError(f"json 目录不存在: {discovery.json_dir}")
-
-                                relations, rejected_count, extra_statistics = discovery.discover()
-
-                                writer = RelationshipWriter(loaded_config)
-                                output_files = writer.write_results(
-                                    relations=relations,
-                                    suppressed=[],
-                                    config=loaded_config,
-                                    tables=discovery.tables,
-                                    generated_by="rel_llm",
-                                    extra_statistics=extra_statistics,
-                                )
-                                for f in output_files:
-                                    logger.info("rel_llm 输出文件: %s", f)
-                                step_success = True
-                            finally:
-                                connector.close()
 
                         elif child_step == "cql":
                             from metaweave.core.cql_generator.generator import CQLGenerator
@@ -629,81 +631,6 @@ def metadata_command(
                 logger.error("❌ 全局未捕获异常: %s", e, exc_info=True)
                 click.echo(f"❌ 未预期错误: {e}", err=True)
                 raise click.Abort()
-
-        # Step: rel_llm - LLM 辅助关系发现
-        if step == "rel_llm":
-            from metaweave.core.relationships.llm_relationship_discovery import LLMRelationshipDiscovery
-            from metaweave.core.relationships.writer import RelationshipWriter
-            from metaweave.core.metadata.connector import DatabaseConnector
-            from services.config_loader import load_config
-
-            click.echo("🤖 开始 LLM 辅助关系发现（rel_llm）...")
-            click.echo("")
-
-            # 加载配置
-            config = load_config(config_path)
-
-            if clean:
-                _clean_step_output_dir("rel_llm", config)
-
-            # 初始化连接器
-            connector = DatabaseConnector(config.get("database", {}))
-
-            try:
-                # 初始化发现器
-                discovery = LLMRelationshipDiscovery(
-                    config=config,
-                    connector=connector,
-                    domain_filter=effective_domain,
-                    cross_domain=effective_cross_domain,
-                    domain_resolver=domain_resolver,
-                )
-
-                # 检查 json 目录
-                if not discovery.json_dir.exists():
-                    raise FileNotFoundError(
-                        f"json 目录不存在: {discovery.json_dir}\n"
-                        f"请先执行 --step json 生成表元数据 JSON"
-                    )
-
-                # 发现关系
-                relations, rejected_count, extra_statistics = discovery.discover()
-
-                # 使用 RelationshipWriter 输出结果
-                writer = RelationshipWriter(config)
-                output_files = writer.write_results(
-                    relations=relations,
-                    suppressed=[],  # LLM 流程没有 suppressed 关系
-                    config=config,
-                    tables=discovery.tables,  # 传递表元数据（discovery 已缓存）
-                    generated_by="rel_llm",  # 标识 LLM 辅助生成
-                    extra_statistics=extra_statistics
-                )
-
-                # 显示结果
-                click.echo("")
-                click.echo("=" * 60)
-                click.echo("📊 LLM 辅助关系发现结果")
-                click.echo("=" * 60)
-                total_relations = len(relations)
-                llm_assisted = extra_statistics.get("llm_assisted_relationships", 0)
-                fk_relations = total_relations - llm_assisted
-                click.echo(f"✅ 总关系数: {total_relations} 个")
-                click.echo(f"  - 物理外键: {fk_relations}")
-                click.echo(f"  - LLM 推断: {llm_assisted}")
-                if rejected_count > 0:
-                    click.echo(f"  - 低置信度拒绝: {rejected_count}")
-                click.echo(f"📁 输出文件:")
-                for output_file in output_files:
-                    click.echo(f"  - {output_file}")
-                click.echo("=" * 60)
-                click.echo("✨ LLM 辅助关系发现完成！")
-
-            finally:
-                # 关闭数据库连接（与 rel pipeline 保持一致）
-                connector.close()
-
-            return
 
         # Step: cql_llm - CQL 生成（等同于 cql）
         if step == "cql_llm":
@@ -825,7 +752,12 @@ def metadata_command(
                 config = load_config(config_path)
                 _clean_step_output_dir("rel", config)
 
-            pipeline = RelationshipDiscoveryPipeline(config_path)
+            pipeline = RelationshipDiscoveryPipeline(
+                config_path,
+                domain_filter=effective_domain,
+                cross_domain=effective_cross_domain,
+                domain_resolver=domain_resolver,
+            )
             result = pipeline.discover()
 
             # 显示结果统计
@@ -838,7 +770,13 @@ def metadata_command(
             click.echo(f"  - 推断关系: {result.inferred_relations}")
             click.echo(f"  - 高置信度: {result.high_confidence_count}")
             click.echo(f"  - 中置信度: {result.medium_confidence_count}")
-            click.echo(f"  - 抑制数量: {result.suppressed_count}")
+            click.echo(f"  - 未达阈值: {result.below_threshold_count}")
+            click.echo(f"  - 复合键抑制: {result.suppressed_count}")
+            if result.llm_candidates_enabled:
+                click.echo(
+                    f"  - LLM 候选产出: 成功 {result.llm_success_pairs}/"
+                    f"{result.llm_total_pairs} 个表对，失败 {result.llm_failed_pairs}"
+                )
             click.echo(f"📁 输出文件: {len(result.output_files)} 个")
 
             if result.errors:

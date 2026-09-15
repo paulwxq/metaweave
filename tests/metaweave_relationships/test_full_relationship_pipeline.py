@@ -109,7 +109,7 @@ def main():
             print(f"      {status} {metric}: {score:.3f}")
     
     # 应用决策
-    accepted_relations, suppressed = decision_engine.filter_and_suppress([scored_candidate])
+    accepted_relations, suppressed, below_threshold = decision_engine.filter_and_suppress([scored_candidate])
     
     print(f"\n[6] 决策结果...")
     print(f"   接受的关系数: {len(accepted_relations)}")

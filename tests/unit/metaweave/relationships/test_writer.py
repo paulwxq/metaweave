@@ -32,14 +32,11 @@ class TestRelationshipWriter:
                 "medium_confidence_threshold": 0.80
             },
             "weights": {
-                "inclusion_rate": 0.55,
-                "name_similarity": 0.20,
-                "type_compatibility": 0.15,
+                "inclusion_rate": 0.50,
+                "comment_similarity": 0.20,
+                "type_compatibility": 0.20,
                 "jaccard_index": 0.10
             },
-            "composite": {
-                "max_columns": 3
-            }
         }
 
     @pytest.fixture
@@ -76,10 +73,11 @@ class TestRelationshipWriter:
                 score_details={
                     "inclusion_rate": 0.8,
                     "jaccard_index": 0.6,
-                    "name_similarity": 1.0,
+                    "comment_similarity": 1.0,
                     "type_compatibility": 1.0
                 },
-                inference_method="single_active_search"
+                inference_method="rule_physical_key",
+                candidate_origin="rule"
             )
         ]
 
@@ -115,8 +113,9 @@ class TestRelationshipWriter:
         assert "composite_key_relationships" in stats
         assert "single_column_relationships" in stats
         assert "total_suppressed_single_relations" in stats
-        assert "active_search_discoveries" in stats
-        assert "dynamic_composite_discoveries" in stats
+        assert "rule_only_relationships" in stats
+        assert "llm_only_relationships" in stats
+        assert "rule_llm_overlap_relationships" in stats
 
         # 验证关系数据
         assert len(data["relationships"]) == 2
@@ -175,7 +174,8 @@ class TestRelationshipWriter:
             cardinality="N:1",
             composite_score=0.90,
             score_details={},
-            inference_method="composite_physical"
+            inference_method="rule_physical_key",
+            candidate_origin="rule"
         )
 
         # 被抑制的单列关系
@@ -189,7 +189,8 @@ class TestRelationshipWriter:
                 },
                 "source_columns": ["store_id"],
                 "target_columns": ["store_id"],
-                "candidate_type": "single_active_search",
+                "candidate_origin": "rule",
+                "key_origin": "physical",
                 "composite_score": 0.82,
                 "score_details": {}
             }
@@ -244,8 +245,72 @@ class TestRelationshipWriter:
         assert stats["composite_key_relationships"] == 0
         assert stats["single_column_relationships"] == 2
         assert stats["total_suppressed_single_relations"] == 0
-        assert "active_search_discoveries" in stats
-        assert "dynamic_composite_discoveries" in stats
+        # 来源分档统计（doc 15 §3.8）：sample_relations 中 1 条外键直通 +
+        # 1 条 candidate_origin="rule" 的推断关系，无 LLM/重叠
+        assert stats["rule_only_relationships"] == 1
+        assert stats["llm_only_relationships"] == 0
+        assert stats["rule_llm_overlap_relationships"] == 0
+
+    def test_statistics_source_breakdown_all_four_buckets(self, writer, config):
+        """P7 勘误回归测试（doc 15 §3.8）：来源分档统计要能区分
+        物理FK / 仅规则 / 仅LLM / 重叠 四种情况，替代恒为 0 的旧口径
+        （active_search_discoveries / dynamic_composite_discoveries）。
+        """
+        def _relation(rel_id, origin, table_suffix):
+            return Relation(
+                relationship_id=rel_id,
+                source_schema="public",
+                source_table=f"fact_{table_suffix}",
+                source_columns=["id"],
+                target_schema="public",
+                target_table=f"dim_{table_suffix}",
+                target_columns=["id"],
+                relationship_type="inferred",
+                cardinality="N:1",
+                composite_score=0.85,
+                score_details={},
+                inference_method="rule_physical_key" if origin == "rule" else "llm_inferred",
+                candidate_origin=origin,
+            )
+
+        fk_relation = Relation(
+            relationship_id="rel_fk_001",
+            source_schema="public",
+            source_table="fact_fk",
+            source_columns=["store_id"],
+            target_schema="public",
+            target_table="dim_fk",
+            target_columns=["store_id"],
+            relationship_type="foreign_key",
+            cardinality="N:1",
+        )
+
+        relations = [
+            fk_relation,
+            _relation("rel_rule_001", "rule", "rule"),
+            _relation("rel_llm_001", "llm", "llm"),
+            _relation("rel_overlap_001", "rule+llm", "overlap"),
+        ]
+
+        output_files = writer.write_results(relations, [], config)
+        json_file = Path(output_files[0])
+        with open(json_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        stats = data["statistics"]
+        assert stats["total_relationships_found"] == 4
+        assert stats["foreign_key_relationships"] == 1
+        assert stats["rule_only_relationships"] == 1
+        assert stats["llm_only_relationships"] == 1
+        assert stats["rule_llm_overlap_relationships"] == 1
+
+        # 旧的恒为 0 死字段不应再出现在输出中
+        assert "active_search_discoveries" not in stats
+        assert "dynamic_composite_discoveries" not in stats
+
+        # FK 关系不应携带 candidate_origin（见 Relation.to_dict 的 pop 逻辑）
+        fk_output = next(r for r in data["relationships"] if r["discovery_method"] == "foreign_key_constraint")
+        assert "candidate_origin" not in fk_output
 
     def test_json_files_loaded_and_db_queries(self, writer, sample_relations, config):
         """测试 json_files_loaded 和 database_queries_executed 反映真实值"""
@@ -314,25 +379,42 @@ class TestRelationshipWriter:
         assert (new_output_dir / f"{config['database']['database']}.relationships_global.json").exists()
 
     def test_discovery_method_mapping(self, writer, temp_output_dir, config):
-        """测试 discovery_method, source_type, source_constraint 字段映射"""
-        # 准备表元数据，用于 _get_source_constraint 方法获取约束类型
+        """测试 discovery_method, source_type, source_constraint 字段映射
+        （v3 新分类体系，doc 15 §3.15：rule_physical_key / rule_logical_key / llm_inferred）
+        """
+        # 准备表元数据（v3：表级 physical_constraints / indexes，而非列级 structure_flags）
         tables = {
             "public.fact_sales": {
-                "column_profiles": {
-                    "store_id": {
-                        "structure_flags": {
-                            "is_primary_key": False,
-                            "is_unique_constraint": False,
-                            "is_indexed": True  # 单列索引
-                        }
-                    }
+                "table_profile": {
+                    "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                    "indexes": [
+                        {"columns": ["store_id"], "is_unique": False, "condition": None}
+                    ],
                 }
-            }
+            },
+            "public.dim_store": {
+                "table_profile": {
+                    "physical_constraints": {
+                        "primary_key": {"columns": ["store_id"]},
+                        "unique_constraints": [],
+                    },
+                    "indexes": [],
+                }
+            },
+            "public.fact_summary": {
+                "table_profile": {
+                    "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                    "indexes": [],
+                    "unique_column_sets": [
+                        {"columns": ["order_id", "product_id"], "confidence_score": 0.9}
+                    ],
+                }
+            },
         }
 
         # 创建不同类型的推断关系
         relations = [
-            # 单列主动搜索
+            # 规则候选：源键集为物理约束（单列索引，非 PK/UK）
             Relation(
                 relationship_id="rel_001",
                 source_schema="public",
@@ -345,24 +427,9 @@ class TestRelationshipWriter:
                 cardinality="N:1",
                 composite_score=0.88,
                 score_details={},
-                inference_method="single_active_search"
+                inference_method="rule_physical_key"
             ),
-            # 复合键物理约束
-            Relation(
-                relationship_id="rel_002",
-                source_schema="public",
-                source_table="fact_sales",
-                source_columns=["store_id", "date_day"],
-                target_schema="public",
-                target_table="dim_store",
-                target_columns=["store_id", "date_day"],
-                relationship_type="inferred",
-                cardinality="N:1",
-                composite_score=0.92,
-                score_details={},
-                inference_method="composite_physical"
-            ),
-            # 复合键逻辑主键
+            # 规则候选：源键集为逻辑键（复合）
             Relation(
                 relationship_id="rel_003",
                 source_schema="public",
@@ -375,9 +442,9 @@ class TestRelationshipWriter:
                 cardinality="N:1",
                 composite_score=0.85,
                 score_details={},
-                inference_method="composite_logical"
+                inference_method="rule_logical_key"
             ),
-            # 复合键动态同名
+            # LLM 候选
             Relation(
                 relationship_id="rel_004",
                 source_schema="public",
@@ -390,7 +457,7 @@ class TestRelationshipWriter:
                 cardinality="N:1",
                 composite_score=0.90,
                 score_details={},
-                inference_method="composite_dynamic_same_name"
+                inference_method="llm_inferred"
             )
         ]
 
@@ -402,29 +469,43 @@ class TestRelationshipWriter:
         with open(json_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        # 验证单列主动搜索
+        # 验证规则候选（物理键，源列为单列索引，目标列为物理主键）
         rel1 = [r for r in data["relationships"] if r["relationship_id"] == "rel_001"][0]
-        assert rel1["discovery_method"] == "active_search"
-        assert rel1.get("target_source_type") is None
+        assert rel1["discovery_method"] == "physical_key_matching"
+        assert rel1["target_source_type"] == "primary_key"
         assert rel1["source_constraint"] == "single_field_index"
 
-        # 验证复合键物理约束
-        rel2 = [r for r in data["relationships"] if r["relationship_id"] == "rel_002"][0]
-        assert rel2["discovery_method"] == "physical_constraint_matching"
-        assert rel2["target_source_type"] == "physical_constraints"
-        assert rel2.get("source_constraint") is None
-
-        # 验证复合键逻辑主键
+        # 验证规则候选（逻辑键）
         rel3 = [r for r in data["relationships"] if r["relationship_id"] == "rel_003"][0]
         assert rel3["discovery_method"] == "logical_key_matching"
-        assert rel3["target_source_type"] == "candidate_logical_key"
-        assert rel3.get("source_constraint") is None
+        assert rel3.get("target_source_type") is None  # 复合键不判定 target_source_type
+        assert rel3.get("source_constraint") is None  # 复合键不判定 source_constraint
 
-        # 验证复合键动态同名
+        # 验证 LLM 候选
         rel4 = [r for r in data["relationships"] if r["relationship_id"] == "rel_004"][0]
-        assert rel4["discovery_method"] == "dynamic_same_name"
-        assert rel4["target_source_type"] == "candidate_logical_key"
+        assert rel4["discovery_method"] == "llm_inferred"
+        assert rel4["target_source_type"] == "llm_inferred"
         assert rel4.get("source_constraint") is None
+
+    def test_unknown_inference_method_raises(self, writer, config):
+        """未知 inference_method（含旧值）不再回退 standard_matching，而是直接报错（doc 15 §3.15）"""
+        relation = Relation(
+            relationship_id="rel_unknown",
+            source_schema="public",
+            source_table="fact_sales",
+            source_columns=["store_id"],
+            target_schema="public",
+            target_table="dim_store",
+            target_columns=["store_id"],
+            relationship_type="inferred",
+            cardinality="N:1",
+            composite_score=0.88,
+            score_details={},
+            inference_method="single_active_search"  # 旧值，v3 不再支持
+        )
+
+        with pytest.raises(ValueError):
+            writer.write_results([relation], [], config)
 
     def test_schema_granularity_warning(self, sample_relations, tmp_path, config, caplog):
         """测试配置 schema 粒度时给出警告并强制使用 global"""
@@ -489,7 +570,7 @@ class TestRelationshipWriter:
             cardinality="N:1",
             composite_score=0.90,
             score_details={},
-            inference_method="single_active_search"
+            inference_method="rule_physical_key"
         )
 
         # 创建复合键关系
@@ -505,7 +586,7 @@ class TestRelationshipWriter:
             cardinality="N:1",
             composite_score=0.92,
             score_details={},
-            inference_method="composite_physical"
+            inference_method="rule_physical_key"
         )
 
         # 写入 Markdown
@@ -538,7 +619,7 @@ class TestRelationshipWriter:
                 cardinality="1:1",  # 一对一
                 composite_score=0.95,
                 score_details={},
-                inference_method="single_active_search"
+                inference_method="rule_physical_key"
             ),
             Relation(
                 relationship_id="rel_1toN",
@@ -552,7 +633,7 @@ class TestRelationshipWriter:
                 cardinality="1:N",  # 一对多
                 composite_score=0.90,
                 score_details={},
-                inference_method="single_active_search"
+                inference_method="rule_physical_key"
             ),
             Relation(
                 relationship_id="rel_Nto1",
@@ -566,7 +647,7 @@ class TestRelationshipWriter:
                 cardinality="N:1",  # 多对一
                 composite_score=0.88,
                 score_details={},
-                inference_method="single_active_search"
+                inference_method="rule_physical_key"
             ),
             Relation(
                 relationship_id="rel_MtoN",
@@ -580,7 +661,7 @@ class TestRelationshipWriter:
                 cardinality="M:N",  # 多对多
                 composite_score=0.75,
                 score_details={},
-                inference_method="single_active_search"
+                inference_method="rule_physical_key"
             ),
         ]
 

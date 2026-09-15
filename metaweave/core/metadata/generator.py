@@ -104,22 +104,17 @@ class MetadataGenerator:
         self._pending_json_documents: List[tuple[Dict[str, Any], Path, str]] = []
         
         # 逻辑主键检测器
+        # single_column_exclude_roles / composite_exclude_roles 直接从
+        # logical_key_detection 节点读取（doc 15 2.8：已从 single_column /
+        # composite 节点搬迁至此，不再由 generator 注入）
         logical_key_config = self.config.get("logical_key_detection", {})
         self.logical_key_enabled = logical_key_config.get("enabled", True)
         if self.logical_key_enabled:
-            # 从 single_column.exclude_semantic_roles 读取单列排除配置
-            single_column_config = self.config.get("single_column", {})
-            single_column_exclude_roles = single_column_config.get("exclude_semantic_roles", ["audit", "metric"])
-            logical_key_config["single_column_exclude_roles"] = single_column_exclude_roles
-
-            # === 新增：传递 composite 配置（与 CandidateGenerator 使用相同配置） ===
-            composite_config = self.config.get("composite", {})
-            # 默认值保守策略：只排除明确不适合的 metric
-            composite_exclude_roles = composite_config.get("exclude_semantic_roles", ["metric"])
-            logical_key_config["composite_exclude_roles"] = composite_exclude_roles
-
-            logger.info(f"传递复合键排除角色配置给逻辑主键检测器: {composite_exclude_roles}")
-
+            logger.info(
+                "逻辑主键检测排除角色配置: single=%s, composite=%s",
+                logical_key_config.get("single_column_exclude_roles"),
+                logical_key_config.get("composite_exclude_roles"),
+            )
             self.logical_key_detector = LogicalKeyDetector(logical_key_config)
         
         # 输出格式化器

@@ -43,16 +43,17 @@ class DecisionEngine:
     def filter_and_suppress(
             self,
             scored_candidates: List[Dict[str, Any]]
-    ) -> Tuple[List[Relation], List[Dict[str, Any]]]:
+    ) -> Tuple[List[Relation], List[Dict[str, Any]], List[Dict[str, Any]]]:
         """过滤和抑制候选关系
 
         Args:
             scored_candidates: 评分后的候选列表
 
         Returns:
-            (accepted_relations, suppressed_candidates)
+            (accepted_relations, suppressed_candidates, below_threshold_candidates)
             - accepted_relations: 接受的推断关系列表
-            - suppressed_candidates: 被抑制的候选列表
+            - suppressed_candidates: 被复合键抑制的候选（不含未达阈值）
+            - below_threshold_candidates: 未达 accept_threshold 的候选
         """
         # 1. 阈值过滤
         above_threshold = []
@@ -94,10 +95,7 @@ class DecisionEngine:
 
         logger.info(f"抑制规则: {len(accepted_relations)} 个接受，{len(suppressed)} 个抑制")
 
-        # 合并所有未接受的候选（用于调试）
-        all_suppressed = below_threshold + suppressed
-
-        return accepted_relations, all_suppressed
+        return accepted_relations, suppressed, below_threshold
 
     def _apply_suppression(
             self,
@@ -107,7 +105,9 @@ class DecisionEngine:
 
         规则：
         - 如果存在accepted的复合关系(A->B)，抑制同表对的单列关系
-        - 除非单列关系的源列有独立约束（PK/UK/单列Index）
+        - 除非单列关系的源列有独立约束（单列PK/单列UK/非partial单列唯一Index，
+          见 `_has_independent_constraint`；v3 改为读取表级 physical_constraints
+          与 indexes，此前该例外因列级 structure_flags 缺失而恒不成立）
 
         Args:
             candidates: 候选列表
@@ -178,7 +178,12 @@ class DecisionEngine:
         return accepted, suppressed
 
     def _has_independent_constraint(self, candidate: Dict[str, Any]) -> bool:
-        """检查源列是否有独立约束（PK/UK）
+        """检查源列是否有独立约束（单列 PK / 单列 UK / 非 partial 单列唯一索引）
+
+        v3 JSON 已移除列级 `structure_flags`，统一改为读取表级
+        `table_profile.physical_constraints`（主键/唯一约束）以及
+        `table_profile.indexes[]`（非 partial 的单列唯一索引，即
+        `is_unique=True` 且 `condition` 为空的单列索引）。
 
         Args:
             candidate: 候选关系
@@ -193,18 +198,27 @@ class DecisionEngine:
             return False
 
         source_col_name = source_columns[0]
-        source_profiles = source_table.get("column_profiles", {})
-        source_profile = source_profiles.get(source_col_name, {})
-
-        structure_flags = source_profile.get("structure_flags", {})
+        table_profile = source_table.get("table_profile", {})
+        physical = table_profile.get("physical_constraints", {})
 
         # 检查单列主键
-        if structure_flags.get("is_primary_key"):
+        pk = physical.get("primary_key")
+        if pk and list(pk.get("columns", [])) == [source_col_name]:
             return True
 
-        # 检查单列唯一约束（只认物理唯一约束，不认统计唯一）
-        if structure_flags.get("is_unique_constraint"):
-            return True
+        # 检查单列唯一约束
+        for uk in physical.get("unique_constraints", []):
+            if list(uk.get("columns", [])) == [source_col_name]:
+                return True
+
+        # 检查非 partial 的单列唯一索引
+        for index in table_profile.get("indexes", []):
+            if (
+                    index.get("is_unique")
+                    and not index.get("condition")
+                    and list(index.get("columns", [])) == [source_col_name]
+            ):
+                return True
 
         return False
 
@@ -242,8 +256,8 @@ class DecisionEngine:
         # 从评分结果获取基数（由 scorer 计算）
         cardinality = candidate.get("cardinality", "N:1")
 
-        # 推断方法
-        inference_method = candidate.get("candidate_type", "unknown")
+        # 推断方法（v3 新分类体系，见 doc 15 §3.15，零向后兼容）
+        inference_method = self._resolve_inference_method(candidate)
 
         return Relation(
             relationship_id=relationship_id,
@@ -257,7 +271,36 @@ class DecisionEngine:
             cardinality=cardinality,
             composite_score=candidate.get("composite_score"),
             score_details=candidate.get("score_details"),
-            inference_method=inference_method
+            inference_method=inference_method,
+            # 统计口径用（见 doc 15 §3.8：物理FK / 仅规则 / 仅LLM / 重叠），
+            # 与 inference_method 分开保留，避免 llm/rule+llm 折叠丢失重叠信息
+            candidate_origin=candidate.get("candidate_origin"),
+        )
+
+    @staticmethod
+    def _resolve_inference_method(candidate: Dict[str, Any]) -> str:
+        """按 candidate_origin / key_origin 解析新分类体系的 inference_method
+
+        （见 doc 15 §3.15，零向后兼容，未知组合直接报错）
+
+        - candidate_origin 为 llm 或 rule+llm → llm_inferred（来源分档靠
+          candidate_origin，不体现在 inference_method 里）；
+        - candidate_origin 为 rule → 按 key_origin 区分
+          rule_physical_key / rule_logical_key。
+        """
+        origin = candidate.get("candidate_origin")
+        if origin in ("llm", "rule+llm"):
+            return "llm_inferred"
+        if origin == "rule":
+            key_origin = candidate.get("key_origin")
+            if key_origin == "physical":
+                return "rule_physical_key"
+            if key_origin == "logical":
+                return "rule_logical_key"
+        raise ValueError(
+            f"无法解析候选的 inference_method：candidate_origin={origin!r}, "
+            f"key_origin={candidate.get('key_origin')!r}。"
+            f"v3 新体系零向后兼容，候选必须携带合法的 candidate_origin/key_origin。"
         )
 
     def _format_candidate(self, candidate: Dict[str, Any]) -> str:
@@ -271,5 +314,6 @@ class DecisionEngine:
         target = _fmt(candidate["target"])
         src_cols = ",".join(candidate.get("source_columns", []))
         tgt_cols = ",".join(candidate.get("target_columns", []))
-        cand_type = candidate.get("candidate_type")
-        return f"{source}[{src_cols}] -> {target}[{tgt_cols}] ({cand_type})"
+        origin = candidate.get("candidate_origin")
+        key_origin = candidate.get("key_origin")
+        return f"{source}[{src_cols}] -> {target}[{tgt_cols}] (origin={origin}, key_origin={key_origin})"

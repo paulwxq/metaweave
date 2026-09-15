@@ -139,6 +139,59 @@ class TestMetadataRepository:
         )
         assert rel_id2 == rel_id3
 
+    def test_compute_relationship_id_pairwise_identity(self):
+        """测试按完整列对应对生成身份（2.6 升级）
+
+        - 同一关系整体反转列对顺序应生成相同 ID；
+        - 不同的字段指派（即使两侧列集合相同）应生成不同 ID。
+        """
+        # 顺序 A: (id, id), (code, code)
+        id_a = MetadataRepository.compute_relationship_id(
+            "public", "a", ["id", "code"],
+            "public", "b", ["id", "code"]
+        )
+        # 整体反转顺序: (code, code), (id, id) —— 同一关系
+        id_a_reversed_order = MetadataRepository.compute_relationship_id(
+            "public", "a", ["code", "id"],
+            "public", "b", ["code", "id"]
+        )
+        assert id_a == id_a_reversed_order
+
+        # 不同字段指派: (id, code), (code, id) —— 不同关系
+        id_b_cross = MetadataRepository.compute_relationship_id(
+            "public", "a", ["id", "code"],
+            "public", "b", ["code", "id"]
+        )
+        assert id_a != id_b_cross
+
+    def test_compute_relationship_id_length_mismatch_raises(self):
+        """测试列数不一致时抛出异常"""
+        with pytest.raises(ValueError):
+            MetadataRepository.compute_relationship_id(
+                "public", "a", ["id", "code"],
+                "public", "b", ["id"]
+            )
+
+    def test_is_columns_unique_reads_table_level_physical_constraints(self):
+        """测试 _is_columns_unique 单列分支读取表级 physical_constraints（v3）"""
+        repo = MetadataRepository(Path("output/json"))
+
+        tables = {
+            "public.dim_store": {
+                "column_profiles": {},
+                "table_profile": {
+                    "physical_constraints": {
+                        "primary_key": {"columns": ["store_id"]},
+                        "unique_constraints": [{"columns": ["store_code"]}]
+                    }
+                }
+            }
+        }
+
+        assert repo._is_columns_unique(tables, "public.dim_store", ["store_id"]) is True
+        assert repo._is_columns_unique(tables, "public.dim_store", ["store_code"]) is True
+        assert repo._is_columns_unique(tables, "public.dim_store", ["store_name"]) is False
+
     def test_relation_id_salt_consistency(self):
         """测试实例方法与静态方法的一致性"""
         # 创建带盐值的 repository

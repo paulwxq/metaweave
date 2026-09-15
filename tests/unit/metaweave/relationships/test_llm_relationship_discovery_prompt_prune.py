@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock
-
 from metaweave.core.relationships.llm_relationship_discovery import LLMRelationshipDiscovery
 
 
@@ -24,7 +22,7 @@ def test_build_prompt_prunes_column_profile_fields():
         "relationships": {},
     }
 
-    discovery = LLMRelationshipDiscovery(config=config, connector=MagicMock())
+    discovery = LLMRelationshipDiscovery(config=config)
 
     table1 = {
         "table_info": {"schema_name": "public", "table_name": "t1"},

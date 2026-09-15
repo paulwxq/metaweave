@@ -169,8 +169,9 @@ class RelationshipWriter:
                 "composite_key_relationships": stats["composite_key_relationships"],
                 "single_column_relationships": stats["single_column_relationships"],
                 "total_suppressed_single_relations": stats["total_suppressed_single_relations"],
-                "active_search_discoveries": stats["active_search_discoveries"],
-                "dynamic_composite_discoveries": stats["dynamic_composite_discoveries"],
+                "rule_only_relationships": stats["rule_only_relationships"],
+                "llm_only_relationships": stats["llm_only_relationships"],
+                "rule_llm_overlap_relationships": stats["rule_llm_overlap_relationships"],
             },
 
             "relationships": relationships_v32
@@ -302,6 +303,21 @@ class RelationshipWriter:
 
         return result
 
+    # inference_method 新分类体系（v3 专属，零向后兼容，见 doc 15 §3.15）
+    #
+    # 注意：此映射表只覆盖"推断关系"（relationship_type == "inferred"）。
+    # 物理外键直通（relationship_type == "foreign_key"）走上面第 279 行的独立
+    # 分支，从不设置 inference_method、也不经过 _parse_discovery_info——其
+    # discovery_method 固定为历史既有值 "foreign_key_constraint"（早于 doc 15，
+    # 见 REFACTOR_SUMMARY_V32.md 等），不属于本次改造范围。因此 v3 taxonomy
+    # 中不再列 physical_foreign_key：该值在当前架构下永远不会被产出，列入映射
+    # 表只会造成死代码（详见 doc 15 §3.15 勘误）。
+    _INFERENCE_METHOD_DISCOVERY_MAP: Dict[str, str] = {
+        "rule_physical_key": "physical_key_matching",
+        "rule_logical_key": "logical_key_matching",
+        "llm_inferred": "llm_inferred",
+    }
+
     def _parse_discovery_info(
             self,
             inference_method: Optional[str],
@@ -309,222 +325,155 @@ class RelationshipWriter:
     ) -> Dict[str, Optional[str]]:
         """解析 inference_method 为 discovery_method, target_source_type, source_constraint
 
-        映射规则（基于v3.2文档）：
-        
-        单列关系：
-        - single_defined_constraint_and_logical_pk -> active_search (源有约束+逻辑键，目标动态检测)
-        - single_defined_constraint -> active_search (源有约束，目标动态检测)
-        - single_logical_key -> logical_key_matching (源是逻辑键，目标是逻辑键)
-        - single_active_search -> active_search (向后兼容，已废弃)
-        
-        复合键关系：
-        - composite_physical -> physical_constraint_matching
-        - composite_logical -> logical_key_matching
-        - composite_dynamic_same_name -> dynamic_same_name
-        
-        其他：
-        - 未知类型 -> standard_matching
+        新值集（v3 专属，零向后兼容，见 doc 15 §3.15；仅覆盖推断关系，物理外键
+        直通不经此函数，见类属性 `_INFERENCE_METHOD_DISCOVERY_MAP` 上方说明）：
+
+        | inference_method       | 来源                         | discovery_method        |
+        |-------------------------|------------------------------|--------------------------|
+        | rule_physical_key      | 规则候选，源键集为物理 PK/UK  | physical_key_matching    |
+        | rule_logical_key       | 规则候选，源键集为逻辑键       | logical_key_matching     |
+        | llm_inferred           | LLM 候选（含与规则重叠）       | llm_inferred             |
+
+        未识别旧值（如 single_active_search、composite_dynamic_same_name 等）
+        与缺失值直接报错，不再静默回退 standard_matching。
 
         Args:
-            inference_method: 推断方法字符串（如 single_defined_constraint）
+            inference_method: 推断方法字符串（v3 新值集之一）
             rel: 关系对象
 
         Returns:
             包含 discovery_method, target_source_type, source_constraint 的字典
         """
         if not inference_method:
+            raise ValueError(
+                f"关系 {rel.relationship_id} 缺少 inference_method，"
+                f"v3 新体系下所有推断关系必须显式携带 inference_method（见 doc 15 §3.15）"
+            )
+
+        discovery_method = self._INFERENCE_METHOD_DISCOVERY_MAP.get(inference_method)
+        if discovery_method is None:
+            raise ValueError(
+                f"关系 {rel.relationship_id} 携带未知的 inference_method: "
+                f"{inference_method!r}。v3 新体系零向后兼容，仅支持: "
+                f"{sorted(self._INFERENCE_METHOD_DISCOVERY_MAP)}（见 doc 15 §3.15）"
+            )
+
+        if inference_method in ("rule_physical_key", "rule_logical_key"):
             return {
-                "discovery_method": "standard_matching",
-                "target_source_type": None,
-                "source_constraint": None
+                "discovery_method": discovery_method,
+                "target_source_type": self._get_target_source_type(rel),
+                "source_constraint": self._get_source_constraint(rel),
             }
 
-        # 单列定义约束（既有约束又是逻辑键）
-        if inference_method == "single_defined_constraint_and_logical_pk":
-            source_constraint = self._get_source_constraint(rel)
-            target_type = self._get_target_source_type(rel)
+        if inference_method == "llm_inferred":
             return {
-                "discovery_method": "active_search",
-                "target_source_type": target_type,
-                "source_constraint": source_constraint
-            }
-
-        # 单列定义约束（只有约束，非逻辑键）
-        if inference_method == "single_defined_constraint":
-            source_constraint = self._get_source_constraint(rel)
-            target_type = self._get_target_source_type(rel)
-            return {
-                "discovery_method": "active_search",
-                "target_source_type": target_type,
-                "source_constraint": source_constraint
-            }
-
-        # 单列主动搜索（保留用于向后兼容）
-        if inference_method == "single_active_search":
-            # 检查源列的实际约束类型
-            constraint = self._get_source_constraint(rel)
-            return {
-                "discovery_method": "active_search",
-                "target_source_type": None,
-                "source_constraint": constraint
-            }
-
-        # 单列逻辑主键匹配
-        if inference_method == "single_logical_key":
-            return {
-                "discovery_method": "logical_key_matching",
-                "target_source_type": "candidate_logical_key",
-                "source_constraint": None
-            }
-
-        # 复合键物理约束匹配
-        if inference_method == "composite_physical":
-            return {
-                "discovery_method": "physical_constraint_matching",
-                "target_source_type": "physical_constraints",  # 简化版，实际可能是 primary_key/unique_constraint/index
-                "source_constraint": None
-            }
-
-        # 复合键逻辑主键匹配
-        if inference_method == "composite_logical":
-            return {
-                "discovery_method": "logical_key_matching",
-                "target_source_type": "candidate_logical_key",
-                "source_constraint": None
-            }
-
-        # 复合键动态同名匹配
-        if inference_method == "composite_dynamic_same_name":
-            return {
-                "discovery_method": "dynamic_same_name",
-                "target_source_type": "candidate_logical_key",
-                "source_constraint": None
-            }
-
-        # LLM 辅助推断
-        if inference_method == "llm_assisted":
-            return {
-                "discovery_method": "llm_assisted",
+                "discovery_method": discovery_method,
                 "target_source_type": "llm_inferred",
-                "source_constraint": None
+                "source_constraint": None,
             }
 
-        # 其他未知类型，使用标准匹配
-        logger.warning(f"未知的 inference_method: {inference_method}，使用 standard_matching")
+        # physical_foreign_key：目前物理 FK 走独立分支（relationship_type ==
+        # "foreign_key"）直接构造输出，不经过本方法；此处保留仅为完整性兜底。
         return {
-            "discovery_method": "standard_matching",
-            "target_source_type": None,
-            "source_constraint": None
+            "discovery_method": discovery_method,
+            "target_source_type": "foreign_key",
+            "source_constraint": None,
         }
 
     def _get_source_constraint(self, rel: Relation) -> Optional[str]:
-        """获取源列的实际约束类型
-        
+        """获取源列的实际约束类型（v3：按表级 physical_constraints / indexes 判定）
+
         Args:
             rel: 关系对象
-            
+
         Returns:
             约束类型字符串，可能的值：
             - "single_field_primary_key": 单列主键
             - "single_field_unique_constraint": 单列唯一约束
-            - "single_field_index": 单列索引
+            - "single_field_index": 单列索引（含唯一/非唯一）
             - None: 没有物理约束（只是数据唯一或逻辑主键）
         """
         if not hasattr(self, 'tables') or not self.tables or not rel.is_single_column:
             return None
-        
-        # 构建源表的完整名称
+
         source_table_key = f"{rel.source_schema}.{rel.source_table}"
         source_table = self.tables.get(source_table_key)
-        
+
         if not source_table:
             logger.debug(f"未找到源表元数据: {source_table_key}")
             return None
-        
-        # 获取源列的 profile
-        column_profiles = source_table.get("column_profiles", {})
+
+        table_profile = source_table.get("table_profile", {})
+        physical = table_profile.get("physical_constraints", {})
         source_column = rel.source_columns[0]
-        col_profile = column_profiles.get(source_column)
-        
-        if not col_profile:
-            logger.debug(f"未找到源列元数据: {source_table_key}.{source_column}")
-            return None
-        
-        # 检查 structure_flags
-        structure_flags = col_profile.get("structure_flags", {})
-        
-        # 按优先级检查约束类型
-        if structure_flags.get("is_primary_key"):
+
+        pk = physical.get("primary_key")
+        if pk and list(pk.get("columns", [])) == [source_column]:
             return "single_field_primary_key"
-        elif structure_flags.get("is_unique_constraint"):
-            return "single_field_unique_constraint"
-        elif structure_flags.get("is_indexed"):
-            return "single_field_index"
-        else:
-            # 没有物理约束（可能只是数据唯一或逻辑主键）
-            return None
+
+        for uk in physical.get("unique_constraints", []):
+            if list(uk.get("columns", [])) == [source_column]:
+                return "single_field_unique_constraint"
+
+        for index in table_profile.get("indexes", []) or []:
+            if list(index.get("columns", [])) == [source_column]:
+                return "single_field_index"
+
+        # 没有物理约束（可能只是数据唯一或逻辑主键）
+        return None
 
     def _get_target_source_type(self, rel: Relation) -> Optional[str]:
-        """获取目标列的实际来源类型（仅物理约束和逻辑键）
-        
+        """获取目标列的实际来源类型（v3：按表级 physical_constraints 判定）
+
         Args:
             rel: 关系对象
-            
+
         Returns:
             目标列类型字符串，可能的值：
             - "primary_key": 物理主键
             - "unique_constraint": 物理唯一约束
             - "candidate_logical_key": 逻辑主键（置信度 >= 0.8）
             - None: 无物理约束或逻辑键（可能只是统计唯一）
-            
+
         注意：
-            - 只认物理约束（is_unique_constraint），不认统计唯一（is_unique）
+            - 只认物理约束，不认统计唯一
             - 与 _get_source_constraint() 保持相同的口径
         """
         if not hasattr(self, 'tables') or not self.tables or not rel.is_single_column:
             return None
-        
-        # 构建目标表的完整名称
+
         target_table_key = f"{rel.target_schema}.{rel.target_table}"
         target_table = self.tables.get(target_table_key)
-        
+
         if not target_table:
             logger.debug(f"未找到目标表元数据: {target_table_key}")
             return None
-        
-        # 获取目标列的 profile
-        column_profiles = target_table.get("column_profiles", {})
-        target_column = rel.target_columns[0]
-        col_profile = column_profiles.get(target_column)
-        
-        if not col_profile:
-            logger.debug(f"未找到目标列元数据: {target_table_key}.{target_column}")
-            return None
-        
-        # 检查 structure_flags（按优先级：PK > UK）
-        structure_flags = col_profile.get("structure_flags", {})
-        
-        if structure_flags.get("is_primary_key"):
-            return "primary_key"
-        
-        # 只认物理唯一约束，不认统计唯一（与源侧保持一致）
-        if structure_flags.get("is_unique_constraint"):
-            return "unique_constraint"
-        
-        # 检查是否为逻辑主键
+
         table_profile = target_table.get("table_profile", {})
+        physical = table_profile.get("physical_constraints", {})
+        target_column = rel.target_columns[0]
+
+        pk = physical.get("primary_key")
+        if pk and list(pk.get("columns", [])) == [target_column]:
+            return "primary_key"
+
+        for uk in physical.get("unique_constraints", []):
+            if list(uk.get("columns", [])) == [target_column]:
+                return "unique_constraint"
+
+        # 检查是否为逻辑主键
         unique_column_sets = table_profile.get("unique_column_sets", [])
-        
+
         for lk in unique_column_sets:
             lk_cols = lk.get("columns", [])
             lk_conf = lk.get("confidence_score", 0)
-            
+
             # 单列逻辑主键且置信度 >= 0.8
-            if (len(lk_cols) == 1 and 
-                lk_cols[0] == target_column and 
+            if (len(lk_cols) == 1 and
+                lk_cols[0] == target_column and
                 lk_conf >= 0.8):
                 return "candidate_logical_key"
-        
+
         return None
 
     def _calculate_statistics_v32(
@@ -532,16 +481,23 @@ class RelationshipWriter:
             relations: List[Relation],
             suppressed: List[Dict[str, Any]]
     ) -> Dict[str, int]:
-        """计算统计数据（v3.2口径）
+        """计算统计数据（v3 统一改造口径，见 doc 15 §3.8）
 
-        按照开发指南 2.10 节要求，统计字段包括：
+        统计字段包括：
         - total_relationships_found: 总关系数
-        - foreign_key_relationships: 外键直通关系数
+        - foreign_key_relationships: 外键直通关系数（物理FK）
         - composite_key_relationships: 复合键关系数
         - single_column_relationships: 单列关系数
         - total_suppressed_single_relations: 被抑制的单列关系数
-        - active_search_discoveries: 主动搜索发现数
-        - dynamic_composite_discoveries: 动态同名复合键发现数
+        - rule_only_relationships: 仅规则发现（candidate_origin == "rule"）
+        - llm_only_relationships: 仅LLM发现（candidate_origin == "llm"）
+        - rule_llm_overlap_relationships: 规则与LLM重叠确认
+          （candidate_origin == "rule+llm"）
+
+        旧口径 `active_search_discoveries` / `dynamic_composite_discoveries`
+        依赖已删除的 candidate_type 值（single_active_search /
+        composite_dynamic_same_name），v3 新分类体系下恒为 0，已按 doc 15 §3.8
+        的"来源分档"要求替换为上述三个字段（P7 勘误，见 doc 15 §3.8）。
 
         Args:
             relations: 关系列表
@@ -565,17 +521,12 @@ class RelationshipWriter:
             if len(s.get("source_columns", [])) == 1
         ])
 
-        # active_search 发现数
-        active_search_count = len([
-            r for r in relations
-            if r.inference_method and "active_search" in r.inference_method
-        ])
-
-        # dynamic_composite 发现数
-        dynamic_composite_count = len([
-            r for r in relations
-            if r.inference_method and "dynamic_same_name" in r.inference_method and r.is_composite
-        ])
+        # 来源分档统计（doc 15 §3.8：物理FK / 仅规则 / 仅LLM / 重叠）
+        # 物理FK 已由 foreign_key_count 覆盖（relationship_type 判断，不依赖
+        # candidate_origin）；此处只统计推断关系的三种来源分档。
+        rule_only_count = len([r for r in relations if r.candidate_origin == "rule"])
+        llm_only_count = len([r for r in relations if r.candidate_origin == "llm"])
+        overlap_count = len([r for r in relations if r.candidate_origin == "rule+llm"])
 
         return {
             "total_relationships_found": total,
@@ -583,8 +534,9 @@ class RelationshipWriter:
             "composite_key_relationships": composite_count,
             "single_column_relationships": single_count,
             "total_suppressed_single_relations": suppressed_single_count,
-            "active_search_discoveries": active_search_count,
-            "dynamic_composite_discoveries": dynamic_composite_count,
+            "rule_only_relationships": rule_only_count,
+            "llm_only_relationships": llm_only_count,
+            "rule_llm_overlap_relationships": overlap_count,
             "json_files_loaded": len(self.tables),
         }
 

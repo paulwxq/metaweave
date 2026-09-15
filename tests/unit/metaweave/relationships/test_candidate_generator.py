@@ -1,662 +1,652 @@
-"""测试CandidateGenerator模块"""
+"""测试 CandidateGenerator（doc 15 统一改造版）
+
+覆盖 docs/update/15_rel与rel_llm候选生成统一改造设计.md §8.1~§8.4 的核心用例：
+- 源侧键集统一收集（单列/复合、物理/逻辑）
+- 目标列池构建（metric/complex 剔除）
+- 递进闸门（名称 embedding OR 注释 embedding，短路语义）
+- 集合指派（非贪心，假阴性回归）
+- 合并去重（池内统一去重、最小键过滤、来源合并、FK 排除）
+- LLM 候选入池（合法性过滤 + top-K 截断）
+"""
 
 import pytest
+
 from metaweave.core.relationships.candidate_generator import CandidateGenerator
 
 
-@pytest.fixture
-def complete_config():
-    """完整的候选生成器配置（基于 metadata_config.yaml）"""
-    return {
-        "single_column": {
-            "important_constraints": [
-                "single_field_primary_key",
-                "single_field_unique_constraint",
-                "single_field_index"
-            ],
-            "exclude_semantic_roles": [
-                "audit",
-                "metric",
-                "description"
-            ],
-            "logical_key_min_confidence": 0.8,
-            "min_type_compatibility": 0.8,
-            "name_similarity_important_target": 0.6,
-            "name_similarity_normal_target": 0.9
-        },
-        "composite": {
+class FakeNameSimilarityService:
+    """可控的名称/注释相似度服务替身，用于确定性测试闸门逻辑"""
+
+    def __init__(self, name_sim=None, comment_sim=None):
+        # {(a_lower, b_lower): score}
+        self.name_sim = name_sim or {}
+        # {(a, b): score or None}
+        self.comment_sim = comment_sim or {}
+        self.name_calls = []
+
+    def compare_pair(self, a: str, b: str) -> float:
+        self.name_calls.append((a, b))
+        an, bn = a.strip().lower(), b.strip().lower()
+        if an == bn:
+            return 1.0
+        return self.name_sim.get((an, bn), 0.0)
+
+    def compare_columns(self, source_cols, target_cols):
+        if len(source_cols) != len(target_cols):
+            return 0.0
+        return sum(self.compare_pair(a, b) for a, b in zip(source_cols, target_cols)) / len(source_cols)
+
+    def compare_comment_pair(self, a, b):
+        if a is None or b is None:
+            return None
+        return self.comment_sim.get((a, b))
+
+
+def _candidate_matching_config(**overrides):
+    cfg = {
+        "candidate_matching": {
             "max_columns": 3,
-            "target_sources": [],
-            "min_type_compatibility": 0.8,
+            "name_threshold": 0.9,
+            "comment_threshold": 0.85,
+            "type_threshold": 0.8,
             "logical_key_min_confidence": 0.8,
-            "name_similarity_important_target": 0.6,
-            "exclude_semantic_roles": [
-                "metric",
-                "description",
-                "attribute"
-            ]
+            "exclude_target_semantic_roles": ["metric"],
+            "exclude_target_complex_types": True,
         }
+    }
+    cfg["candidate_matching"].update(overrides)
+    return cfg
+
+
+def _table(schema, table, columns, table_profile=None):
+    return {
+        "table_info": {"schema_name": schema, "table_name": table},
+        "column_profiles": columns,
+        "table_profile": table_profile or {},
     }
 
 
-class TestCandidateGenerator:
-    """CandidateGenerator单元测试"""
+class TestSourceKeySetCollection:
+    """§8.1：源侧统一收集测试"""
 
-    def test_composite_key_generation_physical(self, complete_config):
-        """测试从物理约束生成复合键候选"""
-        # 使用完整配置并覆盖特定字段
-        config = complete_config.copy()
-        config["composite"]["target_sources"] = ["physical_constraints"]
-
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 创建测试表数据（包含table_profile）
-        tables = {
-            "public.fact_sales": {
-                "table_info": {"schema_name": "public", "table_name": "fact_sales"},
-                "column_profiles": {
-                    "store_id": {"data_type": "integer"},
-                    "date_day": {"data_type": "date"}
-                },
-                "table_profile": {
-                    "physical_constraints": {
-                        "indexes": [
-                            {
-                                "columns": ["store_id", "date_day"],
-                                "is_unique": True
-                            }
-                        ]
-                    }
+    def test_single_column_physical_pk_enters_source_key_sets(self):
+        generator = CandidateGenerator(_candidate_matching_config())
+        table = _table(
+            "public", "dim_store", {"store_id": {"data_type": "integer"}},
+            table_profile={
+                "physical_constraints": {
+                    "primary_key": {"columns": ["store_id"]},
+                    "unique_constraints": [],
                 }
             },
-            "public.dim_store": {
-                "table_info": {"schema_name": "public", "table_name": "dim_store"},
-                "column_profiles": {
-                    "store_id": {"data_type": "integer"},
-                    "date_day": {"data_type": "date"}
-                },
-                "table_profile": {
-                    "physical_constraints": {
-                        "primary_key": {
-                            "columns": ["store_id", "date_day"]
-                        }
-                    }
+        )
+        key_sets = generator._collect_source_key_sets(table)
+        assert {"columns": ["store_id"], "origin": "physical"} in key_sets
+
+    def test_single_column_unique_constraint_enters_source_key_sets(self):
+        generator = CandidateGenerator(_candidate_matching_config())
+        table = _table(
+            "public", "dim_store", {"store_code": {"data_type": "varchar"}},
+            table_profile={
+                "physical_constraints": {
+                    "primary_key": None,
+                    "unique_constraints": [{"columns": ["store_code"]}],
                 }
-            }
-        }
-
-        candidates = generator._generate_composite_candidates(tables)
-
-        # 应该生成复合键候选
-        assert len(candidates) > 0
-        composite_candidates = [c for c in candidates if len(c["source_columns"]) > 1]
-        assert len(composite_candidates) > 0
-
-    def test_single_column_active_search(self, complete_config):
-        """测试主动同名搜索"""
-        config = complete_config.copy()
-        # 测试特定设置：启用主动同名搜索
-        # (注: active_search_same_name 在当前实现中可能已移除)
-
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 创建测试表数据
-        tables = {
-            "public.fact_sales": {
-                "table_info": {"schema_name": "public", "table_name": "fact_sales"},
-                "column_profiles": {
-                    "store_id": {
-                        "data_type": "integer",
-                        "structure_flags": {
-                            "is_primary_key": False,
-                            "is_unique": False,
-                            "is_indexed": True
-                        }
-                    }
-                },
-                "table_profile": {}
             },
-            "public.dim_store": {
-                "table_info": {"schema_name": "public", "table_name": "dim_store"},
-                "column_profiles": {
-                    "store_id": {
-                        "data_type": "integer",
-                        "structure_flags": {
-                            "is_primary_key": True,
-                            "is_unique": True,
-                            "is_indexed": True
-                        }
+        )
+        key_sets = generator._collect_source_key_sets(table)
+        assert {"columns": ["store_code"], "origin": "physical"} in key_sets
+
+    def test_single_column_logical_key_enters_source_key_sets(self):
+        generator = CandidateGenerator(_candidate_matching_config())
+        table = _table(
+            "public", "dim_store", {"external_code": {"data_type": "varchar"}},
+            table_profile={
+                "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                "unique_column_sets": [
+                    {"columns": ["external_code"], "confidence_score": 0.9}
+                ],
+            },
+        )
+        key_sets = generator._collect_source_key_sets(table)
+        assert {"columns": ["external_code"], "origin": "logical"} in key_sets
+
+    def test_logical_key_below_min_confidence_excluded(self):
+        generator = CandidateGenerator(_candidate_matching_config())
+        table = _table(
+            "public", "dim_store", {"maybe_code": {"data_type": "varchar"}},
+            table_profile={
+                "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                "unique_column_sets": [
+                    {"columns": ["maybe_code"], "confidence_score": 0.5}
+                ],
+            },
+        )
+        key_sets = generator._collect_source_key_sets(table)
+        assert key_sets == []
+
+    def test_composite_physical_key_and_single_key_share_same_matcher(self):
+        """N 列复合键与单列键走同一收集器，不再分流"""
+        generator = CandidateGenerator(_candidate_matching_config())
+        table = _table(
+            "public", "fact_sales",
+            {"store_id": {"data_type": "integer"}, "date_day": {"data_type": "date"}},
+            table_profile={
+                "physical_constraints": {
+                    "primary_key": {"columns": ["store_id", "date_day"]},
+                    "unique_constraints": [],
+                }
+            },
+        )
+        key_sets = generator._collect_source_key_sets(table)
+        assert {"columns": ["store_id", "date_day"], "origin": "physical"} in key_sets
+
+    def test_key_set_wider_than_max_columns_excluded(self):
+        generator = CandidateGenerator(_candidate_matching_config(max_columns=3))
+        table = _table(
+            "public", "fact_sales",
+            {c: {"data_type": "integer"} for c in ["a", "b", "c", "d"]},
+            table_profile={
+                "physical_constraints": {
+                    "primary_key": {"columns": ["a", "b", "c", "d"]},
+                    "unique_constraints": [],
+                }
+            },
+        )
+        key_sets = generator._collect_source_key_sets(table)
+        assert key_sets == []
+
+    def test_reversed_order_pk_and_uk_are_not_merged(self):
+        """PK(a,b) 与 UK(b,a) 列顺序不同，属于两个独立声明键，不应被去重合并
+        （doc 15 §3.8：列对应顺序是身份的一部分）"""
+        generator = CandidateGenerator(_candidate_matching_config())
+        table = _table(
+            "public", "fact_sales",
+            {"a": {"data_type": "integer"}, "b": {"data_type": "integer"}},
+            table_profile={
+                "physical_constraints": {
+                    "primary_key": {"columns": ["a", "b"]},
+                    "unique_constraints": [{"columns": ["b", "a"]}],
+                }
+            },
+        )
+        key_sets = generator._collect_source_key_sets(table)
+        assert {"columns": ["a", "b"], "origin": "physical"} in key_sets
+        assert {"columns": ["b", "a"], "origin": "physical"} in key_sets
+        assert len(key_sets) == 2
+
+    def test_same_order_duplicate_declaration_still_deduped(self):
+        """同一列顺序重复声明（如相同列的 PK 与冗余 UK）仍应去重为一个键集"""
+        generator = CandidateGenerator(_candidate_matching_config())
+        table = _table(
+            "public", "fact_sales",
+            {"a": {"data_type": "integer"}, "b": {"data_type": "integer"}},
+            table_profile={
+                "physical_constraints": {
+                    "primary_key": {"columns": ["a", "b"]},
+                    "unique_constraints": [{"columns": ["a", "b"]}],
+                }
+            },
+        )
+        key_sets = generator._collect_source_key_sets(table)
+        assert key_sets == [{"columns": ["a", "b"], "origin": "physical"}]
+
+
+class TestTargetColumnPool:
+    """§3.3：目标列池构建（角色过滤前置）"""
+
+    def test_metric_role_excluded_from_pool(self):
+        generator = CandidateGenerator(_candidate_matching_config())
+        table = _table("public", "fact_sales", {
+            "amount": {"data_type": "numeric", "semantic_analysis": {"semantic_role": "metric"}},
+            "store_id": {"data_type": "integer", "semantic_analysis": {"semantic_role": "identifier"}},
+        })
+        pool = generator._build_target_column_pool(table)
+        assert "amount" not in pool
+        assert "store_id" in pool
+
+    def test_complex_type_excluded_from_pool(self):
+        generator = CandidateGenerator(_candidate_matching_config())
+        table = _table("public", "fact_sales", {
+            "payload": {"data_type": "jsonb"},
+            "store_id": {"data_type": "integer"},
+        })
+        pool = generator._build_target_column_pool(table)
+        assert "payload" not in pool
+        assert "store_id" in pool
+
+    def test_pk_uk_index_audit_description_all_treated_equally(self):
+        """目标侧不再对 PK/UK/索引/audit/description 做特权处理，只剔除 metric/complex"""
+        generator = CandidateGenerator(_candidate_matching_config())
+        table = _table("public", "dim_store", {
+            "store_id": {"data_type": "integer"},  # 假设的物理 PK，不特殊处理
+            "created_at": {"data_type": "timestamp", "semantic_analysis": {"semantic_role": "audit"}},
+            "description": {"data_type": "text", "semantic_analysis": {"semantic_role": "description"}},
+        })
+        pool = generator._build_target_column_pool(table)
+        assert set(pool) == {"store_id", "created_at", "description"}
+
+
+class TestProgressiveGate:
+    """§8.2：闸门组合测试"""
+
+    def test_same_name_case_insensitive_short_circuits_without_api(self):
+        fake = FakeNameSimilarityService()
+        generator = CandidateGenerator(_candidate_matching_config(), fake)
+        assert generator._passes_gate("Store_ID", None, "store_id", None) is True
+        # 同名短路：compare_pair 内部按 normalize 后判等，不查表就是 1.0，无需 mock 断言调用次数
+        assert fake.name_sim == {}
+
+    def test_low_name_high_comment_passes(self):
+        fake = FakeNameSimilarityService(
+            name_sim={("region_id", "area_id"): 0.5},
+            comment_sim={("区域编号", "所属地区编号"): 0.9},
+        )
+        generator = CandidateGenerator(_candidate_matching_config(), fake)
+        assert generator._passes_gate("region_id", "区域编号", "area_id", "所属地区编号") is True
+
+    def test_low_name_empty_comment_rejected(self):
+        fake = FakeNameSimilarityService(name_sim={("region_id", "area_id"): 0.5})
+        generator = CandidateGenerator(_candidate_matching_config(), fake)
+        assert generator._passes_gate("region_id", None, "area_id", None) is False
+
+    def test_low_name_generic_comment_rejected(self):
+        """通用注释黑名单命中 → comment_channel.compare 返回 None（由服务自身黑名单逻辑负责，
+        此处用 FakeNameSimilarityService 模拟"注释不可用"的返回值 None）"""
+        fake = FakeNameSimilarityService(
+            name_sim={("id", "id2"): 0.3},
+            comment_sim={},  # 黑名单词不在字典中 -> compare_comment_pair 返回 None
+        )
+        generator = CandidateGenerator(_candidate_matching_config(), fake)
+        assert generator._passes_gate("id", "编号", "id2", "编号") is False
+
+    def test_gate_passed_but_type_incompatible_rejected(self):
+        fake = FakeNameSimilarityService()
+        generator = CandidateGenerator(_candidate_matching_config())
+        source_profile = {"data_type": "integer", "comment": None}
+        target_profiles = {"amount": {"data_type": "text", "comment": None}}
+        qualifying = generator._qualifying_targets(
+            "amount", source_profile, ["amount"], target_profiles
+        )
+        assert qualifying == set()
+
+    def test_degraded_mode_without_service_falls_back_to_exact_name(self):
+        """无 embedding 环境降级语义：名称闸退化为同名短路"""
+        generator = CandidateGenerator(_candidate_matching_config(), name_similarity_service=None)
+        assert generator._passes_gate("store_id", None, "store_id", None) is True
+        assert generator._passes_gate("store_id", None, "other_id", None) is False
+
+
+class TestSetAssignment:
+    """§8.3：集合指派测试（假阴性回归）"""
+
+    def test_non_greedy_assignment_finds_valid_permutation(self):
+        """col1 候选 {X, Y}，col2 候选 {X}：必须找到 col1->Y, col2->X"""
+        qualifying_sets = [{"X", "Y"}, {"X"}]
+        assignments = CandidateGenerator._find_all_assignments(qualifying_sets)
+        assert ["Y", "X"] in assignments
+
+    def test_empty_candidate_set_aborts_combination(self):
+        qualifying_sets = [{"X"}, set()]
+        assignments = CandidateGenerator._find_all_assignments(qualifying_sets)
+        assert assignments == []
+
+    def test_no_duplicate_target_column_in_assignment(self):
+        qualifying_sets = [{"X", "Y"}, {"X", "Y"}]
+        assignments = CandidateGenerator._find_all_assignments(qualifying_sets)
+        for assignment in assignments:
+            assert len(set(assignment)) == len(assignment)
+
+    def test_ascending_pruning_preserves_result_set_and_original_column_order(self):
+        """doc 15 §3.6 末段：源列按候选集大小升序回溯是纯性能优化，
+        结果集合（含每个 assignment 内的原始源列顺序）必须与未优化前完全一致。
+        构造候选集大小差异明显的 3 列键（大候选集在前，小候选集在后），
+        验证排序+还原逻辑不会打乱 assignment 与原始源列的对应关系。
+        """
+        # 源列顺序：col0(大候选集) -> col1(中候选集) -> col2(小候选集，仅1个候选)
+        qualifying_sets = [
+            {"A", "B", "C"},  # col0：大候选集，排序后应最后处理
+            {"A", "B"},       # col1：中候选集
+            {"C"},            # col2：小候选集，排序后应最先处理
+        ]
+        assignments = CandidateGenerator._find_all_assignments(qualifying_sets)
+
+        # 手工枚举期望结果（保持 col0/col1/col2 的原始位置语义）：
+        # col2 只能取 C；剩下 col0/col1 从 {A, B} 中互不重复地各取一个
+        expected = [["A", "B", "C"], ["B", "A", "C"]]
+        assert sorted(assignments) == sorted(expected)
+
+        # 每个 assignment 的第 2 位（col2）必须始终是 "C"，证明还原未错位
+        for assignment in assignments:
+            assert assignment[2] == "C"
+
+    def test_assignment_count_debug_log_reports_scale(self, caplog):
+        """doc 15 §3.6 建议：debug 日志报告单键集的指派数，便于观察实际规模"""
+        import logging as logging_module
+
+        qualifying_sets = [{"X", "Y"}, {"X", "Y"}]
+        with caplog.at_level(logging_module.DEBUG, logger="metaweave.relationships.candidate_generator"):
+            assignments = CandidateGenerator._find_all_assignments(qualifying_sets)
+
+        assert any("指派数" in record.message for record in caplog.records)
+        assert any(str(len(assignments)) in record.message for record in caplog.records)
+
+
+class TestGenerateCandidatesRulePath:
+    """规则候选生成主流程（单列 + 复合共用同一管线）"""
+
+    def test_single_column_physical_key_candidate_generated(self):
+        fake = FakeNameSimilarityService()
+        generator = CandidateGenerator(_candidate_matching_config(), fake)
+
+        tables = {
+            "public.fact_sales": _table(
+                "public", "fact_sales", {"store_id": {"data_type": "integer"}},
+                table_profile={
+                    "physical_constraints": {
+                        "primary_key": {"columns": ["store_id"]},
+                        "unique_constraints": [],
                     }
                 },
-                "table_profile": {}
-            }
+            ),
+            "public.dim_store": _table(
+                "public", "dim_store", {"store_id": {"data_type": "integer"}}
+            ),
         }
-
-        candidates = generator._generate_single_column_candidates(tables)
-
-        # 应该找到同名列的候选
-        assert len(candidates) > 0
-        store_id_candidates = [
+        candidates = generator.generate_candidates(
+            tables, [("public.fact_sales", "public.dim_store")], set()
+        )
+        matches = [
             c for c in candidates
             if c["source_columns"] == ["store_id"] and c["target_columns"] == ["store_id"]
+            and c["candidate_origin"] == "rule" and c["key_origin"] == "physical"
         ]
-        assert len(store_id_candidates) > 0
+        assert len(matches) == 1
 
-    def test_fk_signature_deduplication(self, complete_config):
-        """测试FK签名去重"""
-        config = complete_config.copy()
-
-        # FK签名集合包含已存在的关系
-        fk_sigs = {"public.fact_sales.[store_id]->public.dim_store.[store_id]"}
-        generator = CandidateGenerator(config, fk_sigs)
+    def test_composite_key_candidate_generated(self):
+        fake = FakeNameSimilarityService()
+        generator = CandidateGenerator(_candidate_matching_config(), fake)
 
         tables = {
-            "public.fact_sales": {
-                "table_info": {"schema_name": "public", "table_name": "fact_sales"},
-                "column_profiles": {
-                    "store_id": {
-                        "data_type": "integer",
-                        "structure_flags": {"is_indexed": True, "is_primary_key": True}
+            "public.fact_sales": _table(
+                "public", "fact_sales",
+                {"store_id": {"data_type": "integer"}, "date_day": {"data_type": "date"}},
+                table_profile={
+                    "physical_constraints": {
+                        "primary_key": {"columns": ["store_id", "date_day"]},
+                        "unique_constraints": [],
                     }
                 },
-                "table_profile": {}
-            },
-            "public.dim_store": {
-                "table_info": {"schema_name": "public", "table_name": "dim_store"},
-                "column_profiles": {
-                    "store_id": {
-                        "data_type": "integer",
-                        "structure_flags": {"is_primary_key": True}
-                    }
-                },
-                "table_profile": {}
-            }
+            ),
+            "public.dim_store_calendar": _table(
+                "public", "dim_store_calendar",
+                {"store_id": {"data_type": "integer"}, "date_day": {"data_type": "date"}},
+            ),
         }
+        candidates = generator.generate_candidates(
+            tables, [("public.fact_sales", "public.dim_store_calendar")], set()
+        )
+        composite = [c for c in candidates if len(c["source_columns"]) == 2]
+        assert len(composite) == 1
+        assert set(composite[0]["source_columns"]) == {"store_id", "date_day"}
 
-        candidates = generator._generate_single_column_candidates(tables)
-
-        # 已存在的FK关系不应该生成候选
-        source_info_candidates = [
-            c for c in candidates
-            if c["source"].get("table_info", {}).get("table_name") == "fact_sales"
-            and c["target"].get("table_info", {}).get("table_name") == "dim_store"
-            and c["source_columns"] == ["store_id"]
-        ]
-        assert len(source_info_candidates) == 0
-
-    def test_semantic_role_exclusion(self, complete_config):
-        """测试语义角色排除"""
-        config = complete_config.copy()
-        # exclude_semantic_roles 已在 complete_config 中包含 "audit"
-
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
+    def test_target_metric_column_never_becomes_candidate(self):
+        fake = FakeNameSimilarityService()
+        generator = CandidateGenerator(_candidate_matching_config(), fake)
 
         tables = {
-            "public.fact_sales": {
-                "table_info": {"schema_name": "public", "table_name": "fact_sales"},
-                "column_profiles": {
-                    "created_at": {
-                        "data_type": "timestamp",
-                        "semantic_analysis": {"semantic_role": "audit"},
-                        "structure_flags": {"is_indexed": False}
+            "public.fact_sales": _table(
+                "public", "fact_sales", {"amount": {"data_type": "numeric"}},
+                table_profile={
+                    "physical_constraints": {
+                        "primary_key": {"columns": ["amount"]},
+                        "unique_constraints": [],
                     }
                 },
-                "table_profile": {}
-            },
-            "public.dim_store": {
-                "table_info": {"schema_name": "public", "table_name": "dim_store"},
-                "column_profiles": {
-                    "created_at": {
-                        "data_type": "timestamp",
-                        "semantic_analysis": {"semantic_role": "audit"},
-                        "structure_flags": {"is_indexed": False}
-                    }
-                },
-                "table_profile": {}
-            }
+            ),
+            "public.dim_amount": _table(
+                "public", "dim_amount",
+                {"amount": {"data_type": "numeric", "semantic_analysis": {"semantic_role": "metric"}}},
+            ),
         }
+        candidates = generator.generate_candidates(
+            tables, [("public.fact_sales", "public.dim_amount")], set()
+        )
+        assert candidates == []
 
-        candidates = generator._generate_single_column_candidates(tables)
 
-        # audit角色的字段应该被排除
-        created_at_candidates = [
-            c for c in candidates
-            if c["source_columns"] == ["created_at"]
+class TestMergeDedupAndFKExclusion:
+    """§8.4：合并去重测试"""
+
+    def _two_table_setup(self):
+        fake = FakeNameSimilarityService()
+        generator = CandidateGenerator(_candidate_matching_config(), fake)
+        tables = {
+            "public.fact_sales": _table(
+                "public", "fact_sales", {"store_id": {"data_type": "integer"}},
+                table_profile={
+                    "physical_constraints": {
+                        "primary_key": {"columns": ["store_id"]},
+                        "unique_constraints": [],
+                    }
+                },
+            ),
+            "public.dim_store": _table(
+                "public", "dim_store", {"store_id": {"data_type": "integer"}}
+            ),
+        }
+        return generator, tables
+
+    def test_candidate_matching_existing_fk_excluded(self):
+        from metaweave.core.relationships.repository import MetadataRepository
+
+        generator, tables = self._two_table_setup()
+        fk_id = MetadataRepository.compute_relationship_id(
+            "public", "fact_sales", ["store_id"],
+            "public", "dim_store", ["store_id"],
+            rel_id_salt="",
+        )
+        candidates = generator.generate_candidates(
+            tables, [("public.fact_sales", "public.dim_store")], {fk_id}
+        )
+        assert candidates == []
+
+    def test_llm_candidate_merges_with_rule_candidate_as_rule_plus_llm(self):
+        generator, tables = self._two_table_setup()
+        llm_raw = [{
+            "type": "single_column",
+            "from_table": {"schema": "public", "table": "fact_sales"},
+            "from_column": "store_id",
+            "to_table": {"schema": "public", "table": "dim_store"},
+            "to_column": "store_id",
+            "confidence": 0.7,
+        }]
+        candidates = generator.generate_candidates(
+            tables, [("public.fact_sales", "public.dim_store")], set(),
+            llm_raw_candidates=llm_raw,
+        )
+        assert len(candidates) == 1
+        assert candidates[0]["candidate_origin"] == "rule+llm"
+
+    def test_llm_only_candidate_kept_with_llm_origin(self):
+        fake = FakeNameSimilarityService()
+        generator = CandidateGenerator(_candidate_matching_config(), fake)
+        tables = {
+            "public.orders": _table("public", "orders", {"region_code": {"data_type": "varchar"}}),
+            "public.regions": _table("public", "regions", {"area_code": {"data_type": "varchar"}}),
+        }
+        llm_raw = [{
+            "type": "single_column",
+            "from_table": {"schema": "public", "table": "orders"},
+            "from_column": "region_code",
+            "to_table": {"schema": "public", "table": "regions"},
+            "to_column": "area_code",
+            "confidence": 0.8,
+        }]
+        candidates = generator.generate_candidates(
+            tables, [("public.orders", "public.regions")], set(),
+            llm_raw_candidates=llm_raw,
+        )
+        assert len(candidates) == 1
+        assert candidates[0]["candidate_origin"] == "llm"
+
+    def test_llm_candidate_targeting_metric_column_dropped(self):
+        generator, tables = self._two_table_setup()
+        tables["public.dim_store"]["column_profiles"]["store_id"]["semantic_analysis"] = {
+            "semantic_role": "metric"
+        }
+        llm_raw = [{
+            "type": "single_column",
+            "from_table": {"schema": "public", "table": "fact_sales"},
+            "from_column": "store_id",
+            "to_table": {"schema": "public", "table": "dim_store"},
+            "to_column": "store_id",
+            "confidence": 0.9,
+        }]
+        candidates = generator.generate_candidates(
+            tables, [("public.fact_sales", "public.dim_store")], set(),
+            llm_raw_candidates=llm_raw,
+        )
+        assert candidates == []
+
+    def test_llm_candidate_with_ghost_source_column_dropped(self):
+        """LLM 编造的源列不在源表 column_profiles 中时，入池前丢弃，避免评分阶段对幽灵列发 SQL"""
+        generator, tables = self._two_table_setup()
+        llm_raw = [{
+            "type": "single_column",
+            "from_table": {"schema": "public", "table": "fact_sales"},
+            "from_column": "not_a_real_column",
+            "to_table": {"schema": "public", "table": "dim_store"},
+            "to_column": "store_id",
+            "confidence": 0.9,
+        }]
+        candidates = generator.generate_candidates(
+            tables, [("public.fact_sales", "public.dim_store")], set(),
+            llm_raw_candidates=llm_raw,
+        )
+        # 规则路径仍可能产出 store_id→store_id；幽灵 LLM 候选不得入池
+        for c in candidates:
+            assert "not_a_real_column" not in c["source_columns"]
+
+    def test_llm_candidates_truncated_by_top_k_confidence_desc(self):
+        """LLM 候选按 confidence 降序全局截断，只保留前 top_k 个"""
+        fake = FakeNameSimilarityService()
+        generator = CandidateGenerator(_candidate_matching_config(), fake)
+        tables = {
+            "public.orders": _table(
+                "public", "orders",
+                {"region_code": {"data_type": "varchar"}, "cust_code": {"data_type": "varchar"}},
+            ),
+            "public.regions": _table(
+                "public", "regions",
+                {"area_code": {"data_type": "varchar"}, "code": {"data_type": "varchar"}},
+            ),
+        }
+        llm_raw = [
+            {
+                "type": "single_column",
+                "from_table": {"schema": "public", "table": "orders"},
+                "from_column": "region_code",
+                "to_table": {"schema": "public", "table": "regions"},
+                "to_column": "area_code",
+                "confidence": 0.3,
+            },
+            {
+                "type": "single_column",
+                "from_table": {"schema": "public", "table": "orders"},
+                "from_column": "cust_code",
+                "to_table": {"schema": "public", "table": "regions"},
+                "to_column": "code",
+                "confidence": 0.9,
+            },
         ]
-        assert len(created_at_candidates) == 0
-
-    @pytest.mark.skip(reason="方法 _has_important_constraint 已被重构或移除")
-    def test_has_important_constraint(self, complete_config):
-        """测试重要约束检测"""
-        config = complete_config.copy()
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 有主键约束的列
-        col_profile_pk = {
-            "structure_flags": {
-                "is_primary_key": True,
-                "is_unique": False,
-                "is_indexed": False
-            }
-        }
-        assert generator._has_important_constraint(col_profile_pk) is True
-
-        # 有索引约束的列
-        col_profile_idx = {
-            "structure_flags": {
-                "is_primary_key": False,
-                "is_unique": False,
-                "is_indexed": True
-            }
-        }
-        assert generator._has_important_constraint(col_profile_idx) is True
-
-        # 没有约束的列
-        col_profile_none = {
-            "structure_flags": {
-                "is_primary_key": False,
-                "is_unique": False,
-                "is_indexed": False
-            }
-        }
-        assert generator._has_important_constraint(col_profile_none) is False
-
-    def test_dynamic_same_name_case_insensitive(self, complete_config):
-        """测试动态同名匹配的大小写不敏感"""
-        config = complete_config.copy()
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 源表：大写列名
-        source_table = {
-            "table_info": {"schema_name": "public", "table_name": "fact_sales"},
-            "column_profiles": {
-                "Store_ID": {"data_type": "integer"},
-                "Date_Day": {"data_type": "date"}
-            },
-            "table_profile": {}
-        }
-
-        # 目标表：小写列名
-        target_table = {
-            "table_info": {"schema_name": "public", "table_name": "fact_summary"},
-            "column_profiles": {
-                "store_id": {"data_type": "integer"},
-                "date_day": {"data_type": "date"}
-            },
-            "table_profile": {}
-        }
-
-        # 调用动态同名匹配
-        matched = generator._find_dynamic_same_name(
-            ["Store_ID", "Date_Day"], source_table, target_table
+        candidates = generator.generate_candidates(
+            tables, [("public.orders", "public.regions")], set(),
+            llm_raw_candidates=llm_raw, llm_top_k=1,
         )
+        assert len(candidates) == 1
+        assert candidates[0]["source_columns"] == ["cust_code"]
+        assert candidates[0]["target_columns"] == ["code"]
+        assert candidates[0]["candidate_origin"] == "llm"
 
-        # 应该匹配成功，返回目标表的原始列名（小写）
-        assert matched is not None
-        assert matched == ["store_id", "date_day"]
+    def test_truncate_llm_top_k_rejects_non_positive(self):
+        with pytest.raises(ValueError, match="正整数"):
+            CandidateGenerator._truncate_llm_top_k([{}], 0)
+        with pytest.raises(ValueError, match="正整数"):
+            CandidateGenerator._truncate_llm_top_k([{}], -1)
 
-    def test_dynamic_same_name_type_incompatible(self, complete_config):
-        """测试动态同名匹配的类型不兼容情况"""
-        config = complete_config.copy()
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 源表
-        source_table = {
-            "table_info": {"schema_name": "public", "table_name": "fact_sales"},
-            "column_profiles": {
-                "store_id": {"data_type": "integer"},
-                "date_day": {"data_type": "date"}
-            },
-            "table_profile": {}
-        }
-
-        # 目标表：date_day 类型不兼容（date vs text）
-        target_table = {
-            "table_info": {"schema_name": "public", "table_name": "fact_summary"},
-            "column_profiles": {
-                "store_id": {"data_type": "integer"},
-                "date_day": {"data_type": "text"}  # 类型不兼容
-            },
-            "table_profile": {}
-        }
-
-        # 调用动态同名匹配
-        matched = generator._find_dynamic_same_name(
-            ["store_id", "date_day"], source_table, target_table
-        )
-
-        # 应该因为类型不兼容而返回 None
-        assert matched is None
-
-    def test_dynamic_same_name_missing_column(self, complete_config):
-        """测试动态同名匹配的列缺失情况"""
-        config = complete_config.copy()
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 源表
-        source_table = {
-            "table_info": {"schema_name": "public", "table_name": "fact_sales"},
-            "column_profiles": {
-                "store_id": {"data_type": "integer"},
-                "date_day": {"data_type": "date"},
-                "product_id": {"data_type": "integer"}
-            },
-            "table_profile": {}
-        }
-
-        # 目标表：缺少 product_id 列
-        target_table = {
-            "table_info": {"schema_name": "public", "table_name": "fact_summary"},
-            "column_profiles": {
-                "store_id": {"data_type": "integer"},
-                "date_day": {"data_type": "date"}
-            },
-            "table_profile": {}
-        }
-
-        # 调用动态同名匹配
-        matched = generator._find_dynamic_same_name(
-            ["store_id", "date_day", "product_id"], source_table, target_table
-        )
-
-        # 应该因为缺少列而返回 None
-        assert matched is None
-
-    @pytest.mark.skip(reason="方法 _is_compatible_combination 已被重构或移除")
-    def test_compatible_combination_with_type_check(self, complete_config):
-        """测试物理/逻辑约束匹配的类型兼容性检查"""
-        config = complete_config.copy()
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 源列画像
-        source_profiles = {
-            "store_id": {"data_type": "integer"},
-            "date_day": {"data_type": "date"}
-        }
-
-        # 目标列画像（类型兼容）
-        target_profiles_compatible = {
-            "store_id": {"data_type": "bigint"},  # integer -> bigint 兼容
-            "date_day": {"data_type": "date"}
-        }
-
-        # 目标列画像（类型不兼容）
-        target_profiles_incompatible = {
-            "store_id": {"data_type": "integer"},
-            "date_day": {"data_type": "text"}  # date -> text 不兼容
-        }
-
-        # 测试类型兼容的情况
-        compatible = generator._is_compatible_combination(
-            ["store_id", "date_day"],
-            ["store_id", "date_day"],
-            source_profiles,
-            target_profiles_compatible
-        )
-        assert compatible is True
-
-        # 测试类型不兼容的情况
-        incompatible = generator._is_compatible_combination(
-            ["store_id", "date_day"],
-            ["store_id", "date_day"],
-            source_profiles,
-            target_profiles_incompatible
-        )
-        assert incompatible is False
-
-    @pytest.mark.skip(reason="方法 _is_compatible_combination 已被重构或移除")
-    def test_compatible_combination_name_similarity_threshold(self, complete_config):
-        """测试物理/逻辑约束匹配的名称相似度阈值"""
-        config = complete_config.copy()
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 源列画像
-        source_profiles = {
-            "store_id": {"data_type": "integer"},
-            "product_id": {"data_type": "integer"}
-        }
-
-        # 目标列画像
-        target_profiles = {
-            "store_id": {"data_type": "integer"},
-            "product_id": {"data_type": "integer"}
-        }
-
-        # 测试名称相似度高的情况（完全相同）
-        high_similarity = generator._is_compatible_combination(
-            ["store_id", "product_id"],
-            ["store_id", "product_id"],
-            source_profiles,
-            target_profiles
-        )
-        assert high_similarity is True
-
-        # 测试名称相似度低的情况（完全不同）
-        low_similarity = generator._is_compatible_combination(
-            ["store_id", "product_id"],
-            ["xxx", "yyy"],  # 完全不同的列名
-            source_profiles,
-            target_profiles
-        )
-        assert low_similarity is False
-
-    def test_qualified_target_column_with_primary_key(self, complete_config):
-        """测试目标列约束检查：物理主键"""
-        config = complete_config.copy()
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 目标列：有物理主键
-        col_profile_pk = {
-            "structure_flags": {
-                "is_primary_key": True
-            }
-        }
-        table = {}
-
-        assert generator._is_qualified_target_column("customer_id", col_profile_pk, table) is True
-
-    def test_qualified_target_column_with_unique(self, complete_config):
-        """测试目标列约束检查：唯一约束"""
-        config = complete_config.copy()
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 目标列：有唯一约束
-        col_profile_unique = {
-            "structure_flags": {
-                "is_unique_constraint": True
-            }
-        }
-        table = {}
-
-        assert generator._is_qualified_target_column("email", col_profile_unique, table) is True
-
-    def test_qualified_target_column_with_index(self, complete_config):
-        """测试目标列约束检查：索引"""
-        config = complete_config.copy()
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 目标列：只有索引不能作为目标列（根据当前代码逻辑）
-        col_profile_indexed = {
-            "structure_flags": {
-                "is_indexed": True
-            }
-        }
-        table = {}
-
-        assert generator._is_qualified_target_column("product_id", col_profile_indexed, table) is False
-
-    def test_qualified_target_column_with_logical_key(self, complete_config):
-        """测试目标列约束检查：单列逻辑主键"""
-        config = complete_config.copy()
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 目标列：单列逻辑主键（confidence >= 0.8）
-        col_profile = {
-            "structure_flags": {}
-        }
-        table = {
-            "table_profile": {
-                "unique_column_sets": [
-                    {
-                        "columns": ["order_id"],
-                        "confidence_score": 0.9
-                    }
-                ]
-            }
-        }
-
-        assert generator._is_qualified_target_column("order_id", col_profile, table) is True
-
-    def test_qualified_target_column_identifier_only_rejected(self, complete_config):
-        """测试目标列约束检查：只有identifier角色但无约束应被拒绝"""
-        config = complete_config.copy()
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 目标列：只有identifier角色，但无物理约束或逻辑主键
-        col_profile = {
-            "structure_flags": {
-                "is_primary_key": False,
-                "is_unique": False,
-                "is_indexed": False
-            },
-            "semantic_analysis": {
-                "semantic_role": "identifier"
-            }
-        }
-        table = {
-            "table_profile": {
-                "unique_column_sets": []
-            }
-        }
-
-        # 应该被拒绝（不满足约束条件）
-        assert generator._is_qualified_target_column("customer_name", col_profile, table) is False
-
-    def test_active_search_case_insensitive(self, complete_config):
-        """测试主动搜索支持大小写不敏感"""
-        config = complete_config.copy()
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 源表：Store_ID（大写）有主键约束
-        source_table = {
-            "table_info": {"schema_name": "public", "table_name": "fact_sales"},
-            "column_profiles": {
-                "Store_ID": {
-                    "data_type": "INTEGER",
-                    "structure_flags": {"is_primary_key": True},
-                    "semantic_analysis": {"semantic_role": "identifier"}
-                }
-            }
-        }
-
-        # 目标表：store_id（小写）
-        target_table = {
-            "table_info": {"schema_name": "public", "table_name": "dim_store"},
-            "column_profiles": {
-                "store_id": {
-                    "data_type": "INTEGER",
-                    "structure_flags": {"is_primary_key": True}
-                }
-            }
-        }
+    def test_superkey_composite_dropped_when_single_key_exists(self):
+        """最小键过滤：单列键已成立时，复合 superkey 候选被丢弃"""
+        fake = FakeNameSimilarityService()
+        generator = CandidateGenerator(_candidate_matching_config(), fake)
 
         tables = {
-            "public.fact_sales": source_table,
-            "public.dim_store": target_table
+            "public.fact_sales": _table(
+                "public", "fact_sales",
+                {"id": {"data_type": "integer"}, "tenant_id": {"data_type": "integer"}},
+                table_profile={
+                    "physical_constraints": {
+                        "primary_key": {"columns": ["id"]},
+                        "unique_constraints": [{"columns": ["id", "tenant_id"]}],
+                    }
+                },
+            ),
+            "public.dim_target": _table(
+                "public", "dim_target",
+                {"id": {"data_type": "integer"}, "tenant_id": {"data_type": "integer"}},
+            ),
         }
-
-        candidates = generator._generate_single_column_candidates(tables)
-
-        # 应该匹配成功（大小写不敏感）
-        matching_candidates = [
-            c for c in candidates
-            if c["source_columns"] == ["Store_ID"] and c["target_columns"] == ["store_id"]
-        ]
-        assert len(matching_candidates) == 1
-
-    def test_name_similarity_case_insensitive(self, complete_config):
-        """测试名称相似度计算支持大小写不敏感"""
-        config = complete_config.copy()
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 精确匹配（大小写不同）
-        assert generator._calculate_name_similarity("Store_ID", "store_id") == 1.0
-        assert generator._calculate_name_similarity("DATE_DAY", "date_day") == 1.0
-        assert generator._calculate_name_similarity("CompanyName", "companyname") == 1.0
-
-        # 完全相同
-        assert generator._calculate_name_similarity("store_id", "store_id") == 1.0
-
-    @pytest.mark.skip(reason="方法 _is_compatible_combination 已被重构或移除")
-    def test_is_compatible_combination_with_type_threshold(self, complete_config):
-        """测试复合键匹配应用 min_type_compatibility 阈值"""
-        # 配置 min_type_compatibility = 0.8
-        config = complete_config.copy()
-        config["composite"]["min_type_compatibility"] = 0.8  # ← 阈值设为 0.8
-
-        fk_sigs = set()
-        generator = CandidateGenerator(config, fk_sigs)
-
-        # 场景1：类型兼容性 0.5 < 0.8，应该被过滤
-        source_cols = ["name", "code"]
-        target_cols = ["name", "code"]
-        source_profiles = {
-            "name": {"data_type": "varchar"},  # varchar vs text = 0.5
-            "code": {"data_type": "varchar"}   # varchar vs text = 0.5
-        }
-        target_profiles = {
-            "name": {"data_type": "text"},
-            "code": {"data_type": "text"}
-        }
-        # 平均类型兼容性 = (0.5 + 0.5) / 2 = 0.5 < 0.8，应该返回 False
-        assert not generator._is_compatible_combination(
-            source_cols, target_cols, source_profiles, target_profiles
+        candidates = generator.generate_candidates(
+            tables, [("public.fact_sales", "public.dim_target")], set()
         )
+        # 只应保留单列候选（id -> id），复合 (id, tenant_id) 候选作为 superkey 被丢弃
+        assert len(candidates) == 1
+        assert candidates[0]["source_columns"] == ["id"]
 
-        # 场景2：类型兼容性 1.0 >= 0.8，应该通过（名称相似度也满足）
-        source_cols2 = ["user_id", "order_id"]
-        target_cols2 = ["user_id", "order_id"]
-        source_profiles2 = {
-            "user_id": {"data_type": "integer"},
-            "order_id": {"data_type": "bigint"}
-        }
-        target_profiles2 = {
-            "user_id": {"data_type": "int4"},   # integer vs int4 = 1.0
-            "order_id": {"data_type": "int8"}   # bigint vs int8 = 1.0
-        }
-        # 平均类型兼容性 = (1.0 + 1.0) / 2 = 1.0 >= 0.8，且名称完全匹配，应该返回 True
-        assert generator._is_compatible_combination(
-            source_cols2, target_cols2, source_profiles2, target_profiles2
-        )
+    def test_reversed_column_pair_order_merges_to_same_relationship(self):
+        """(A.id->B.id, A.code->B.code) 与 (A.code->B.code, A.id->B.id) 应合并为同一关系"""
+        generator, _ = self._two_table_setup()
 
-        # 场景3：类型兼容性 0.8 = 0.8，刚好达到阈值，应该通过
-        source_cols3 = ["amount", "total"]
-        target_cols3 = ["amount", "total"]
-        source_profiles3 = {
-            "amount": {"data_type": "numeric"},
-            "total": {"data_type": "decimal"}
+        table_a = _table("public", "t_a", {
+            "id": {"data_type": "integer"}, "code": {"data_type": "varchar"},
+        })
+        table_b = _table("public", "t_b", {
+            "id": {"data_type": "integer"}, "code": {"data_type": "varchar"},
+        })
+
+        candidate_1 = {
+            "source": table_a, "target": table_b,
+            "source_columns": ["id", "code"], "target_columns": ["id", "code"],
+            "candidate_origin": "rule", "key_origin": "physical",
         }
-        target_profiles3 = {
-            "amount": {"data_type": "decimal"},  # numeric vs decimal = 0.8
-            "total": {"data_type": "numeric"}    # decimal vs numeric = 0.8
+        candidate_2 = {
+            "source": table_a, "target": table_b,
+            "source_columns": ["code", "id"], "target_columns": ["code", "id"],
+            "candidate_origin": "rule", "key_origin": "physical",
         }
-        # 平均类型兼容性 = (0.8 + 0.8) / 2 = 0.8 >= 0.8，应该返回 True
-        assert generator._is_compatible_combination(
-            source_cols3, target_cols3, source_profiles3, target_profiles3
-        )
+        merged = generator._merge_and_dedup([candidate_1, candidate_2], [], set())
+        assert len(merged) == 1
+
+    def test_different_field_assignment_not_merged(self):
+        """(A.id->B.id, A.code->B.code) 与 (A.id->B.code, A.code->B.id) 是不同关系"""
+        generator, _ = self._two_table_setup()
+
+        table_a = _table("public", "t_a", {
+            "id": {"data_type": "integer"}, "code": {"data_type": "varchar"},
+        })
+        table_b = _table("public", "t_b", {
+            "id": {"data_type": "integer"}, "code": {"data_type": "varchar"},
+        })
+
+        candidate_1 = {
+            "source": table_a, "target": table_b,
+            "source_columns": ["id", "code"], "target_columns": ["id", "code"],
+            "candidate_origin": "rule", "key_origin": "physical",
+        }
+        candidate_2 = {
+            "source": table_a, "target": table_b,
+            "source_columns": ["id", "code"], "target_columns": ["code", "id"],
+            "candidate_origin": "rule", "key_origin": "physical",
+        }
+        merged = generator._merge_and_dedup([candidate_1, candidate_2], [], set())
+        assert len(merged) == 2

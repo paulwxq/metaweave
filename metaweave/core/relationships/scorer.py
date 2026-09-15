@@ -4,8 +4,6 @@
 """
 
 from typing import Dict, List, Tuple, Any, Set, Optional
-from difflib import SequenceMatcher
-
 from metaweave.core.metadata.connector import DatabaseConnector
 from metaweave.core.relationships.name_similarity import NameSimilarityService
 from metaweave.core.relationships.type_compatibility import get_type_compatibility_score
@@ -13,27 +11,34 @@ from metaweave.utils.logger import get_metaweave_logger
 
 logger = get_metaweave_logger("relationships.scorer")
 
-# 默认评分权重（4维度评分体系）
+# 默认评分权重（4维度评分体系，doc 15：name_similarity → comment_similarity）
 DEFAULT_WEIGHTS = {
-    "inclusion_rate": 0.55,       # 数据包含率（核心指标）
-    "name_similarity": 0.20,      # 列名相似度（防止假阳性）
-    "type_compatibility": 0.15,   # 类型兼容性（体现JOIN性能）
+    "inclusion_rate": 0.50,       # 数据包含率（核心指标）
+    "comment_similarity": 0.20,   # 注释相似度（按列对回退，替代 name_similarity）
+    "type_compatibility": 0.20,   # 类型兼容性（体现JOIN性能，对不过闸的LLM候选仍有防幻觉价值）
     "jaccard_index": 0.10,        # Jaccard相似度（辅助判断）
 }
+
+# 双方均无可用注释时 comment_similarity 维度的默认得分
+DEFAULT_COMMENT_FALLBACK_SCORE = 0.3
 
 
 class RelationshipScorer:
     """关系评分器
 
     4个评分维度：
-    1. inclusion_rate (55%)：源列值在目标列中的包含率（数据库采样）
-    2. name_similarity (20%)：列名相似度（Levenshtein算法）
-    3. type_compatibility (15%)：类型兼容性（体现JOIN性能）
+    1. inclusion_rate (50%)：源列值在目标列中的包含率（数据库采样）
+    2. comment_similarity (20%)：注释相似度，按列对回退（doc 15 §3.11）：
+       双方都有可用注释 → 注释 embedding 相似度；任一缺失 → 退回名称相似度
+       （生成层闸门已认定语义资格，评分层不二次惩罚）；两者都缺 → 低默认值。
+    3. type_compatibility (20%)：类型兼容性（体现JOIN性能）
     4. jaccard_index (10%)：Jaccard相似度（数据库采样，辅助判断）
-    
+
     已删除的维度：
     - uniqueness：逻辑错误（外键关系中应评估源列而非目标列）
     - semantic_role_bonus：推断不严谨，权重过小，意义不大
+    - name_similarity：在新候选体系下失去区分价值（详见 doc 15 §2.5），
+      替换为 comment_similarity
     """
 
     def __init__(
@@ -56,11 +61,17 @@ class RelationshipScorer:
         # 采样配置（评分阶段从数据库取样的行数上限）
         self.sample_size = config.get("sample_size", 1000)
 
+        # comment_similarity 维度双方均无可用注释时的低默认值
+        self.comment_fallback_score = (config.get("scoring") or {}).get(
+            "comment_fallback_score", DEFAULT_COMMENT_FALLBACK_SCORE
+        )
+
         self.query_count = 0
 
         logger.info(f"关系评分器已初始化（4维度评分体系）:")
         logger.info(f"  - sample_size={self.sample_size}")
         logger.info(f"  - weights={self.weights}")
+        logger.info(f"  - comment_fallback_score={self.comment_fallback_score}")
         logger.debug(f"  - weights总和={sum(self.weights.values()):.4f}")
 
     def score_candidates(
@@ -110,11 +121,12 @@ class RelationshipScorer:
                         error_msg += f"  weights 中有但 score_details 中缺失: {sorted(missing_in_scores)}\n"
                     error_msg += (
                         "\n请确保配置文件中的 weights 只包含以下4个维度：\n"
-                        "  - inclusion_rate: 0.55\n"
-                        "  - name_similarity: 0.20\n"
-                        "  - type_compatibility: 0.15\n"
+                        "  - inclusion_rate: 0.50\n"
+                        "  - comment_similarity: 0.20\n"
+                        "  - type_compatibility: 0.20\n"
                         "  - jaccard_index: 0.10\n"
-                        "\n如果您使用的是旧配置文件，请更新为新的4维度配置。"
+                        "\n如果您使用的是旧配置文件（含 name_similarity），"
+                        "请更新为新的 comment_similarity 维度配置（doc 15）。"
                     )
                     logger.error(error_msg)
                     raise ValueError(error_msg)
@@ -172,16 +184,17 @@ class RelationshipScorer:
             target_columns: List[str]
     ) -> Tuple[Dict[str, float], str]:
         """计算4个维度评分和关系基数
-        
+
         维度说明：
-        1. inclusion_rate (55%): 源列值在目标列中的包含率
-        2. name_similarity (20%): 列名相似度
-        3. type_compatibility (15%): 类型兼容性
+        1. inclusion_rate (50%): 源列值在目标列中的包含率
+        2. comment_similarity (20%): 注释相似度，按列对回退（见 doc 15 §3.11）
+        3. type_compatibility (20%): 类型兼容性
         4. jaccard_index (10%): Jaccard相似度
-        
+
         已删除的维度：
         - uniqueness: 逻辑错误（外键允许重复）
         - semantic_role_bonus: 推断不严谨，意义不大
+        - name_similarity: 替换为 comment_similarity（doc 15 §2.5/§3.11）
 
         Args:
             source_table: 源表元数据
@@ -215,8 +228,11 @@ class RelationshipScorer:
                 target_schema, target_table_name, target_columns
             )
 
-        # 3: name_similarity（列名相似度）
-        name_similarity = self._calculate_name_similarity(source_columns, target_columns)
+        # 3: comment_similarity（注释相似度，按列对回退）
+        comment_similarity = self._calculate_comment_similarity(
+            source_columns, source_profiles,
+            target_columns, target_profiles
+        )
 
         # 4: type_compatibility（类型兼容性）
         type_compatibility = self._calculate_type_compatibility(
@@ -231,7 +247,7 @@ class RelationshipScorer:
 
         logger.debug(
             f"评分明细: inclusion_rate={inclusion_rate:.4f}, jaccard_index={jaccard_index:.4f}, "
-            f"name_similarity={name_similarity:.4f}, type_compatibility={type_compatibility:.4f}"
+            f"comment_similarity={comment_similarity:.4f}, type_compatibility={type_compatibility:.4f}"
         )
         logger.info(
             f"关系基数: {source_schema}.{source_table_name}{source_columns} -> "
@@ -241,7 +257,7 @@ class RelationshipScorer:
         return {
             "inclusion_rate": inclusion_rate,
             "jaccard_index": jaccard_index,
-            "name_similarity": name_similarity,
+            "comment_similarity": comment_similarity,
             "type_compatibility": type_compatibility,
         }, cardinality
 
@@ -568,6 +584,9 @@ class RelationshipScorer:
     ) -> float:
         """计算列名相似度（平均值）
 
+        仅在 comment_similarity 按列对回退时作为内部辅助使用（见 doc 15 §3.11），
+        不再直接进入 score_details。
+
         Args:
             source_columns: 源列列表
             target_columns: 目标列列表
@@ -581,15 +600,80 @@ class RelationshipScorer:
         if self.name_similarity_service:
             return self.name_similarity_service.compare_columns(source_columns, target_columns)
 
-        total_sim = 0
+        # 无 embedding 环境的降级语义（doc 15 §2.4/§5）：同名短路通过（1.0），
+        # 不同名直接放弃（0.0）。SequenceMatcher 模糊匹配路径已废弃，不再兜底。
+        total_sim = 0.0
         for src_col, tgt_col in zip(source_columns, target_columns):
-            if src_col == tgt_col:
-                sim = 1.0
-            else:
-                sim = SequenceMatcher(None, src_col.lower(), tgt_col.lower()).ratio()
+            sim = 1.0 if src_col.lower() == tgt_col.lower() else 0.0
             total_sim += sim
 
         return total_sim / len(source_columns)
+
+    def _calculate_comment_similarity(
+            self,
+            source_columns: List[str],
+            source_profiles: Dict[str, dict],
+            target_columns: List[str],
+            target_profiles: Dict[str, dict],
+    ) -> float:
+        """计算注释相似度（平均值，按列对回退，见 doc 15 §3.11）
+
+        按列对规则：
+        - 能力关闭（无 embedding 服务 / 注释通道显式禁用）→ 退回名称相似度；
+        - 双方都有可用注释（非空、非黑名单、通道已启用）→ 注释 embedding 相似度；
+        - 任一缺失 → 退回名称相似度（生成层闸门已认定语义资格，评分层不二次惩罚）；
+        - 两者都缺（通道启用但该列确实无可用注释）→ 低默认值（self.comment_fallback_score）。
+        """
+        if len(source_columns) != len(target_columns):
+            return 0.0
+
+        total = 0.0
+        for src_col, tgt_col in zip(source_columns, target_columns):
+            src_comment = (source_profiles.get(src_col, {}) or {}).get("comment")
+            tgt_comment = (target_profiles.get(tgt_col, {}) or {}).get("comment")
+            total += self._score_comment_pair(src_col, src_comment, tgt_col, tgt_comment)
+
+        return total / len(source_columns)
+
+    def _score_comment_pair(
+            self,
+            src_col: str,
+            src_comment: Optional[str],
+            tgt_col: str,
+            tgt_comment: Optional[str],
+    ) -> float:
+        """单列对的 comment_similarity 打分（按列对回退，见 doc 15 §3.11）
+
+        能力级关闭 vs 数据级缺失（与 §5 / P6 降级精神对齐）：
+        - 无 embedding 环境（`name_similarity_service is None`）
+        - 注释通道显式禁用（`comment_channel.enabled: false`）或通道对象缺失
+        都属于"评分能力不可用"，与"该列本身没写注释"不是同一类缺失。能力关闭
+        时统一退回名称相似度（同名 1.0 / 异名 0），避免所有候选一律拿
+        `comment_fallback_score`（0.3）导致 composite_score 整体下移、边缘候选
+        被 `accept_threshold` 误杀。仅通道启用且两侧注释确实不可用时才用 0.3。
+        """
+        if self.name_similarity_service is None:
+            return self._calculate_name_similarity([src_col], [tgt_col])
+
+        comment_channel = getattr(self.name_similarity_service, "comment_channel", None)
+        # 缺省视为启用（测试替身可能不声明 enabled）；仅显式 False 才算能力关闭
+        if comment_channel is None or getattr(comment_channel, "enabled", True) is False:
+            return self._calculate_name_similarity([src_col], [tgt_col])
+
+        src_usable = comment_channel.is_usable(src_comment)
+        tgt_usable = comment_channel.is_usable(tgt_comment)
+
+        if src_usable and tgt_usable:
+            sim = comment_channel.compare(src_comment, tgt_comment)
+            if sim is not None:
+                return sim
+
+        if src_usable or tgt_usable:
+            # 任一缺失 → 退回名称相似度
+            return self._calculate_name_similarity([src_col], [tgt_col])
+
+        # 两者都缺（注释通道已启用但该列确实没有可用注释）→ 低默认值
+        return self.comment_fallback_score
 
     def _calculate_type_compatibility(
             self,

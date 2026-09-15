@@ -77,7 +77,7 @@ class _DummyMetadataGenerator:
 
 
 class _DummyRelPipeline:
-    def __init__(self, _config_path: Path):
+    def __init__(self, _config_path: Path, domain_filter=None, cross_domain=False, domain_resolver=None):
         pass
 
     def discover(self) -> RelationshipDiscoveryResult:
