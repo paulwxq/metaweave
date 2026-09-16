@@ -44,8 +44,8 @@ def _cand(
         score_details: dict = None,
 ):
     """构造评分后候选（含 _reverse_inclusion_rate 内部字段）"""
-    src = {"table_info": {"schema_name": "public", "table_name": table}}
-    tgt = {"table_info": {"schema_name": "public", "table_name": target_table}}
+    src = {"object_info": {"schema_name": "public", "object_name": table}}
+    tgt = {"object_info": {"schema_name": "public", "object_name": target_table}}
     sd = score_details or {
         "inclusion_rate": 0.5, "name_similarity": 1.0, "comment_similarity": 0.5,
         "type_compatibility": 1.0, "jaccard_index": 0.5,
@@ -69,8 +69,8 @@ def _composite(sd, weights=None):
 
 def _dir_of(merged):
     return (
-        merged["source"]["table_info"]["table_name"],
-        merged["target"]["table_info"]["table_name"],
+        merged["source"]["object_info"]["object_name"],
+        merged["target"]["object_info"]["object_name"],
     )
 
 

@@ -251,7 +251,7 @@ def test_extractor_skips_constraints_for_view_and_keeps_mv_indexes() -> None:
     view = extractor.extract_all("public", "order_view", "view")
 
     assert view is not None
-    assert view.table_type == "view"
+    assert view.object_type == "view"
     assert view.row_count == 0
     assert view.view_definition == "SELECT order_id FROM orders"
     extractor.extract_primary_keys.assert_not_called()
@@ -266,7 +266,7 @@ def test_extractor_skips_constraints_for_view_and_keeps_mv_indexes() -> None:
     )
 
     assert materialized_view is not None
-    assert materialized_view.table_type == "materialized_view"
+    assert materialized_view.object_type == "materialized_view"
     assert materialized_view.row_count == 0
     assert materialized_view.indexes[0].is_unique is True
     extractor.extract_indexes.assert_called_once_with("public", "order_mv")
@@ -307,7 +307,7 @@ def test_formatter_generates_view_ddl_and_object_metadata(tmp_path) -> None:
     metadata = TableMetadata(
         schema_name="public",
         table_name="order_view",
-        table_type="view",
+        object_type="view",
         comment="订单'视图",
         columns=[
             ColumnInfo("order_id", 1, "bigint", comment="订单编号"),
@@ -369,7 +369,7 @@ def test_formatter_generates_mv_indexes_and_standalone_unique_indexes(tmp_path) 
     metadata = TableMetadata(
         schema_name="public",
         table_name="order_mv",
-        table_type="materialized_view",
+        object_type="materialized_view",
         row_count=42,
         comment="订单物化视图",
         columns=[ColumnInfo("order_id", 1, "bigint", comment="订单编号")],
@@ -457,7 +457,7 @@ def test_ddl_loader_reads_view_object_metadata(tmp_path, object_type) -> None:
     metadata = TableMetadata(
         schema_name="public",
         table_name=f"order_{object_type}",
-        table_type=object_type,
+        object_type=object_type,
         comment="订单汇总",
         columns=[
             ColumnInfo(
@@ -477,7 +477,7 @@ def test_ddl_loader_reads_view_object_metadata(tmp_path, object_type) -> None:
         metadata.table_name,
     )
 
-    assert parsed.metadata.table_type == object_type
+    assert parsed.metadata.object_type == object_type
     assert parsed.metadata.comment == "订单汇总"
     assert parsed.metadata.columns[0].data_type == "character varying"
     assert parsed.metadata.columns[0].character_maximum_length == 40

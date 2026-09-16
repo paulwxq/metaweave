@@ -249,12 +249,12 @@ class RelationshipWriter:
             if len(candidate.get("source_columns", [])) > 1:
                 continue
 
-            source_info = candidate["source"].get("table_info", {})
-            target_info = candidate["target"].get("table_info", {})
+            source_info = candidate["source"].get("object_info", {})
+            target_info = candidate["target"].get("object_info", {})
 
             table_pair = (
-                f"{source_info.get('schema_name')}.{source_info.get('table_name')}->"
-                f"{target_info.get('schema_name')}.{target_info.get('table_name')}"
+                f"{source_info.get('schema_name')}.{source_info.get('object_name')}->"
+                f"{target_info.get('schema_name')}.{target_info.get('object_name')}"
             )
 
             # 转换为v3.2格式

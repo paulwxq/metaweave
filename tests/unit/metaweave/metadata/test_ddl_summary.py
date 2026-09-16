@@ -99,7 +99,7 @@ def test_materialized_view_unique_index_is_classified_separately() -> None:
     metadata = TableMetadata(
         schema_name="public",
         table_name="mv_category_sales",
-        table_type="materialized_view",
+        object_type="materialized_view",
         indexes=[IndexInfo("uq_mv_category_sales_category_id", is_unique=True)],
     )
 

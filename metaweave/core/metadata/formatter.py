@@ -173,7 +173,7 @@ class OutputFormatter:
         sample_data: Optional[pd.DataFrame] = None
     ) -> str:
         """生成普通表、View 或 Materialized View 的 DDL 脚本。"""
-        object_type = metadata.table_type or "table"
+        object_type = metadata.object_type or "table"
         if object_type not in {"table", "view", "materialized_view"}:
             raise ValueError(f"不支持的数据库对象类型: {object_type}")
         
@@ -315,7 +315,7 @@ class OutputFormatter:
     @staticmethod
     def _build_view_object_metadata_block(metadata: TableMetadata) -> List[str]:
         """生成 View/MV 的对象注释和字段元数据块。"""
-        object_type = metadata.table_type or "table"
+        object_type = metadata.object_type or "table"
         payload = {
             "object_type": object_type,
             "object_name": metadata.full_name,
@@ -393,7 +393,7 @@ class OutputFormatter:
         md_lines = []
         
         # 1. 标题：schema.object_name [object_type]（对象注释）
-        object_type = metadata.table_type or "table"
+        object_type = metadata.object_type or "table"
         if object_type not in {"table", "view", "materialized_view"}:
             raise ValueError(f"不支持的数据库对象类型: {object_type}")
         comment_part = f"（{metadata.comment}）" if metadata.comment else ""
@@ -689,7 +689,7 @@ class OutputFormatter:
             return ""
         
         payload = {
-            "object_type": metadata.table_type or "table",
+            "object_type": metadata.object_type or "table",
             "object_name": metadata.full_name,
             "records": records,
         }

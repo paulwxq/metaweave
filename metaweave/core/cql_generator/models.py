@@ -32,8 +32,8 @@ class TableNode:
     # 可选属性
     comment: Optional[str] = None
     # 数据库对象类型:table / view / materialized_view
-    # （JSON 侧字段名为 table_type,后续统一更名为 object_type 时同步）
-    table_type: str = "table"
+    # （doc 20 方案 A:与 JSON 契约键 object_info.object_type 统一）
+    object_type: str = "table"
 
     # 约束和索引
     pk: List[str] = field(default_factory=list)  # 物理主键
@@ -62,7 +62,7 @@ class TableNode:
             "schema": self.schema,
             "name": self.name,
             "comment": self.comment or "",
-            "table_type": self.table_type,
+            "object_type": self.object_type,
             "pk": self.pk,
             "uk": self.uk,
             "fk": self.fk,

@@ -60,7 +60,7 @@ def _candidate_matching_config(**overrides):
 
 def _table(schema, table, columns, table_profile=None):
     return {
-        "table_info": {"schema_name": schema, "table_name": table},
+        "object_info": {"schema_name": schema, "object_name": table},
         "column_profiles": columns,
         "table_profile": table_profile or {},
     }
@@ -365,8 +365,8 @@ class TestGenerateCandidatesRulePath:
         ]
         assert len(matches) == 1
         # 方向规范化：关联字段表（dim_store）为 source，键表（fact_sales）为 target
-        assert matches[0]["source"]["table_info"]["table_name"] == "dim_store"
-        assert matches[0]["target"]["table_info"]["table_name"] == "fact_sales"
+        assert matches[0]["source"]["object_info"]["object_name"] == "dim_store"
+        assert matches[0]["target"]["object_info"]["object_name"] == "fact_sales"
 
     def test_composite_key_candidate_generated(self):
         fake = FakeNameSimilarityService()
@@ -394,8 +394,8 @@ class TestGenerateCandidatesRulePath:
         composite = [c for c in rule_pool if len(c["source_columns"]) == 2]
         assert len(composite) == 1
         # 键列在 target（键表侧），关联列在 source（关联字段表侧）
-        assert composite[0]["source"]["table_info"]["table_name"] == "dim_store_calendar"
-        assert composite[0]["target"]["table_info"]["table_name"] == "fact_sales"
+        assert composite[0]["source"]["object_info"]["object_name"] == "dim_store_calendar"
+        assert composite[0]["target"]["object_info"]["object_name"] == "fact_sales"
         assert set(composite[0]["target_columns"]) == {"store_id", "date_day"}
 
     def test_target_metric_column_never_becomes_candidate(self):
@@ -626,8 +626,8 @@ class TestMergeDedupAndFKExclusion:
         # 复合 (id, tenant_id) 候选作为 superkey 被丢弃
         assert len(rule_pool) == 1
         assert rule_pool[0]["source_columns"] == ["id"]
-        assert rule_pool[0]["source"]["table_info"]["table_name"] == "dim_target"
-        assert rule_pool[0]["target"]["table_info"]["table_name"] == "fact_sales"
+        assert rule_pool[0]["source"]["object_info"]["object_name"] == "dim_target"
+        assert rule_pool[0]["target"]["object_info"]["object_name"] == "fact_sales"
 
     def test_reversed_column_pair_order_merges_to_same_relationship(self):
         """(A.id->B.id, A.code->B.code) 与 (A.code->B.code, A.id->B.id) 应合并为同一关系"""

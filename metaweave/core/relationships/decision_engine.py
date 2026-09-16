@@ -119,11 +119,11 @@ class DecisionEngine:
         table_pair_groups: Dict[str, List[Dict]] = {}
 
         for candidate in candidates:
-            source_info = candidate["source"].get("table_info", {})
-            target_info = candidate["target"].get("table_info", {})
+            source_info = candidate["source"].get("object_info", {})
+            target_info = candidate["target"].get("object_info", {})
 
-            source_full = f"{source_info.get('schema_name')}.{source_info.get('table_name')}"
-            target_full = f"{target_info.get('schema_name')}.{target_info.get('table_name')}"
+            source_full = f"{source_info.get('schema_name')}.{source_info.get('object_name')}"
+            target_full = f"{target_info.get('schema_name')}.{target_info.get('object_name')}"
 
             table_pair = f"{source_full}->{target_full}"
 
@@ -265,14 +265,14 @@ class DecisionEngine:
         Returns:
             Relation对象
         """
-        source_info = candidate["source"].get("table_info", {})
-        target_info = candidate["target"].get("table_info", {})
+        source_info = candidate["source"].get("object_info", {})
+        target_info = candidate["target"].get("object_info", {})
 
         # 提取表和列信息
         source_schema = source_info.get("schema_name")
-        source_table = source_info.get("table_name")
+        source_table = source_info.get("object_name")
         target_schema = target_info.get("schema_name")
-        target_table = target_info.get("table_name")
+        target_table = target_info.get("object_name")
         source_columns = candidate["source_columns"]
         target_columns = candidate["target_columns"]
 
@@ -341,8 +341,8 @@ class DecisionEngine:
         """格式化候选信息用于日志"""
 
         def _fmt(table_meta: Dict[str, Any]) -> str:
-            info = table_meta.get("table_info", {})
-            return f"{info.get('schema_name')}.{info.get('table_name')}"
+            info = table_meta.get("object_info", {})
+            return f"{info.get('schema_name')}.{info.get('object_name')}"
 
         source = _fmt(candidate["source"])
         target = _fmt(candidate["target"])

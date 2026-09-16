@@ -108,7 +108,10 @@ def test_v3_formatter_emits_compact_schema(tmp_path):
 
     assert data["metadata_version"] == "3.0"
     assert "generated_timestamp" not in data
-    assert "total_columns" not in data["table_info"]
+    assert "table_info" not in data
+    assert "total_columns" not in data["object_info"]
+    assert data["object_info"]["object_name"] == "orders"
+    assert "table_name" not in data["object_info"]
     assert data["profiling"] == {"sample_method": "limit", "sample_count": 2}
     assert data["sample_records"] == {
         "sample_method": "limit",
@@ -165,7 +168,9 @@ def test_current_json_format_replaces_legacy_shape():
 
     assert data["metadata_version"] == "3.0"
     assert "generated_timestamp" in data
-    assert "total_columns" not in data["table_info"]
+    assert "total_columns" not in data["object_info"]
+    assert data["object_info"]["object_name"] == "orders"
+    assert "table_name" not in data["object_info"]
     assert "column_name" not in data["column_profiles"]["order_id"]
     assert "structure_flags" not in data["column_profiles"]["order_id"]
     assert "role_specific_info" not in data["column_profiles"]["order_id"]
@@ -200,7 +205,7 @@ def test_metadata_document_derives_v3_rates_without_fabricating_missing_stats():
 def test_metadata_document_domain_accessors_use_structure_facts_only():
     data = {
         "metadata_version": "3.0",
-        "table_info": {},
+        "object_info": {},
         "profiling": {"sample_method": "limit", "sample_count": 10},
         "column_profiles": {
             "id": {
@@ -258,7 +263,7 @@ def test_metadata_document_rejects_unknown_version_and_invalid_v3_classification
             MetadataDocument.from_dict(
                 {
                     "metadata_version": unsupported_version,
-                    "table_info": {},
+                    "object_info": {},
                     "column_profiles": {},
                     "table_profile": {},
                 }
@@ -268,7 +273,7 @@ def test_metadata_document_rejects_unknown_version_and_invalid_v3_classification
         MetadataDocument.from_dict(
             {
                 "metadata_version": "3.0",
-                "table_info": {},
+                "object_info": {},
                 "column_profiles": {},
                 "table_profile": {
                     "classification_source": "llm",

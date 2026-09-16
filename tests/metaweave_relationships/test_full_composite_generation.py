@@ -30,9 +30,9 @@ for json_file in json_dir.glob('*.json'):
 
     with open(json_file, 'r', encoding='utf-8') as f:
         table_data = json.load(f)
-        table_info = table_data.get('table_info', {})
+        table_info = table_data.get('object_info', {})
         schema = table_info.get('schema_name')
-        table_name = table_info.get('table_name')
+        table_name = table_info.get('object_name')
         if schema and table_name:
             full_name = f"{schema}.{table_name}"
             tables[full_name] = table_data

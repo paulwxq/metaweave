@@ -419,7 +419,7 @@ class MetadataExtractor:
             metadata = TableMetadata(
                 schema_name=schema,
                 table_name=table,
-                table_type=object_type,
+                object_type=object_type,
                 comment=object_comment,
                 comment_source="db" if object_comment else "",
             )

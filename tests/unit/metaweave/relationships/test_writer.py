@@ -202,8 +202,8 @@ class TestRelationshipWriter:
     ):
         """generated_by / json_metadata_version 由同一套 writer 逻辑写入 JSON 与 Markdown。"""
         tables = {
-            "public.users": {"metadata_version": "3.0", "table_info": {"table_name": "users"}},
-            "public.orders": {"metadata_version": "3.0", "table_info": {"table_name": "orders"}},
+            "public.users": {"metadata_version": "3.0", "object_info": {"object_name": "users"}},
+            "public.orders": {"metadata_version": "3.0", "object_info": {"object_name": "orders"}},
         }
         output_files = writer.write_results(
             sample_relations, [], config,
@@ -260,10 +260,10 @@ class TestRelationshipWriter:
         suppressed = [
             {
                 "source": {
-                    "table_info": {"schema_name": "public", "table_name": "fact_sales"}
+                    "object_info": {"schema_name": "public", "object_name": "fact_sales"}
                 },
                 "target": {
-                    "table_info": {"schema_name": "public", "table_name": "dim_store"}
+                    "object_info": {"schema_name": "public", "object_name": "dim_store"}
                 },
                 "source_columns": ["store_id"],
                 "target_columns": ["store_id"],
@@ -396,9 +396,9 @@ class TestRelationshipWriter:
     def test_json_files_loaded_and_db_queries(self, writer, sample_relations, config):
         """测试 json_files_loaded 和 database_queries_executed 反映真实值"""
         tables = {
-            "public.users": {"table_info": {"table_name": "users"}},
-            "public.orders": {"table_info": {"table_name": "orders"}},
-            "public.products": {"table_info": {"table_name": "products"}},
+            "public.users": {"object_info": {"object_name": "users"}},
+            "public.orders": {"object_info": {"object_name": "orders"}},
+            "public.products": {"object_info": {"object_name": "products"}},
         }
         extra_statistics = {"database_queries_executed": 15}
 

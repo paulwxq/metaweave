@@ -177,7 +177,8 @@ class CQLGenerator:
                     step_name=step_name,
                     json_dir=self.json_dir,
                     rel_dir=self.rel_dir,
-                    filter_stats=filter_stats
+                    filter_stats=filter_stats,
+                    composite_score_threshold=self.composite_score_threshold,
                 )
                 logger.info(f"  - 元数据文档: {metadata_file}")
                 output_files.append(str(metadata_file))

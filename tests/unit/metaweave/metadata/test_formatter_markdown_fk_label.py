@@ -73,7 +73,7 @@ def test_markdown_title_contains_database_object_type(tmp_path, object_type):
     metadata = TableMetadata(
         schema_name="public",
         table_name="orders",
-        table_type=object_type,
+        object_type=object_type,
         comment="订单对象",
     )
 
@@ -90,7 +90,7 @@ def test_markdown_includes_standalone_unique_index_details(tmp_path):
     metadata = TableMetadata(
         schema_name="public",
         table_name="mv_sales",
-        table_type="materialized_view",
+        object_type="materialized_view",
         indexes=[
             IndexInfo(
                 index_name="mv_sales_category_uidx",

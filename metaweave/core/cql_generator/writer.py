@@ -119,7 +119,7 @@ class CypherWriter:
 	    n.schema   = t.schema,
 	    n.name     = t.name,
 	    n.comment  = t.comment,
-	    n.table_type = t.table_type,
+	    n.object_type = t.object_type,
 	    n.pk       = t.pk,
 	    n.uk       = t.uk,
     n.fk       = t.fk,
@@ -292,7 +292,7 @@ SET r.cardinality     = j.cardinality,
 	    n.schema   = t.schema,
 	    n.name     = t.name,
 	    n.comment  = t.comment,
-	    n.table_type = t.table_type,
+	    n.object_type = t.object_type,
 	    n.pk       = t.pk,
 	    n.uk       = t.uk,
     n.fk       = t.fk,
@@ -373,6 +373,7 @@ SET r.cardinality     = j.cardinality,
         json_dir: Path,
         rel_dir: Path,
         filter_stats: RelationshipFilterStats,
+        composite_score_threshold: Optional[float] = None,
     ) -> Path:
         """生成 import_all.md 元数据文档（最小必需字段）
 
@@ -386,6 +387,8 @@ SET r.cardinality     = j.cardinality,
             rel_dir: 关系输入目录
             filter_stats: 关系过滤统计（doc 18 §5，必传——否则 md 中
                 JOIN_ON 数与"最终 JOIN_ON 数"可能自相矛盾）
+            composite_score_threshold: 当前生效的置信度阈值（仅展示性信息，
+                可选;None 时 md 显示"未设置"）
 
         Returns:
             元数据文档路径
@@ -398,6 +401,13 @@ SET r.cardinality     = j.cardinality,
 
         # 生成时间
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # 阈值展示(仅展示性信息,可选参数)
+        threshold_display = (
+            f"{composite_score_threshold:.4g}"
+            if composite_score_threshold is not None
+            else "未设置"
+        )
 
         # ✅ 统计数据（使用准确的关系列表）
         has_column_count = len(has_column_rels)
@@ -445,6 +455,8 @@ SET r.cardinality     = j.cardinality,
 
 - **生成时间**: {timestamp}
 - **生成命令**: `metaweave metadata --step {step_name}`
+- **CQL 置信度阈值**: {threshold_display}(composite_score >= 阈值才导入;物理外键直通不受限)
+- **导入 JOIN_ON 关系数**: {stats.final_count} 条(rel 候选 {stats.candidate_count} 条 → 通过阈值 {stats.threshold_passed_count} 条 → 去重后 {stats.final_count} 条)
 
 ---
 

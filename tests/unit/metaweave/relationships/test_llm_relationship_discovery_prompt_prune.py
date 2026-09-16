@@ -25,7 +25,7 @@ def test_build_prompt_prunes_column_profile_fields():
     discovery = LLMRelationshipDiscovery(config=config)
 
     table1 = {
-        "table_info": {"schema_name": "public", "table_name": "t1"},
+        "object_info": {"schema_name": "public", "object_name": "t1"},
         "column_profiles": {
             "id": {
                 "column_name": "id",
@@ -39,7 +39,7 @@ def test_build_prompt_prunes_column_profile_fields():
         },
     }
     table2 = {
-        "table_info": {"schema_name": "public", "table_name": "t2"},
+        "object_info": {"schema_name": "public", "object_name": "t2"},
         "column_profiles": {
             "t1_id": {
                 "column_name": "t1_id",

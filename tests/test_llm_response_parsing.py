@@ -507,9 +507,9 @@ class TestRealLLMCalls:
         """测试真实 LLM 调用 - 简单表结构"""
         # 构造两个简单的表元数据
         table1 = {
-            "table_info": {
+            "object_info": {
                 "schema_name": "public",
-                "table_name": "orders"
+                "object_name": "orders"
             },
             "table_profile": {
                 "column_profiles": {
@@ -532,9 +532,9 @@ class TestRealLLMCalls:
         }
 
         table2 = {
-            "table_info": {
+            "object_info": {
                 "schema_name": "public",
-                "table_name": "customers"
+                "object_name": "customers"
             },
             "table_profile": {
                 "column_profiles": {

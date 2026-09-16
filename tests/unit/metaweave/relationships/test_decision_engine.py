@@ -20,8 +20,8 @@ class TestDecisionEngine:
 
         candidates = [
             {
-                "source": {"table_info": {"schema_name": "public", "table_name": "fact_sales"}},
-                "target": {"table_info": {"schema_name": "public", "table_name": "dim_store"}},
+                "source": {"object_info": {"schema_name": "public", "object_name": "fact_sales"}},
+                "target": {"object_info": {"schema_name": "public", "object_name": "dim_store"}},
                 "source_columns": ["store_id"],
                 "target_columns": ["store_id"],
                 "composite_score": 0.85,
@@ -30,8 +30,8 @@ class TestDecisionEngine:
                 "key_origin": "physical"
             },
             {
-                "source": {"table_info": {"schema_name": "public", "table_name": "fact_sales"}},
-                "target": {"table_info": {"schema_name": "public", "table_name": "dim_company"}},
+                "source": {"object_info": {"schema_name": "public", "object_name": "fact_sales"}},
+                "target": {"object_info": {"schema_name": "public", "object_name": "dim_company"}},
                 "source_columns": ["company_id"],
                 "target_columns": ["company_id"],
                 "composite_score": 0.75,  # 低于阈值
@@ -62,8 +62,8 @@ class TestDecisionEngine:
 
         candidates = [
             {
-                "source": {"table_info": {"schema_name": "public", "table_name": "fact_sales"}, "column_profiles": {}},
-                "target": {"table_info": {"schema_name": "public", "table_name": "dim_store"}},
+                "source": {"object_info": {"schema_name": "public", "object_name": "fact_sales"}, "column_profiles": {}},
+                "target": {"object_info": {"schema_name": "public", "object_name": "dim_store"}},
                 "source_columns": ["store_id", "date_day"],
                 "target_columns": ["store_id", "date_day"],
                 "composite_score": 0.90,
@@ -72,8 +72,8 @@ class TestDecisionEngine:
                 "key_origin": "physical"
             },
             {
-                "source": {"table_info": {"schema_name": "public", "table_name": "fact_sales"}, "column_profiles": {}},
-                "target": {"table_info": {"schema_name": "public", "table_name": "dim_store"}},
+                "source": {"object_info": {"schema_name": "public", "object_name": "fact_sales"}, "column_profiles": {}},
+                "target": {"object_info": {"schema_name": "public", "object_name": "dim_store"}},
                 "source_columns": ["store_id"],
                 "target_columns": ["store_id"],
                 "composite_score": 0.85,
@@ -104,10 +104,10 @@ class TestDecisionEngine:
         candidates = [
             {
                 "source": {
-                    "table_info": {"schema_name": "public", "table_name": "fact_sales"},
+                    "object_info": {"schema_name": "public", "object_name": "fact_sales"},
                     "column_profiles": {}
                 },
-                "target": {"table_info": {"schema_name": "public", "table_name": "dim_store"}},
+                "target": {"object_info": {"schema_name": "public", "object_name": "dim_store"}},
                 "source_columns": ["store_id", "date_day"],
                 "target_columns": ["store_id", "date_day"],
                 "composite_score": 0.90,
@@ -117,14 +117,14 @@ class TestDecisionEngine:
             },
             {
                 "source": {
-                    "table_info": {"schema_name": "public", "table_name": "fact_sales"},
+                    "object_info": {"schema_name": "public", "object_name": "fact_sales"},
                     "column_profiles": {},
                     "table_profile": {
                         "physical_constraints": {"primary_key": None, "unique_constraints": []},
                         "indexes": []
                     }
                 },
-                "target": {"table_info": {"schema_name": "public", "table_name": "dim_store"}},
+                "target": {"object_info": {"schema_name": "public", "object_name": "dim_store"}},
                 "source_columns": ["store_id"],
                 "target_columns": ["store_id"],
                 "composite_score": 0.85,
@@ -154,10 +154,10 @@ class TestDecisionEngine:
         candidates = [
             {
                 "source": {
-                    "table_info": {"schema_name": "public", "table_name": "fact_sales"},
+                    "object_info": {"schema_name": "public", "object_name": "fact_sales"},
                     "column_profiles": {}
                 },
-                "target": {"table_info": {"schema_name": "public", "table_name": "dim_store"}},
+                "target": {"object_info": {"schema_name": "public", "object_name": "dim_store"}},
                 "source_columns": ["store_id", "date_day"],
                 "target_columns": ["store_id", "date_day"],
                 "composite_score": 0.90,
@@ -167,14 +167,14 @@ class TestDecisionEngine:
             },
             {
                 "source": {
-                    "table_info": {"schema_name": "public", "table_name": "fact_sales"},
+                    "object_info": {"schema_name": "public", "object_name": "fact_sales"},
                     "column_profiles": {},
                     "table_profile": {
                         "physical_constraints": {"primary_key": None, "unique_constraints": []},
                         "indexes": []
                     }
                 },
-                "target": {"table_info": {"schema_name": "public", "table_name": "dim_store"}},
+                "target": {"object_info": {"schema_name": "public", "object_name": "dim_store"}},
                 "source_columns": ["store_id"],
                 "target_columns": ["store_id"],
                 "composite_score": 0.50,
@@ -373,8 +373,8 @@ class TestDecisionEngine:
 
         # 相同的候选
         candidate = {
-            "source": {"table_info": {"schema_name": "public", "table_name": "fact_sales"}},
-            "target": {"table_info": {"schema_name": "public", "table_name": "dim_store"}},
+            "source": {"object_info": {"schema_name": "public", "object_name": "fact_sales"}},
+            "target": {"object_info": {"schema_name": "public", "object_name": "dim_store"}},
             "source_columns": ["store_id"],
             "target_columns": ["store_id"],
             "composite_score": 0.85,

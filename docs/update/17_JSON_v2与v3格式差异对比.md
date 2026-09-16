@@ -41,7 +41,7 @@ v2 → v3 的本质一句话:**列级"加工过的信息"大部分从落盘产�
 
 | 键                                                        | v2.0 | v3.0                                                                                                   |
 | -------------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------ |
-| `database` / `schema_name` / `table_name` / `table_type` | 有    | 有                                                                                                      |
+| `database` / `schema_name` / `table_name` / `table_type` | 有    | 有(`table_type` 已更名为 `object_type`,见 doc 20;键改名、取值不变)                                          |
 | `comment` / `comment_source`                             | 有    | 有                                                                                                      |
 | `total_rows`                                             | 有    | 有                                                                                                      |
 | `total_columns`                                          | 有    | **删除**——契约报错 `"JSON v3 不允许 table_info.total_columns"`(可由 column_profiles 键数推导,契约提供 `total_columns` 属性) |
@@ -293,6 +293,7 @@ build_json_llm_input()(LLM 白名单输入构造)
 | 字段                                                                              | v2.0           | v3.0                      |
 | ------------------------------------------------------------------------------- | -------------- | ------------------------- |
 | `metadata_version`                                                              | `"2.0"`        | `"3.0"`(契约校验必须)           |
+| `table_info.table_type`                                                         | 键 `table_type`  | **键更名为 `object_type`**(doc 20;取值 table/view/materialized_view 不变) |
 | `indexes[].key_expressions`                                                     | 可选(None 时 pop) | **必填数组**(无值时以 columns 兜底) |
 | `indexes[].included_columns`                                                    | 可选(None 时 pop) | **必填数组**(无值时写空数组)         |
 | `statistics.null_count` / `unique_count` / `min` / `max` / `value_distribution` / `uniqueness` / `null_rate` | 有(与预计算指标混合)    | 有(**允许的统计键**,uniqueness/null_rate 由生成端按计数现算) |
@@ -304,7 +305,7 @@ build_json_llm_input()(LLM 白名单输入构造)
 
 ```text
 顶层:generated_timestamp, table_info, column_profiles, table_profile, sample_records
-table_info:database, schema_name, table_name, table_type, comment, comment_source, total_rows
+table_info:database, schema_name, table_name, comment, comment_source, total_rows
 column_profiles[col]:ordinal_position, data_type, is_nullable, column_default,
     comment, comment_source, statistics,
     semantic_analysis(semantic_role / semantic_confidence / inference_basis)
@@ -332,6 +333,7 @@ v3 中的状态。
 | CQL 读取的字段                                                          | v3 状态   | 影响                                  |
 | ------------------------------------------------------------------ | ------- | ----------------------------------- |
 | `table_info.database` / `schema_name` / `table_name` / `comment`   | ✓ 存在    | 正常                                  |
+| `table_info.object_type`                                            | ✓ 存在    | 正常(doc 20 起由 `table_type` 更名;取值不变) |
 | `table_profile.physical_constraints.primary_key.columns`           | ✓ 存在    | 正常                                  |
 | `table_profile.physical_constraints.unique_constraints[].columns`  | ✓ 存在    | 正常                                  |
 | `table_profile.physical_constraints.foreign_keys[].source_columns` | ✓ 存在    | 正常                                  |

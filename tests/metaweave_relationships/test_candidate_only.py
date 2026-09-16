@@ -15,9 +15,9 @@ def load_all_tables() -> dict:
     for json_file in json_dir.glob("public.*.json"):
         with open(json_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            table_info = data.get("table_info", {})
+            table_info = data.get("object_info", {})
             schema = table_info.get("schema_name")
-            table_name = table_info.get("table_name")
+            table_name = table_info.get("object_name")
             if schema and table_name:
                 full_name = f"{schema}.{table_name}"
                 tables[full_name] = data
@@ -71,10 +71,10 @@ def main():
     # 按源表统计
     source_stats = {}
     for candidate in all_candidates:
-        source_table = candidate["source"].get("table_info", {}).get("table_name")
+        source_table = candidate["source"].get("object_info", {}).get("object_name")
         if source_table not in source_stats:
             source_stats[source_table] = []
-        target_table = candidate["target"].get("table_info", {}).get("table_name")
+        target_table = candidate["target"].get("object_info", {}).get("object_name")
         source_cols = candidate["source_columns"]
         source_stats[source_table].append((target_table, source_cols))
     
@@ -98,8 +98,8 @@ def main():
     for source_table, target_table, expected_cols in target_relations:
         found = False
         for candidate in all_candidates:
-            src = candidate["source"].get("table_info", {}).get("table_name")
-            tgt = candidate["target"].get("table_info", {}).get("table_name")
+            src = candidate["source"].get("object_info", {}).get("object_name")
+            tgt = candidate["target"].get("object_info", {}).get("object_name")
             cols = candidate["source_columns"]
             
             if (src == source_table and tgt == target_table and 
@@ -118,9 +118,9 @@ def main():
             # 检查是否有该源表的其他候选
             other_candidates = []
             for candidate in all_candidates:
-                src = candidate["source"].get("table_info", {}).get("table_name")
+                src = candidate["source"].get("object_info", {}).get("object_name")
                 if src == source_table:
-                    tgt = candidate["target"].get("table_info", {}).get("table_name")
+                    tgt = candidate["target"].get("object_info", {}).get("object_name")
                     cols = candidate["source_columns"]
                     other_candidates.append((tgt, cols))
             

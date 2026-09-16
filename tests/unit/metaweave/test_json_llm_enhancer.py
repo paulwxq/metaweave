@@ -83,9 +83,9 @@ def sample_table_json():
     data = {
         "metadata_version": "3.0",
         "generated_timestamp": "2025-12-26T00:00:00.000000",
-        "table_info": {
+        "object_info": {
             "schema_name": "public",
-            "table_name": "test_table",
+            "object_name": "test_table",
             "comment": "",  # 缺失注释
             "comment_source": "",
         },
@@ -194,7 +194,9 @@ class TestTokenOptimization:
         llm_input = enhancer._build_llm_input_view(sample_table_json)
 
         # 验证保留了必要字段
-        assert "table_info" in llm_input
+        assert "object_info" in llm_input
+        assert llm_input["object_info"]["object_name"] == "test_table"
+        assert "table_name" not in llm_input["object_info"]
         assert "column_profiles" in llm_input
         assert "sample_records" in llm_input
         assert "physical_constraints" in llm_input
@@ -337,7 +339,7 @@ class TestEnhanceDocumentSwitches:
         sample_config["json_generation"]["comments"]["llm_enabled"] = False
         sample_config["json_generation"]["table_classification"]["llm_enabled"] = False
         original = _as_v3(sample_table_json)
-        original["table_info"].update(
+        original["object_info"].update(
             comment="原对象注释",
             comment_original="旧对象注释",
             comment_source_original="ddl",
@@ -351,18 +353,18 @@ class TestEnhanceDocumentSwitches:
 
         assert outcome.success is True
         assert outcome.llm_called is False
-        assert "comment_original" not in outcome.document["table_info"]
-        assert "comment_source_original" not in outcome.document["table_info"]
+        assert "comment_original" not in outcome.document["object_info"]
+        assert "comment_source_original" not in outcome.document["object_info"]
         assert "comment_original" not in outcome.document["column_profiles"]["id"]
         assert "comment_source_original" not in outcome.document["column_profiles"]["id"]
-        assert "comment_original" in original["table_info"]
+        assert "comment_original" in original["object_info"]
 
     def test_incremental_mode_removes_legacy_audit_fields(
         self, sample_config, sample_table_json
     ):
         sample_config["json_generation"]["table_classification"]["llm_enabled"] = False
         original = _as_v3(sample_table_json)
-        original["table_info"].update(
+        original["object_info"].update(
             comment="已有对象注释",
             comment_original="旧对象注释",
             comment_source_original="ddl",
@@ -379,11 +381,11 @@ class TestEnhanceDocumentSwitches:
         outcome = enhancer.enhance_document(original)
 
         assert outcome.success is True
-        assert outcome.document["table_info"]["comment"] == "已有对象注释"
+        assert outcome.document["object_info"]["comment"] == "已有对象注释"
         assert outcome.document["column_profiles"]["id"]["comment"] == "主键"
         assert outcome.document["column_profiles"]["name"]["comment"] == "新名称注释"
         for item in (
-            outcome.document["table_info"],
+            outcome.document["object_info"],
             outcome.document["column_profiles"]["id"],
             outcome.document["column_profiles"]["name"],
         ):
@@ -413,7 +415,7 @@ class TestEnhanceDocumentSwitches:
         assert outcome.comment_task_succeeded is True
         assert outcome.classification_task_attempted is False
         assert outcome.document["table_profile"]["classification_source"] == "rule"
-        assert outcome.document["table_info"]["comment"] == "测试对象"
+        assert outcome.document["object_info"]["comment"] == "测试对象"
 
     def test_classification_only_does_not_generate_comments(
         self, sample_config, sample_table_json
@@ -437,7 +439,7 @@ class TestEnhanceDocumentSwitches:
         assert outcome.comment_task_attempted is False
         assert outcome.classification_task_succeeded is True
         assert outcome.document["table_profile"]["table_category"] == "fact"
-        assert outcome.document["table_info"]["comment"] == ""
+        assert outcome.document["object_info"]["comment"] == ""
 
     def test_combined_partial_failure_keeps_successful_items_without_retry(
         self, sample_config, sample_table_json
@@ -465,7 +467,7 @@ class TestEnhanceDocumentSwitches:
         assert outcome.object_comment_success_count == 1
         assert outcome.column_comment_failure_count == 1
         assert outcome.document["table_profile"]["table_category"] == "fact"
-        assert outcome.document["table_info"]["comment"] == "测试对象"
+        assert outcome.document["object_info"]["comment"] == "测试对象"
         assert "llm_enhanced_at" not in outcome.document
         assert "generated_timestamp" in outcome.document
         assert outcome.document["column_profiles"]["name"]["comment"] == ""
@@ -494,13 +496,13 @@ class TestEnhanceDocumentSwitches:
         assert outcome.comment_task_succeeded is True
         assert outcome.classification_task_succeeded is True
         assert outcome.document["table_profile"]["table_category"] == "fact"
-        assert outcome.document["table_info"]["comment"] == "测试对象"
+        assert outcome.document["object_info"]["comment"] == "测试对象"
 
     def test_overwrite_mode_clears_failed_items_and_keeps_partial_success(
         self, sample_config, sample_table_json
     ):
         sample_config["json_generation"]["comments"]["overwrite"] = True
-        sample_table_json["table_info"]["comment"] = "DDL 对象注释"
+        sample_table_json["object_info"]["comment"] = "DDL 对象注释"
         enhancer = JsonLlmEnhancer(sample_config)
         enhancer.llm_service = self._service(
             json.dumps(
@@ -521,10 +523,10 @@ class TestEnhanceDocumentSwitches:
         assert outcome.object_comment_failure_count == 1
         assert outcome.column_comment_success_count == 1
         assert outcome.column_comment_failure_count == 1
-        assert outcome.document["table_info"]["comment"] == ""
+        assert outcome.document["object_info"]["comment"] == ""
         assert outcome.document["column_profiles"]["id"]["comment"] == ""
         assert outcome.document["column_profiles"]["name"]["comment"] == "刷新后的名称"
-        assert "comment_original" not in outcome.document["table_info"]
+        assert "comment_original" not in outcome.document["object_info"]
 
 
 class TestClassificationOverride:
@@ -735,14 +737,14 @@ class TestCommentMerging:
 
         enhancer._merge_table_comment(sample_table_json, llm_result)
 
-        assert sample_table_json["table_info"]["comment"] == "这是一个测试表"
-        assert sample_table_json["table_info"]["comment_source"] == "llm_generated"
+        assert sample_table_json["object_info"]["comment"] == "这是一个测试表"
+        assert sample_table_json["object_info"]["comment_source"] == "llm_generated"
 
     def test_merge_table_comment_overwrite(self, sample_config, sample_table_json):
         """测试覆盖已有表注释"""
         sample_config["json_generation"]["comments"]["overwrite"] = True
-        sample_table_json["table_info"]["comment"] = "旧注释"
-        sample_table_json["table_info"]["comment_source"] = "ddl"
+        sample_table_json["object_info"]["comment"] = "旧注释"
+        sample_table_json["object_info"]["comment_source"] = "ddl"
 
         enhancer = JsonLlmEnhancer(sample_config)
         llm_result = {"table_comment": "新注释"}
@@ -750,12 +752,12 @@ class TestCommentMerging:
         enhancer._merge_table_comment(sample_table_json, llm_result)
 
         # 验证覆盖
-        assert sample_table_json["table_info"]["comment"] == "新注释"
-        assert sample_table_json["table_info"]["comment_source"] == "llm_generated"
+        assert sample_table_json["object_info"]["comment"] == "新注释"
+        assert sample_table_json["object_info"]["comment_source"] == "llm_generated"
 
         # 覆盖模式直接替换，不保留旧注释审计副本。
-        assert "comment_original" not in sample_table_json["table_info"]
-        assert "comment_source_original" not in sample_table_json["table_info"]
+        assert "comment_original" not in sample_table_json["object_info"]
+        assert "comment_source_original" not in sample_table_json["object_info"]
 
     def test_merge_column_comments(self, sample_config, sample_table_json):
         """测试字段注释合并"""

@@ -152,7 +152,7 @@ class DDLLoader:
         metadata = TableMetadata(
             schema_name=schema_name,
             table_name=table_name,
-            table_type="table",
+            object_type="table",
             comment="",
             comment_source="ddl",
             row_count=0,
@@ -239,7 +239,7 @@ class DDLLoader:
         return TableMetadata(
             schema_name=schema_name,
             table_name=table_name,
-            table_type=object_type,
+            object_type=object_type,
             comment=normalize_comment(object_metadata.get("object_comment")),
             comment_source=(
                 "ddl" if normalize_comment(object_metadata.get("object_comment")) else ""

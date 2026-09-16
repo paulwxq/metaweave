@@ -524,48 +524,48 @@ class CandidateGenerator:
         用于池内同向去重、LLM top_k 并列排序（doc 19 §3.1.1）。禁止分别排序
         左右字段列表——按 (source_col=target_col) 配对整体排序。
         """
-        src_info = candidate["source"].get("table_info", {})
-        tgt_info = candidate["target"].get("table_info", {})
+        src_info = candidate["source"].get("object_info", {})
+        tgt_info = candidate["target"].get("object_info", {})
         pairs = sorted(
             f"{s}={t}" for s, t in zip(candidate["source_columns"], candidate["target_columns"])
         )
         return (
-            f"{src_info.get('schema_name')}.{src_info.get('table_name')}->"
-            f"{tgt_info.get('schema_name')}.{tgt_info.get('table_name')}:[{','.join(pairs)}]"
+            f"{src_info.get('schema_name')}.{src_info.get('object_name')}->"
+            f"{tgt_info.get('schema_name')}.{tgt_info.get('object_name')}:[{','.join(pairs)}]"
         )
 
     def _candidate_relationship_id(self, candidate: Dict[str, Any]) -> str:
         """含盐有向身份：与 repository 的 FK 身份集合口径一致，仅用于 FK 排除"""
-        src_info = candidate["source"].get("table_info", {})
-        tgt_info = candidate["target"].get("table_info", {})
+        src_info = candidate["source"].get("object_info", {})
+        tgt_info = candidate["target"].get("object_info", {})
         return MetadataRepository.compute_relationship_id(
             source_schema=src_info.get("schema_name"),
-            source_table=src_info.get("table_name"),
+            source_table=src_info.get("object_name"),
             source_columns=candidate["source_columns"],
             target_schema=tgt_info.get("schema_name"),
-            target_table=tgt_info.get("table_name"),
+            target_table=tgt_info.get("object_name"),
             target_columns=candidate["target_columns"],
             rel_id_salt=self.rel_id_salt,
         )
 
     def _reverse_relationship_id(self, candidate: Dict[str, Any]) -> str:
         """反向身份：用于兜住 LLM/规则候选与物理 FK 方向不一致的重复情形（见 3.8）"""
-        src_info = candidate["source"].get("table_info", {})
-        tgt_info = candidate["target"].get("table_info", {})
+        src_info = candidate["source"].get("object_info", {})
+        tgt_info = candidate["target"].get("object_info", {})
         return MetadataRepository.compute_relationship_id(
             source_schema=tgt_info.get("schema_name"),
-            source_table=tgt_info.get("table_name"),
+            source_table=tgt_info.get("object_name"),
             source_columns=candidate["target_columns"],
             target_schema=src_info.get("schema_name"),
-            target_table=src_info.get("table_name"),
+            target_table=src_info.get("object_name"),
             target_columns=candidate["source_columns"],
             rel_id_salt=self.rel_id_salt,
         )
 
     @staticmethod
     def _full_name(table: dict) -> str:
-        info = table.get("table_info", {})
-        return f"{info.get('schema_name')}.{info.get('table_name')}"
+        info = table.get("object_info", {})
+        return f"{info.get('schema_name')}.{info.get('object_name')}"
 
     def _dedup_rule_pool(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """规则池同向去重（doc 19 §3.1.1）：同一有向身份重复时 key_origin 按

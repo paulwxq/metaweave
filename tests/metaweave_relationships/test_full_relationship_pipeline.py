@@ -58,8 +58,8 @@ def main():
     # 找到目标候选
     target_candidate = None
     for candidate in candidates:
-        source_table = candidate["source"].get("table_info", {}).get("table_name")
-        target_table = candidate["target"].get("table_info", {}).get("table_name")
+        source_table = candidate["source"].get("object_info", {}).get("object_name")
+        target_table = candidate["target"].get("object_info", {}).get("object_name")
         source_cols = candidate["source_columns"]
         
         if (source_table == "fault_catalog" and 

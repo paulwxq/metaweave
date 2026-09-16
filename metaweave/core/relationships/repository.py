@@ -67,12 +67,12 @@ class MetadataRepository:
                 with open(json_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
 
-                table_info = data.get("table_info", {})
+                table_info = data.get("object_info", {})
                 schema_name = table_info.get("schema_name")
-                table_name = table_info.get("table_name")
+                table_name = table_info.get("object_name")
 
                 if not schema_name or not table_name:
-                    logger.warning(f"JSON文件缺少schema_name或table_name: {json_file}")
+                    logger.warning(f"JSON文件缺少schema_name或object_name: {json_file}")
                     continue
 
                 full_name = f"{schema_name}.{table_name}"
@@ -101,9 +101,9 @@ class MetadataRepository:
         fk_relationship_id_set: Set[str] = set()
 
         for full_name, table_data in tables.items():
-            table_info = table_data.get("table_info", {})
+            table_info = table_data.get("object_info", {})
             source_schema = table_info.get("schema_name")
-            source_table = table_info.get("table_name")
+            source_table = table_info.get("object_name")
 
             # 从table_profile.physical_constraints.foreign_keys提取
             table_profile = table_data.get("table_profile")

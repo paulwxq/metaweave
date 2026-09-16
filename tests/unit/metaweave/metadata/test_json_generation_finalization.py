@@ -10,7 +10,7 @@ from metaweave.core.metadata.models import GenerationResult
 def test_llm_failure_saves_rule_document_once_and_marks_result_failed(tmp_path):
     rule_document = {
         "metadata_version": "3.0",
-        "table_info": {"schema_name": "public", "table_name": "orders"},
+        "object_info": {"schema_name": "public", "object_name": "orders"},
         "column_profiles": {},
         "table_profile": {
             "table_category": "fact",
@@ -62,7 +62,7 @@ def test_llm_failure_saves_rule_document_once_and_marks_result_failed(tmp_path):
 def test_successful_enhancement_is_saved_once_as_final_document(tmp_path):
     enhanced_document = {
         "metadata_version": "3.0",
-        "table_info": {"schema_name": "public", "table_name": "orders"},
+        "object_info": {"schema_name": "public", "object_name": "orders"},
         "column_profiles": {},
         "table_profile": {
             "table_category": "dim",

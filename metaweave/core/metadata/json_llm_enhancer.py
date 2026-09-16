@@ -176,7 +176,7 @@ class JsonLlmEnhancer:
         MetadataDocument.from_dict(table_json)
         original = copy.deepcopy(table_json)
         original.pop("llm_enhanced_at", None)
-        table_name = original["table_info"].get("table_name", "<unknown>")
+        table_name = original["object_info"].get("object_name", "<unknown>")
 
         self._normalize_document_comments(original)
 
@@ -344,7 +344,7 @@ class JsonLlmEnhancer:
 
     @staticmethod
     def _normalize_document_comments(document: Dict) -> None:
-        table_info = document.get("table_info", {})
+        table_info = document.get("object_info", {})
         table_info.pop("comment_original", None)
         table_info.pop("comment_source_original", None)
         table_info["comment"] = normalize_comment(table_info.get("comment"))
@@ -371,12 +371,12 @@ class JsonLlmEnhancer:
         if comment_needs["need_table_comment"]:
             comment = normalize_comment(llm_result.get("table_comment"))
             if comment:
-                enhanced["table_info"]["comment"] = comment
-                enhanced["table_info"]["comment_source"] = "llm_generated"
+                enhanced["object_info"]["comment"] = comment
+                enhanced["object_info"]["comment_source"] = "llm_generated"
                 object_success = 1
             else:
-                enhanced["table_info"]["comment"] = ""
-                enhanced["table_info"]["comment_source"] = ""
+                enhanced["object_info"]["comment"] = ""
+                enhanced["object_info"]["comment_source"] = ""
                 object_failure = 1
                 errors.append("对象注释: LLM 未返回有效内容")
 
@@ -433,7 +433,7 @@ class JsonLlmEnhancer:
                 "columns_need_comment": [],
             }
 
-        table_info = table_json.get("table_info", {})
+        table_info = table_json.get("object_info", {})
         column_profiles = table_json.get("column_profiles", {})
 
         # 判断表注释是否需要生成
@@ -460,7 +460,7 @@ class JsonLlmEnhancer:
         """兼容旧的内部调用；不再伪造统计值或透传结构标志。"""
         wrapper = {
             "metadata_version": "3.0",
-            "table_info": {},
+            "object_info": {},
             "column_profiles": column_profiles,
             "table_profile": {
                 "classification_source": "rule",
@@ -519,7 +519,7 @@ class JsonLlmEnhancer:
         llm_result: Dict,
     ) -> None:
         """校验并合并 LLM 表分类，同时幂等保留原规则分类。"""
-        table_name = enhanced["table_info"]["table_name"]
+        table_name = enhanced["object_info"]["object_name"]
         table_profile = enhanced["table_profile"]
         rule_category = table_profile["table_category"]
         rule_confidence = table_profile.get("confidence")
@@ -565,7 +565,7 @@ class JsonLlmEnhancer:
 
     def _merge_table_comment(self, enhanced: Dict, llm_result: Dict):
         """合并表注释"""
-        current_comment = normalize_comment(enhanced["table_info"].get("comment"))
+        current_comment = normalize_comment(enhanced["object_info"].get("comment"))
         llm_comment = normalize_comment(llm_result.get("table_comment"))
 
         if not llm_comment:
@@ -573,14 +573,14 @@ class JsonLlmEnhancer:
 
         if not current_comment:
             # 缺失补全
-            enhanced["table_info"]["comment"] = llm_comment
-            enhanced["table_info"]["comment_source"] = "llm_generated"
+            enhanced["object_info"]["comment"] = llm_comment
+            enhanced["object_info"]["comment_source"] = "llm_generated"
         elif self.overwrite_existing:
             # 覆盖模式直接替换，不在产物中保留旧注释审计副本。
-            enhanced["table_info"]["comment"] = llm_comment
-            enhanced["table_info"]["comment_source"] = "llm_generated"
-            enhanced["table_info"].pop("comment_original", None)
-            enhanced["table_info"].pop("comment_source_original", None)
+            enhanced["object_info"]["comment"] = llm_comment
+            enhanced["object_info"]["comment_source"] = "llm_generated"
+            enhanced["object_info"].pop("comment_original", None)
+            enhanced["object_info"].pop("comment_source_original", None)
 
     def _merge_column_comments(self, enhanced: Dict, llm_result: Dict):
         """合并字段注释"""

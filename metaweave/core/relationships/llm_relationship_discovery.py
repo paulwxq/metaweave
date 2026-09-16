@@ -343,10 +343,10 @@ class LLMRelationshipDiscovery:
         table1 = self._prune_table_json_for_llm(table1)
         table2 = self._prune_table_json_for_llm(table2)
 
-        table1_info = table1.get("table_info", {})
-        table2_info = table2.get("table_info", {})
-        table1_name = f"{table1_info['schema_name']}.{table1_info['table_name']}"
-        table2_name = f"{table2_info['schema_name']}.{table2_info['table_name']}"
+        table1_info = table1.get("object_info", {})
+        table2_info = table2.get("object_info", {})
+        table1_name = f"{table1_info['schema_name']}.{table1_info['object_name']}"
+        table2_name = f"{table2_info['schema_name']}.{table2_info['object_name']}"
 
         prompt = RELATIONSHIP_DISCOVERY_PROMPT.format(
             table1_name=table1_name,
@@ -407,9 +407,9 @@ class LLMRelationshipDiscovery:
 
         for table_key, table_info in tables.items():
             tk_lower = table_key.lower()
-            info = table_info.get("table_info", {})
+            info = table_info.get("object_info", {})
             real_schema = info.get("schema_name", "")
-            real_table = info.get("table_name", "")
+            real_table = info.get("object_name", "")
             table_canonical_map[tk_lower] = (real_schema, real_table)
 
             col_map = {}
@@ -546,10 +546,10 @@ class LLMRelationshipDiscovery:
             成功时返回候选列表（可能为空列表，代表 LLM 认为无关联）；
             达到最大重试次数后仍失败返回 None（该表对被跳过，见 3.10）
         """
-        table1_info = table1.get("table_info", {})
-        table2_info = table2.get("table_info", {})
-        table1_name = f"{table1_info['schema_name']}.{table1_info['table_name']}"
-        table2_name = f"{table2_info['schema_name']}.{table2_info['table_name']}"
+        table1_info = table1.get("object_info", {})
+        table2_info = table2.get("object_info", {})
+        table1_name = f"{table1_info['schema_name']}.{table1_info['object_name']}"
+        table2_name = f"{table2_info['schema_name']}.{table2_info['object_name']}"
 
         prompt = self._build_prompt(table1, table2)
 

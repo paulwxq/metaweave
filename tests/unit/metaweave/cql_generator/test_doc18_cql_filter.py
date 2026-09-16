@@ -351,6 +351,55 @@ class TestStatsInvariants:
         assert stats == RelationshipFilterStats()
 
 
+class TestWriteMetadataDisplayInfo:
+    """md 生成信息区的导入数与阈值展示"""
+
+    def _write(self, tmp_path, stats, threshold):
+        from metaweave.core.cql_generator.models import JOINOnRelation, TableNode
+        from metaweave.core.cql_generator.writer import CypherWriter
+
+        writer = CypherWriter(tmp_path)
+        join_on_rels = [
+            JOINOnRelation(
+                relationship_id=f"rel_{i}",
+                src_full_name=f"public.a{i}",
+                dst_full_name=f"public.b{i}",
+                cardinality="N:1",
+            )
+            for i in range(stats.final_count)
+        ]
+        return writer.write_metadata(
+            tables=[TableNode(full_name="public.a", schema="public", name="a")],
+            columns=[],
+            has_column_rels=[],
+            join_on_rels=join_on_rels,
+            step_name="cql",
+            json_dir=tmp_path,
+            rel_dir=tmp_path,
+            filter_stats=stats,
+            composite_score_threshold=threshold,
+        )
+
+    def test_metadata_contains_import_count_and_threshold(self, tmp_path):
+        stats = RelationshipFilterStats(
+            candidate_count=8,
+            threshold_passed_count=6,
+            threshold_filtered_count=2,
+            final_count=6,
+        )
+        md = self._write(tmp_path, stats, 0.9).read_text(encoding="utf-8")
+        assert "**CQL 置信度阈值**: 0.9" in md
+        assert (
+            "**导入 JOIN_ON 关系数**: 6 条"
+            "(rel 候选 8 条 → 通过阈值 6 条 → 去重后 6 条)"
+        ) in md
+
+    def test_metadata_threshold_none_display(self, tmp_path):
+        stats = RelationshipFilterStats(final_count=1)
+        md = self._write(tmp_path, stats, None).read_text(encoding="utf-8")
+        assert "**CQL 置信度阈值**: 未设置" in md
+
+
 class TestWriteMetadataConsistency:
     """write_metadata 的统计一致性(doc 18 §5)"""
 

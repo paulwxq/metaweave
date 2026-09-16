@@ -102,24 +102,24 @@ class DimTableConfigGenerator:
 
     @staticmethod
     def _extract_table_identifiers(data: Dict[str, Any], path: Path) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-        table_info = data.get("table_info") or {}
+        object_info = data.get("object_info") or {}
         table_profile = data.get("table_profile") or {}
 
         database = (
-            table_info.get("database")
+            object_info.get("database")
             or table_profile.get("database")
             or data.get("database")
             or data.get("db_name")
             or DimTableConfigGenerator._infer_database_from_filename(path)
         )
         schema = (
-            table_info.get("schema_name")
+            object_info.get("schema_name")
             or table_profile.get("schema_name")
             or data.get("schema_name")
             or data.get("schema")
         )
         table = (
-            table_info.get("table_name")
+            object_info.get("object_name")
             or table_profile.get("table_name")
             or data.get("table_name")
             or data.get("name")

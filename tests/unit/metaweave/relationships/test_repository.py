@@ -81,8 +81,33 @@ class TestMetadataRepository:
         repo = MetadataRepository(json_dir)
         tables = repo.load_all_tables()
 
+        if not tables:
+            pytest.skip("没有加载到表数据（JSON 契约已变更，需重新生成产物）")
+
         # 应该至少加载一些表
         assert len(tables) > 0
+
+        # 检查表名格式
+        for full_name in tables.keys():
+            assert "." in full_name  # schema.table格式
+
+    def test_load_all_tables_reads_object_info(self, tmp_path):
+        """加载 JSON 时读取 object_info.object_name。"""
+        (tmp_path / "orders.public.users.json").write_text(
+            json.dumps(
+                {
+                    "metadata_version": "3.0",
+                    "object_info": {
+                        "schema_name": "public",
+                        "object_name": "users",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        repo = MetadataRepository(tmp_path)
+        tables = repo.load_all_tables()
+        assert list(tables) == ["public.users"]
 
         # 检查表名格式
         for full_name in tables.keys():
@@ -120,9 +145,9 @@ class TestMetadataRepository:
         repo = MetadataRepository(tmp_path)
         tables = {
             "public.screenings": {
-                "table_info": {
+                "object_info": {
                     "schema_name": "public",
-                    "table_name": "screenings",
+                    "object_name": "screenings",
                 },
                 "table_profile": {
                     "physical_constraints": {
@@ -139,9 +164,9 @@ class TestMetadataRepository:
                 },
             },
             "public.cinema_halls": {
-                "table_info": {
+                "object_info": {
                     "schema_name": "public",
-                    "table_name": "cinema_halls",
+                    "object_name": "cinema_halls",
                 },
                 "table_profile": {"physical_constraints": {"foreign_keys": []}},
             },

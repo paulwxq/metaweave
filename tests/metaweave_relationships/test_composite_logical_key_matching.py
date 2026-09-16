@@ -99,8 +99,8 @@ def main():
     found = False
     
     for candidate in candidates:
-        source_table = candidate["source"].get("table_info", {}).get("table_name")
-        target_table = candidate["target"].get("table_info", {}).get("table_name")
+        source_table = candidate["source"].get("object_info", {}).get("object_name")
+        target_table = candidate["target"].get("object_info", {}).get("object_name")
         source_cols = candidate["source_columns"]
         target_cols = candidate["target_columns"]
         
@@ -121,8 +121,8 @@ def main():
         print(f"   ❌ 未找到目标关系！")
         print(f"\n   生成的候选关系：")
         for i, candidate in enumerate(candidates, 1):
-            source_table = candidate["source"].get("table_info", {}).get("table_name")
-            target_table = candidate["target"].get("table_info", {}).get("table_name")
+            source_table = candidate["source"].get("object_info", {}).get("object_name")
+            target_table = candidate["target"].get("object_info", {}).get("object_name")
             source_cols = candidate["source_columns"]
             print(f"      {i}. {source_table}{source_cols} → {target_table}")
     

@@ -133,13 +133,13 @@ class TestRelationshipScorer:
         )
 
         source_table = {
-            "table_info": {"schema_name": "public", "table_name": "orders"},
+            "object_info": {"schema_name": "public", "object_name": "orders"},
             "column_profiles": {
                 "product_id": {"comment": "购买商品唯一标识ID", "data_type": "integer"}
             },
         }
         target_table = {
-            "table_info": {"schema_name": "public", "table_name": "products"},
+            "object_info": {"schema_name": "public", "object_name": "products"},
             "column_profiles": {
                 "product_id": {"comment": "商品唯一标识ID", "data_type": "integer"}
             },
@@ -170,7 +170,7 @@ class TestRelationshipScorer:
             return_value=(1.0, 1.0, 0.5, 1.0, 1.0, 1.0)
         )
         table = {
-            "table_info": {"schema_name": "public", "table_name": "t"},
+            "object_info": {"schema_name": "public", "object_name": "t"},
             "column_profiles": {"id": {"data_type": "integer"}},
         }
         candidate = {

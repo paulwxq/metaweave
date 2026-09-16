@@ -160,12 +160,12 @@ class RelationshipScorer:
                 # 翻转重算（见 doc 19 §3.2.2，不新增 DB 查询）
                 candidate["_reverse_inclusion_rate"] = reverse_inclusion_rate
 
-                source_info = source_table.get("table_info", {})
-                target_info = target_table.get("table_info", {})
+                source_info = source_table.get("object_info", {})
+                target_info = target_table.get("object_info", {})
                 relation_label = (
-                    f"{source_info.get('schema_name')}.{source_info.get('table_name')}"
+                    f"{source_info.get('schema_name')}.{source_info.get('object_name')}"
                     f"[{', '.join(source_columns)}] -> "
-                    f"{target_info.get('schema_name')}.{target_info.get('table_name')}"
+                    f"{target_info.get('schema_name')}.{target_info.get('object_name')}"
                     f"[{', '.join(target_columns)}]"
                 )
                 logger.debug(
@@ -206,13 +206,13 @@ class RelationshipScorer:
             reverse_inclusion_rate = |交集| / |target_values|，为翻转方向后的
             inclusion_rate（内部返回信息，见 doc 19 §3.2.2）
         """
-        source_info = source_table.get("table_info", {})
-        target_info = target_table.get("table_info", {})
+        source_info = source_table.get("object_info", {})
+        target_info = target_table.get("object_info", {})
 
         source_schema = source_info.get("schema_name")
-        source_table_name = source_info.get("table_name")
+        source_table_name = source_info.get("object_name")
         target_schema = target_info.get("schema_name")
-        target_table_name = target_info.get("table_name")
+        target_table_name = target_info.get("object_name")
 
         source_profiles = source_table.get("column_profiles", {})
         target_profiles = target_table.get("column_profiles", {})

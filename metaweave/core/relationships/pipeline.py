@@ -401,11 +401,11 @@ class RelationshipDiscoveryPipeline:
     @staticmethod
     def _candidate_dir(candidate: Dict[str, Any]) -> Tuple[str, str]:
         """候选方向标识:(from 表全名, to 表全名)"""
-        src_info = candidate["source"].get("table_info", {})
-        tgt_info = candidate["target"].get("table_info", {})
+        src_info = candidate["source"].get("object_info", {})
+        tgt_info = candidate["target"].get("object_info", {})
         return (
-            f"{src_info.get('schema_name')}.{src_info.get('table_name')}",
-            f"{tgt_info.get('schema_name')}.{tgt_info.get('table_name')}",
+            f"{src_info.get('schema_name')}.{src_info.get('object_name')}",
+            f"{tgt_info.get('schema_name')}.{tgt_info.get('object_name')}",
         )
 
     @staticmethod
@@ -511,14 +511,14 @@ class RelationshipDiscoveryPipeline:
         """
         groups: Dict[str, List[Dict[str, Any]]] = {}
         for candidate in candidates:
-            src_info = candidate["source"].get("table_info", {})
-            tgt_info = candidate["target"].get("table_info", {})
+            src_info = candidate["source"].get("object_info", {})
+            tgt_info = candidate["target"].get("object_info", {})
             uid = MetadataRepository.compute_undirected_identity(
                 source_schema=src_info.get("schema_name"),
-                source_table=src_info.get("table_name"),
+                source_table=src_info.get("object_name"),
                 source_columns=candidate["source_columns"],
                 target_schema=tgt_info.get("schema_name"),
-                target_table=tgt_info.get("table_name"),
+                target_table=tgt_info.get("object_name"),
                 target_columns=candidate["target_columns"],
             )
             groups.setdefault(uid, []).append(candidate)
@@ -600,13 +600,13 @@ class RelationshipDiscoveryPipeline:
         比较键 (casefold, 原始值) 逐级比较,较小的一端固定为 from。
         """
         sample = group[0]
-        src_info = sample["source"].get("table_info", {})
-        tgt_info = sample["target"].get("table_info", {})
+        src_info = sample["source"].get("object_info", {})
+        tgt_info = sample["target"].get("object_info", {})
 
         def endpoint_key(info: dict, columns: List[str]) -> Tuple:
             return (
                 (info.get("schema_name", "").casefold(), info.get("schema_name", "")),
-                (info.get("table_name", "").casefold(), info.get("table_name", "")),
+                (info.get("object_name", "").casefold(), info.get("object_name", "")),
                 tuple((col.casefold(), col) for col in sorted(columns)),
             )
 
@@ -751,14 +751,14 @@ class RelationshipDiscoveryPipeline:
                 group, winner, final_cardinality, from_full
             )
             # ⑦ 组内 cardinality 与方向确定、字段级合并完成后生成最终有向 ID
-            src_info = merged["source"].get("table_info", {})
-            tgt_info = merged["target"].get("table_info", {})
+            src_info = merged["source"].get("object_info", {})
+            tgt_info = merged["target"].get("object_info", {})
             merged["_relationship_id"] = MetadataRepository.compute_relationship_id(
                 source_schema=src_info.get("schema_name"),
-                source_table=src_info.get("table_name"),
+                source_table=src_info.get("object_name"),
                 source_columns=merged["source_columns"],
                 target_schema=tgt_info.get("schema_name"),
-                target_table=tgt_info.get("table_name"),
+                target_table=tgt_info.get("object_name"),
                 target_columns=merged["target_columns"],
                 rel_id_salt=self.rel_id_salt,
             )
@@ -779,10 +779,10 @@ class RelationshipDiscoveryPipeline:
     def _format_candidate_debug(candidate: Dict[str, Any]) -> str:
         if not candidate:
             return "<empty>"
-        src_info = candidate["source"].get("table_info", {})
-        tgt_info = candidate["target"].get("table_info", {})
-        src = f"{src_info.get('schema_name')}.{src_info.get('table_name')}"
-        tgt = f"{tgt_info.get('schema_name')}.{tgt_info.get('table_name')}"
+        src_info = candidate["source"].get("object_info", {})
+        tgt_info = candidate["target"].get("object_info", {})
+        src = f"{src_info.get('schema_name')}.{src_info.get('object_name')}"
+        tgt = f"{tgt_info.get('schema_name')}.{tgt_info.get('object_name')}"
         src_cols = ",".join(candidate.get("source_columns", []))
         tgt_cols = ",".join(candidate.get("target_columns", []))
         score = candidate.get("composite_score")

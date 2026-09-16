@@ -130,12 +130,12 @@ class JSONReader:
                     data = json.load(f)
 
                 # 验证表名不是占位符
-                table_info = data.get("table_info", {})
-                table_name = table_info.get("table_name", "")
+                table_info = data.get("object_info", {})
+                table_name = table_info.get("object_name", "")
 
-                if not table_name or table_name in ["table_name", "placeholder", "example"]:
+                if not table_name or table_name in ["table_name", "object_name", "placeholder", "example"]:
                     logger.warning(
-                        f"跳过占位符表: {json_file.name} (table_name={table_name})"
+                        f"跳过占位符表: {json_file.name} (object_name={table_name})"
                     )
                     continue
 
@@ -164,7 +164,7 @@ class JSONReader:
 
     def _extract_table(self, data: Dict[str, Any]) -> TableNode:
         """从 JSON 中提取表信息"""
-        table_info = data.get("table_info", {})
+        table_info = data.get("object_info", {})
         table_profile = data.get("table_profile", {})
         physical_constraints = table_profile.get("physical_constraints", {})
 
@@ -178,7 +178,7 @@ class JSONReader:
                 )
 
         schema = table_info.get("schema_name", "")
-        name = table_info.get("table_name", "")
+        name = table_info.get("object_name", "")
         full_name = f"{schema}.{name}"
 
         # 提取物理主键（符合 list<string> 规范）
@@ -235,7 +235,7 @@ class JSONReader:
             name=name,
             database=self.database_name,
             comment=table_info.get("comment"),
-            table_type=table_info.get("table_type", "table"),
+            object_type=table_info.get("object_type", "table"),
             pk=pk,
             uk=uk,
             fk=fk,
@@ -261,7 +261,7 @@ class JSONReader:
         table_full_name: str
     ) -> List[ColumnNode]:
         """从 JSON 中提取列信息"""
-        table_info = data.get("table_info", {})
+        table_info = data.get("object_info", {})
         database = table_info.get("database")
         if database:
             if self.database_name is None:
@@ -271,7 +271,7 @@ class JSONReader:
                     f"JSON 目录包含多个 database: {self.database_name} vs {database}"
                 )
         schema = table_info.get("schema_name", "")
-        table_name = table_info.get("table_name", "")
+        table_name = table_info.get("object_name", "")
 
         column_profiles = data.get("column_profiles", {})
         table_profile = data.get("table_profile", {})

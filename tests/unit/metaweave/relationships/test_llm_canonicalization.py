@@ -31,11 +31,11 @@ def test_canonicalization_normalizes_drifted_identifiers(empty_config):
 
     tables = {
         "public.user": {
-            "table_info": {"schema_name": "public", "table_name": "user"},
+            "object_info": {"schema_name": "public", "object_name": "user"},
             "column_profiles": {"user_id": {}},
         },
         "public.order": {
-            "table_info": {"schema_name": "public", "table_name": "order"},
+            "object_info": {"schema_name": "public", "object_name": "order"},
             "column_profiles": {"customer_id": {}},
         },
     }
@@ -67,11 +67,11 @@ def test_canonicalization_scenario_id_consistency(empty_config):
 
     tables = {
         "schema_a.table_b": {
-            "table_info": {"schema_name": "schema_a", "table_name": "table_b"},
+            "object_info": {"schema_name": "schema_a", "object_name": "table_b"},
             "column_profiles": {"col_1": {}},
         },
         "schema_c.table_d": {
-            "table_info": {"schema_name": "schema_c", "table_name": "table_d"},
+            "object_info": {"schema_name": "schema_c", "object_name": "table_d"},
             "column_profiles": {"col_2": {}},
         },
     }

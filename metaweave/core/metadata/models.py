@@ -163,7 +163,7 @@ class TableMetadata:
     schema_name: str
     table_name: str
     database: Optional[str] = None  # 数据库名称
-    table_type: str = "table"  # table, view, materialized_view
+    object_type: str = "table"  # table, view, materialized_view
     comment: str = ""
     comment_source: str = "db"  # db / ddl / llm_generated / 空字符串
     row_count: int = 0
@@ -211,11 +211,11 @@ class TableMetadata:
         data: Dict[str, Any] = {"metadata_version": "3.0"}
         if include_generation_timestamp:
             data["generated_timestamp"] = datetime.now().isoformat()
-        data["table_info"] = {
+        data["object_info"] = {
             "database": self.database,
             "schema_name": self.schema_name,
-            "table_name": self.table_name,
-            "table_type": self.table_type,
+            "object_name": self.table_name,
+            "object_type": self.object_type,
             "comment": self.comment,
             "comment_source": self.comment_source,
             "total_rows": self.row_count,

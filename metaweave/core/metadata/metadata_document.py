@@ -34,11 +34,11 @@ class MetadataDocument:
                 f"不支持的 metadata_version: {version!r}；"
                 f"当前格式版本必须为 {CURRENT_METADATA_VERSION}"
             )
-        for key in ("table_info", "column_profiles", "table_profile"):
+        for key in ("object_info", "column_profiles", "table_profile"):
             if key not in data:
                 raise MetadataDocumentError(f"JSON 元数据缺少必需字段: {key}")
-        if not isinstance(data["table_info"], dict):
-            raise MetadataDocumentError("table_info 必须是对象")
+        if not isinstance(data["object_info"], dict):
+            raise MetadataDocumentError("object_info 必须是对象")
         if not isinstance(data["column_profiles"], dict):
             raise MetadataDocumentError("column_profiles 必须是对象")
         if data["table_profile"] is not None and not isinstance(
@@ -57,8 +57,8 @@ class MetadataDocument:
         return self.data["metadata_version"]
 
     @property
-    def table_info(self) -> Dict[str, Any]:
-        return self.data["table_info"]
+    def object_info(self) -> Dict[str, Any]:
+        return self.data["object_info"]
 
     @property
     def column_profiles(self) -> Dict[str, Dict[str, Any]]:
@@ -255,7 +255,7 @@ class MetadataDocument:
 
     def build_json_llm_input(self, *, value_distribution_top_k: int = 10) -> Dict[str, Any]:
         """构造字段级白名单的 json_llm 提示词输入。"""
-        table_info = self.table_info
+        object_info = self.object_info
         columns = {}
         for column_name, raw_column in self.column_profiles.items():
             if not isinstance(raw_column, dict):
@@ -287,11 +287,11 @@ class MetadataDocument:
         if not isinstance(records, list):
             raise MetadataDocumentError("sample_records.records 必须是数组")
         return {
-            "table_info": {
-                "schema_name": table_info.get("schema_name", ""),
-                "table_name": table_info.get("table_name", ""),
-                "table_type": table_info.get("table_type", "table"),
-                "comment": table_info.get("comment", ""),
+            "object_info": {
+                "schema_name": object_info.get("schema_name", ""),
+                "object_name": object_info.get("object_name", ""),
+                "object_type": object_info.get("object_type", "table"),
+                "comment": object_info.get("comment", ""),
             },
             "column_profiles": columns,
             "sample_records": {
@@ -353,8 +353,8 @@ class MetadataDocument:
 
     def _validate_shape(self) -> None:
         """校验当前格式，并拒绝旧格式字段混入。"""
-        if "total_columns" in self.table_info:
-            raise MetadataDocumentError("JSON v3 不允许 table_info.total_columns")
+        if "total_columns" in self.object_info:
+            raise MetadataDocumentError("JSON v3 不允许 object_info.total_columns")
 
         profiling = self.data.get("profiling")
         if profiling is not None:

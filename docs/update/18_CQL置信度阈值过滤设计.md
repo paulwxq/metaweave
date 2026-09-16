@@ -259,7 +259,10 @@ class RawRelationshipEntry:
 ```
 
 - 被过滤、被去重的关系不进 cypher 文件,**不计入 md 的最终 JOIN_ON 数量**
-  (当前 md 只有数量表、无关系明细清单,统计落到数量表即可)。
+  (当前 md 只有数量表、无关系明细清单,统计落到数量表即可);
+- md 的"生成信息"区必须展示两行摘要:当前生效的
+  `composite_score_threshold` 与"导入 JOIN_ON 关系数: N 条(rel 候选 M 条 →
+  通过阈值 P 条 → 去重后 N 条)"——便于快速核对过滤效果。
 
 ## 6. 测试计划
 

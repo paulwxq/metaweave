@@ -342,7 +342,7 @@ class MetadataGenerator:
 
             object_name = parts[2]
             parsed = self._get_ddl_loader().load_table(schema, object_name)
-            object_type = parsed.metadata.table_type
+            object_type = parsed.metadata.object_type
             if object_type not in {"table", "view", "materialized_view"}:
                 raise DDLLoaderError(
                     f"DDL 对象类型不受支持 ({ddl_file}): {object_type!r}"
@@ -687,8 +687,8 @@ class MetadataGenerator:
         元数据中的每个对象代表一个完整约束，因此复合约束按一个计数。
         """
         with self._result_lock:
-            result.processed_object_counts[metadata.table_type] = (
-                result.processed_object_counts.get(metadata.table_type, 0) + 1
+            result.processed_object_counts[metadata.object_type] = (
+                result.processed_object_counts.get(metadata.object_type, 0) + 1
             )
             result.physical_primary_key_constraints_found += len(metadata.primary_keys)
             result.physical_foreign_key_constraints_found += len(metadata.foreign_keys)
@@ -783,9 +783,9 @@ class MetadataGenerator:
         try:
             parsed = self._get_ddl_loader().load_table(schema, table)
             metadata = parsed.metadata
-            if metadata.table_type != object_type:
+            if metadata.object_type != object_type:
                 raise DDLLoaderError(
-                    f"DDL 对象类型为 {metadata.table_type}，数据库对象类型为 "
+                    f"DDL 对象类型为 {metadata.object_type}，数据库对象类型为 "
                     f"{object_type}"
                 )
             
@@ -859,8 +859,8 @@ class MetadataGenerator:
             self._pending_json_documents.append(
                 (document, output_path, metadata.full_name)
             )
-            result.processed_object_counts[metadata.table_type] = (
-                result.processed_object_counts.get(metadata.table_type, 0) + 1
+            result.processed_object_counts[metadata.object_type] = (
+                result.processed_object_counts.get(metadata.object_type, 0) + 1
             )
 
         logger.info(f"表规则画像完成 (JSON): {schema}.{table}")
@@ -959,9 +959,9 @@ class MetadataGenerator:
         if parsed is None:
             parsed = self._get_ddl_loader().load_table(schema, object_name)
         metadata = parsed.metadata
-        if metadata.table_type != object_type:
+        if metadata.object_type != object_type:
             raise DDLLoaderError(
-                f"DDL 对象类型为 {metadata.table_type}，枚举对象类型为 {object_type}"
+                f"DDL 对象类型为 {metadata.object_type}，枚举对象类型为 {object_type}"
             )
         metadata.database = self.database_name
 
