@@ -124,11 +124,12 @@ class TestRelationshipScorer:
         assert scorer._calculate_name_similarity(["user_id"], ["company_id"]) == 0.0
 
     def test_calculate_scores_returns_five_dimensions(self, mock_connector):
-        """_calculate_scores 返回五维，且与 weights 键集一致。"""
+        """_calculate_scores 返回五维 + reverse_inclusion_rate，且与 weights 键集一致。"""
         config = {"weights": dict(FIVE_DIM_WEIGHTS)}
         scorer = RelationshipScorer(config, mock_connector, FakeNameSimilarityService())
+        # (inclusion, reverse_inclusion, jaccard, source_uniq, target_uniq, join_mult)
         scorer._sample_and_calculate_inclusion = Mock(
-            return_value=(1.0, 0.5, 1.0, 1.0, 1.0)
+            return_value=(1.0, 0.8, 0.5, 1.0, 1.0, 1.0)
         )
 
         source_table = {
@@ -144,7 +145,7 @@ class TestRelationshipScorer:
             },
         }
 
-        score_details, cardinality = scorer._calculate_scores(
+        score_details, cardinality, reverse_inclusion_rate = scorer._calculate_scores(
             source_table, ["product_id"], target_table, ["product_id"]
         )
         assert set(score_details.keys()) == set(FIVE_DIM_WEIGHTS.keys())
@@ -153,6 +154,7 @@ class TestRelationshipScorer:
         assert score_details["inclusion_rate"] == 1.0
         assert score_details["jaccard_index"] == 0.5
         assert score_details["type_compatibility"] == 1.0
+        assert reverse_inclusion_rate == 0.8
         assert cardinality in {"1:1", "1:N", "N:1", "M:N"}
 
     def test_old_four_dim_weights_rejected(self, mock_connector):
@@ -165,7 +167,7 @@ class TestRelationshipScorer:
         }}
         scorer = RelationshipScorer(config, mock_connector)
         scorer._sample_and_calculate_inclusion = Mock(
-            return_value=(1.0, 0.5, 1.0, 1.0, 1.0)
+            return_value=(1.0, 1.0, 0.5, 1.0, 1.0, 1.0)
         )
         table = {
             "table_info": {"schema_name": "public", "table_name": "t"},
@@ -177,7 +179,7 @@ class TestRelationshipScorer:
             "source_columns": ["id"],
             "target_columns": ["id"],
         }
-        details, _ = scorer._calculate_scores(table, ["id"], table, ["id"])
+        details, _, _ = scorer._calculate_scores(table, ["id"], table, ["id"])
         assert "name_similarity" in details
         assert set(details.keys()) != set(scorer.weights.keys())
         scored = scorer.score_candidates([candidate], {})
@@ -240,3 +242,53 @@ class TestRelationshipScorer:
         # valid_count 应该是排除含 None 行后的有效行数（3行有效，含1行重复）
         assert valid_count == 3
 
+
+
+class TestSampleFailurePaths:
+    """采样失败路径的保守返回值（doc 19 回归：6 元组顺序修复）
+
+    契约顺序:
+    (inclusion_rate, reverse_inclusion_rate, jaccard_index,
+     source_uniqueness, target_uniqueness, join_multiplicity)
+    失败时不得把 target_uniqueness 误报为 1.0（否则空数据被误判 N:1）。
+    """
+
+    def _make_scorer(self, connector):
+        config = {"weights": dict(FIVE_DIM_WEIGHTS)}
+        return RelationshipScorer(config, connector)
+
+    def test_empty_sample_returns_conservative_tuple(self):
+        connector = Mock()
+        connector.execute_query.return_value = []
+        scorer = self._make_scorer(connector)
+        result = scorer._sample_and_calculate_inclusion(
+            "public", "a", ["id"], "public", "b", ["id"]
+        )
+        assert len(result) == 6
+        assert result[3] == 0.0  # source_uniqueness
+        assert result[4] == 0.0  # target_uniqueness（不得为 1.0）
+        assert result[5] == 1.0  # join_multiplicity 保守 1.0
+
+    def test_all_null_rows_returns_conservative_tuple(self):
+        connector = Mock()
+        connector.execute_query.return_value = [
+            {"id": None}, {"id": None},
+        ]
+        scorer = self._make_scorer(connector)
+        result = scorer._sample_and_calculate_inclusion(
+            "public", "a", ["id"], "public", "b", ["id"]
+        )
+        assert result[3] == 0.0
+        assert result[4] == 0.0
+        assert result[5] == 1.0
+
+    def test_query_exception_returns_conservative_tuple(self):
+        connector = Mock()
+        connector.execute_query.side_effect = RuntimeError("db down")
+        scorer = self._make_scorer(connector)
+        result = scorer._sample_and_calculate_inclusion(
+            "public", "a", ["id"], "public", "b", ["id"]
+        )
+        assert result[3] == 0.0
+        assert result[4] == 0.0
+        assert result[5] == 1.0

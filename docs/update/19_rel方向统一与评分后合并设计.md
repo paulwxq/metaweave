@@ -15,7 +15,9 @@
 关联,按字典序定方向(不称隐式外键)。同一业务关系只出现一条,CQL 删除翻转逻辑
 变纯消费。
 
-**验收入口仍是独立执行的 `metadata --step rel`;`--step json` 零改动。**
+**验收入口仍是独立执行的 `metadata --step rel`;`--step json` 仅做
+`statistics.uniqueness` / `null_rate` 两个现算指标的落盘支持(rel 与 CQL 直接
+消费,见 doc 17 §5.2),方向/结构零改动。**
 
 ## 2. 现状确认
 
@@ -66,18 +68,20 @@ confidence`,**没有 cardinality 字段**;方向约定隐含"from 是外键表"�
    统计报表等消费方要么各自实现翻转,要么方向错误;
 6. **1:1 / M:N 反向重复隐患**:无向语义的关系,两个方向可能同样并存且不合并
    (合并身份含方向);
-7. **同表对同方向多列对在 CQL 端塌缩(已知下游限制,本次不解决)**:不同字段
+7. **同表对同方向多列对在 CQL 端塌缩**:不同字段
    映射(如 `orders.shipping_address_id→addresses.id` 与
-   `orders.billing_address_id→addresses.id`)是两条不同的业务关系,rel 层应
-   保留两条;塌缩是 CQL MERGE 表达与 doc 18 去重策略的问题,与 rel 合并
-   无关;
+   `orders.billing_address_id→addresses.id`)是两条不同的业务关系,rel 层按
+   无向身份保留两条;塌缩是 CQL MERGE 表达的问题,与 rel 合并无关——
+   **已由 doc 18 的 relationship_id 边身份方案解决(已实施)**:同表对不同
+   业务关系各自成边并存;
 8. **产物不可复现风险**:1:1 / M:N 的方向取决于候选入池顺序,同一输入两次
    运行可能输出 A→B 与 B→A 两种写法。
 
 以上后果均已由 §3 的设计消除:生成时方向规范化 + 评分后纠偏(1/4/5)、
 统一身份合并(1/2/6)、评分前过滤消除同源重复/FK 重复/superkey 的无意义采样
 (3;跨来源重叠候选允许分别评分,是评分后合并所需的保留成本)、确定性方向
-决策(8);第 7 项为已知下游限制,由 doc 18 解决,本次不涉及。
+决策(8);第 7 项已由 doc 18 的 relationship_id 边身份方案解决(后于本设计
+实施)。
 
 ## 3. 目标设计
 
@@ -402,9 +406,9 @@ MetadataRepository(或提取共享配置解析),不复用硬编码常量。
 | 文件 | 修改内容 |
 |---|---|
 | `metaweave/core/relationships/candidate_generator.py` | 拆分出口:规则候选生成、LLM 候选入池各自独立返回;**规则候选生成时交换方向**(3.2.1);**LLM 入池顺序:合法化 → 同向身份去重(同身份保留最高 confidence)→ 排序(confidence 降序、规范身份升序)→ top_k 截断**(见 3.1.1,先于去重的旧顺序会浪费名额);**各池评分前同向去重**(统一身份);**最小键过滤:规则池自过滤 + LLM 池用"LLM 池单列 ∪ 规则池单列"并集判定(单向,见 3.1.1)**;FK 排除(双向)保留在两池评分前;**移除混合池统一 `_merge_and_dedup`**(跨来源合并挪到合并阶段) |
-| `metaweave/core/relationships/pipeline.py` | 分开调用评分(规则结果、LLM 结果);新增**合并阶段**(严格按 3.3 顺序):评分后纠偏(按来源,3.2.2)→ 无向身份分组 → 组内 cardinality 决策 → 按最终 cardinality 定方向 → 规范到最终方向 + 重算(翻转取 reverse_inclusion_rate 并重算 composite_score)→ 字段级合并 → 生成最终有向 relationship_id → FK 兜底复查;决策输入改为合并后关系集 |
+| `metaweave/core/relationships/pipeline.py` | 分开调用评分(规则结果、LLM 结果);新增**合并阶段**(严格按 3.3 顺序):评分后纠偏(按来源,3.2.2)→ 无向身份分组 → 组内 cardinality 决策 → 按最终 cardinality 定方向 → 规范到最终方向 + 重算(翻转取 reverse_inclusion_rate 并重算 composite_score)→ 字段级合并 → 生成最终有向 relationship_id;决策输入改为合并后关系集。**不做 FK 兜底复查**——评分前 FK 排除已双向(fwd/rev)覆盖,合并阶段不改变字段配对(无向身份 = 表对 + 配对集合),最终关系身份与已过排除的候选一致,复查冗余 |
 | `metaweave/core/relationships/repository.py` | 新增**无向身份函数**(精确列配对规范化算法见 3.3;用作**所有评分后候选的合并分组键**,不再仅用于 1:1 反向对);`_infer_cardinality`:物理 FK 固定按 1:1/N:1(见 3.2.3);`_is_columns_unique`:补查非部分/非表达式/键列完全匹配的唯一索引,复合列统计回退由"各单列 uniqueness 最小值"改为 unique_column_sets 组合级证据(逻辑键置信度阈值经配置传入,见 3.2.3) |
-| `metaweave/core/cql_generator/reader.py` | **删除 1:N 翻转逻辑**(rel 归一后不再出现 1:N),纯消费;doc 18(阈值过滤与同表对去重)**尚未实施**,与本次改造相互独立、无实施顺序依赖,本设计不将其视为已存在的兜底能力 |
+| `metaweave/core/cql_generator/reader.py` | **删除 1:N 翻转逻辑**(rel 归一后不再出现 1:N),纯消费;doc 18(阈值过滤 + relationship_id 边身份)**已实施**(后于本设计),本设计的方向统一是其前提,但实施顺序无依赖 |
 | `metaweave/core/relationships/scorer.py` | 评分维度与计算公式不变,扩展评分结果的**内部返回信息**:采样时同步计算 `forward/reverse_inclusion_rate` 两个标量(内部字段,不进 `score_details` 与产物),并提供**按权重重算总分的接口**(或提取共享纯函数)——供合并阶段翻转后取 reverse_inclusion_rate 并重算 composite_score(见 3.2.2,不新增 DB 查询、不暴露样本集合;权重单一来源,合并阶段禁止硬编码) |
 | `metaweave/core/relationships/decision_engine.py` | 修改 `_has_independent_constraint`:检查端点从 source 改为 target(键端;N:1 / 规则主导 1:1 检查 target,M:N 不应用例外,纯 LLM 1:1 检查最终方向 target,见 3.4);抑制分组保持有向表对(精度取舍,见 3.4) |
 | `metaweave/core/relationships/writer.py` | 不改(逻辑按 rel 定向查表,自动适配);方向规范化后 `target_source_type` 更符合语义(键侧在 target)、`source_constraint` 值变化(键侧约束 → 引用侧约束,仅规则单列关系)——顺带修正现状的语义错位,行为以回归测试锁定(见 §5) |
@@ -482,7 +486,7 @@ MetadataRepository(或提取共享配置解析),不复用硬编码常量。
   最小键过滤在各池评分前生效;
 - **CQL**:删除翻转后,rel 中无 1:N,N:1 关系保持引用方→键端;1:1 与 M:N
   保持 rel 已确定的规范方向;CQL 不再自行改变任何关系方向、忠实消费 rel
-  方向(同表对多字段关系的塌缩属 doc 18 范围,本次不涉及);
+  方向(同表对多字段关系的并存由 doc 18 边身份方案保证,已实施);
 - **writer 字段语义回归**:规则物理键关系规范方向后,`target_source_type`
   正确显示 `primary_key` / `unique_constraint`(键侧在 target);
   `source_constraint` 描述规范化后的引用侧(而非原搜索起点键表);逻辑键关系
@@ -525,7 +529,8 @@ MetadataRepository(或提取共享配置解析),不复用硬编码常量。
 5. CQL 无翻转逻辑,纯消费;
 6. FK 排除与最小键过滤在评分前执行;最小键过滤覆盖规则与 LLM 两池且单向
    (规则抑制 LLM,LLM 不抑制规则);
-7. `--step json` 零改动;
+7. `--step json` 除 `statistics.uniqueness` / `null_rate` 现算落盘(doc 17
+   §5.2)外零改动;
 8. 评分维度与权重(doc 16)、决策阈值数值与抑制规则口径保持不变(例外检查
    端点随方向规范化调整,见 3.4);
 9. writer 输出的 `target_source_type` / `source_constraint` /
@@ -536,13 +541,14 @@ MetadataRepository(或提取共享配置解析),不复用硬编码常量。
 
 ## 7. 非目标
 
-- 不改 `--step json`(JSON 产物 FK 方向已符合惯例、逻辑键无方向);
+- 不改 `--step json`(JSON 产物 FK 方向已符合惯例、逻辑键无方向;仅
+  `statistics.uniqueness` / `null_rate` 现算落盘属 doc 17 §5.2 的独立决定);
 - 不改**推断候选在 scorer 中的** cardinality 计算公式(继续使用采样唯一性与
   JOIN 倍率);物理 FK 直通的 `_infer_cardinality()` 按 3.2.3 修正为仅输出
   1:1/N:1(数据库约束语义);
 - 不改决策阈值数值(校准另议);
-- doc 18(CQL 阈值过滤与同表对去重)范围不变、**尚未实施**;与本次方向统一
-  相互独立,无实施顺序依赖,本设计不将其视为已存在的兜底能力;
+- doc 18(CQL 阈值过滤与 relationship_id 边身份)范围不变、**已实施**;与本
+  次方向统一相互独立,无实施顺序依赖,本设计的方向统一是其前提;
 - 不改 writer 输出结构(`source_constraint` 字段值随方向变化——语义归位,见
   §4/§5;`relationship_id` 字段值随方向变化,结构不变);
 - 不改 writer `_get_target_source_type` 中 candidate_logical_key 判定硬编码

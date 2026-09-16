@@ -4,6 +4,7 @@
 """
 
 import logging
+import math
 from pathlib import Path
 from typing import Dict, Any
 
@@ -14,6 +15,8 @@ from metaweave.utils.file_utils import get_project_root
 from services.config_loader import ConfigLoader
 
 logger = logging.getLogger("metaweave.cql_generator")
+
+DEFAULT_COMPOSITE_SCORE_THRESHOLD = 0.9  # 与 decision.high_confidence_threshold 语义对齐
 
 
 class CQLGenerator:
@@ -51,9 +54,42 @@ class CQLGenerator:
             self.config.get("output", {}).get("cql_directory", "output/cql")
         )
 
+        # CQL 置信度阈值（doc 18）：缺失/字段缺失 → 默认 0.9；显式非法值报错
+        cql_generation = self.config.get("cql_generation") or {}
+        raw_threshold = cql_generation.get(
+            "composite_score_threshold", DEFAULT_COMPOSITE_SCORE_THRESHOLD
+        )
+        self.composite_score_threshold = self._validate_threshold(raw_threshold)
+
         logger.info(f"JSON 目录: {self.json_dir}")
         logger.info(f"关系目录: {self.rel_dir}")
         logger.info(f"CQL 输出目录: {self.cql_dir}")
+        logger.info(f"CQL 置信度阈值: {self.composite_score_threshold}")
+
+    @staticmethod
+    def _validate_threshold(raw: Any) -> float:
+        """校验 cql_generation.composite_score_threshold（doc 18 §3）
+
+        顺序：拒绝 bool → 接受 int/float → math.isfinite → [0, 1]。
+        显式声明非法值 → 报错（非法配置不静默）。
+        """
+        if isinstance(raw, bool):
+            raise ValueError(
+                f"cql_generation.composite_score_threshold 不允许布尔值: {raw!r}"
+            )
+        if not isinstance(raw, (int, float)):
+            raise ValueError(
+                f"cql_generation.composite_score_threshold 必须是数值,得到: {raw!r}"
+            )
+        if not math.isfinite(raw):
+            raise ValueError(
+                f"cql_generation.composite_score_threshold 必须是有限数值,得到: {raw!r}"
+            )
+        if not (0.0 <= raw <= 1.0):
+            raise ValueError(
+                f"cql_generation.composite_score_threshold 必须在 [0, 1] 内,得到: {raw!r}"
+            )
+        return float(raw)
 
     def _load_config(self) -> Dict[str, Any]:
         """通过 ConfigLoader 加载 YAML 配置文件（支持环境变量替换）"""
@@ -91,13 +127,25 @@ class CQLGenerator:
 
             # 1. 读取 JSON 数据
             logger.info("\n[1/2] 读取 Step 2 和 Step 3 的 JSON 文件...")
-            reader = JSONReader(self.json_dir, self.rel_dir, domain_resolver=self.domain_resolver)
-            tables, columns, has_column_rels, join_on_rels = reader.read_all()
+            reader = JSONReader(
+                self.json_dir,
+                self.rel_dir,
+                domain_resolver=self.domain_resolver,
+                composite_score_threshold=self.composite_score_threshold,
+            )
+            tables, columns, has_column_rels, join_on_rels, filter_stats = reader.read_all()
 
             logger.info(f"  - 表节点: {len(tables)}")
             logger.info(f"  - 列节点: {len(columns)}")
             logger.info(f"  - HAS_COLUMN 关系: {len(has_column_rels)}")
             logger.info(f"  - JOIN_ON 关系: {len(join_on_rels)}")
+            logger.info(
+                f"  - 关系过滤统计: 候选 {filter_stats.candidate_count} / "
+                f"通过阈值 {filter_stats.threshold_passed_count} / "
+                f"被过滤 {filter_stats.threshold_filtered_count} / "
+                f"重复组 {filter_stats.duplicate_group_count} / "
+                f"去重丢弃 {filter_stats.duplicate_discarded_count}"
+            )
 
             # 2. 生成 Cypher 文件
             logger.info("\n[2/2] 生成 Cypher 脚本文件...")
@@ -128,7 +176,8 @@ class CQLGenerator:
                     join_on_rels=join_on_rels,
                     step_name=step_name,
                     json_dir=self.json_dir,
-                    rel_dir=self.rel_dir
+                    rel_dir=self.rel_dir,
+                    filter_stats=filter_stats
                 )
                 logger.info(f"  - 元数据文档: {metadata_file}")
                 output_files.append(str(metadata_file))
@@ -145,7 +194,8 @@ class CQLGenerator:
                 columns_count=len(columns),
                 has_column_count=len(has_column_rels),
                 relationships_count=len(join_on_rels),
-                errors=errors
+                errors=errors,
+                filter_stats=filter_stats
             )
 
             logger.info("\n" + "=" * 60)

@@ -96,7 +96,16 @@ class RelationshipDiscoveryPipeline:
         # 初始化各模块（传入配置）
         rel_id_salt = output_config.get("rel_id_salt", "")
         self.rel_id_salt = rel_id_salt
-        self.repository = MetadataRepository(self.json_dir, rel_id_salt=rel_id_salt)
+        # 逻辑键置信度阈值与规则候选生成同口径（doc 19 §3.2.3，不得硬编码）
+        candidate_matching = (self.rel_config or {}).get("candidate_matching") or {}
+        logical_key_min_confidence = candidate_matching.get(
+            "logical_key_min_confidence", 0.8
+        )
+        self.repository = MetadataRepository(
+            self.json_dir,
+            rel_id_salt=rel_id_salt,
+            logical_key_min_confidence=logical_key_min_confidence,
+        )
 
         # name similarity service（method 唯一取值为 embedding；无 embedding 配置时降级）
         #
@@ -255,18 +264,22 @@ class RelationshipDiscoveryPipeline:
             else:
                 logger.info("阶段2a: LLM 候选已禁用（llm_candidates.enabled=false），纯规则管线")
 
-            # Stage 2b: 规则候选生成 + LLM 候选合并入池 + 池内统一去重 + FK 排除
-            logger.info("阶段2b: 生成候选关系（规则 + LLM 合并去重）")
-            candidates = self.candidate_generator.generate_candidates(
+            # Stage 2b: 规则池与 LLM 池独立生成（各自同向去重/最小键过滤/FK 排除）
+            logger.info("阶段2b: 生成候选池（规则池 / LLM 池独立出口）")
+            rule_pool, llm_pool = self.candidate_generator.generate_candidates(
                 tables, table_pairs, fk_relationship_ids,
                 llm_raw_candidates=llm_raw_candidates,
                 llm_top_k=self.llm_top_k,
             )
-            logger.info(f"候选关系: {len(candidates)} 个")
+            logger.info(f"候选池: 规则 {len(rule_pool)} 个 / LLM {len(llm_pool)} 个")
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(
-                    "候选样例: %s",
-                    [self._format_candidate_debug(c) for c in candidates[:3]],
+                    "规则池样例: %s",
+                    [self._format_candidate_debug(c) for c in rule_pool[:3]],
+                )
+                logger.debug(
+                    "LLM 池样例: %s",
+                    [self._format_candidate_debug(c) for c in llm_pool[:3]],
                 )
 
             result.llm_candidates_enabled = self.llm_candidates_enabled
@@ -274,20 +287,26 @@ class RelationshipDiscoveryPipeline:
             result.llm_success_pairs = llm_stats["llm_success_pairs"]
             result.llm_failed_pairs = llm_stats["llm_failed_pairs"]
 
-            # Stage 3: 候选评分
-            logger.info("阶段3: 评分候选关系（5维度 + 数据库采样）")
-            scored_candidates = self.scorer.score_candidates(candidates, tables)
-            logger.info(f"评分完成: {len(scored_candidates)} 个")
+            # Stage 3: 分开评分（规则结果、LLM 结果，doc 19 §3.1）
+            logger.info("阶段3: 分开评分（规则池 / LLM 池，5维度 + 数据库采样）")
+            scored_rule = self.scorer.score_candidates(rule_pool, tables)
+            scored_llm = self.scorer.score_candidates(llm_pool, tables)
+            logger.info(f"评分完成: 规则 {len(scored_rule)} 个 / LLM {len(scored_llm)} 个")
+
+            # Stage 3.5: 合并阶段（七步，doc 19 §3.3）
+            logger.info("阶段3.5: 合并阶段（纠偏 → 无向分组 → 基数 → 方向 → 规范重算 → 字段合并 → 生成 ID）")
+            merged_candidates = self._merge_scored_candidates(scored_rule, scored_llm)
+            logger.info(f"合并完成: {len(merged_candidates)} 个")
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(
-                    "评分样例: %s",
-                    [self._format_candidate_debug(c) for c in scored_candidates[:3]],
+                    "合并样例: %s",
+                    [self._format_candidate_debug(c) for c in merged_candidates[:3]],
                 )
 
-            # Stage 4: 决策过滤 + 抑制
+            # Stage 4: 决策过滤 + 抑制（输入 = 合并后的完整关系集）
             logger.info("阶段4: 决策过滤和抑制规则")
             inferred_relations, suppressed, below_threshold = self.decision_engine.filter_and_suppress(
-                scored_candidates
+                merged_candidates
             )
 
             result.inferred_relations = len(inferred_relations)
@@ -368,6 +387,393 @@ class RelationshipDiscoveryPipeline:
             self.connector.close()
 
         return result
+
+    # ------------------------------------------------------------------
+    # 合并阶段（七步，doc 19 §3.3）
+    # ------------------------------------------------------------------
+
+    _EVIDENCE_RANK = {"physical": 2, "logical": 1, "llm": 0}
+    _FIXED_SCORE_DIMS = (
+        "inclusion_rate", "name_similarity", "comment_similarity",
+        "type_compatibility", "jaccard_index",
+    )
+
+    @staticmethod
+    def _candidate_dir(candidate: Dict[str, Any]) -> Tuple[str, str]:
+        """候选方向标识:(from 表全名, to 表全名)"""
+        src_info = candidate["source"].get("table_info", {})
+        tgt_info = candidate["target"].get("table_info", {})
+        return (
+            f"{src_info.get('schema_name')}.{src_info.get('table_name')}",
+            f"{tgt_info.get('schema_name')}.{tgt_info.get('table_name')}",
+        )
+
+    @staticmethod
+    def _evidence_rank(candidate: Dict[str, Any]) -> int:
+        """证据优先级:物理规则 > 逻辑规则 > LLM(doc 19 §3.3 候选决胜键)"""
+        if candidate.get("candidate_origin") != "rule":
+            return RelationshipDiscoveryPipeline._EVIDENCE_RANK["llm"]
+        return RelationshipDiscoveryPipeline._EVIDENCE_RANK.get(
+            candidate.get("key_origin"), 0
+        )
+
+    def _flip_candidate(self, candidate: Dict[str, Any]) -> None:
+        """交换端点与两侧列,并取 reverse_inclusion_rate 重算 inclusion 与总分
+
+        (doc 19 §3.2.2:不新增 DB 查询、不暴露样本集合)
+        """
+        candidate["source"], candidate["target"] = candidate["target"], candidate["source"]
+        candidate["source_columns"], candidate["target_columns"] = (
+            candidate["target_columns"], candidate["source_columns"],
+        )
+        score_details = dict(candidate.get("score_details") or {})
+        old_inclusion = float(score_details.get("inclusion_rate", 0.0))
+        new_inclusion = float(
+            candidate.get("_reverse_inclusion_rate", old_inclusion)
+        )
+        score_details["inclusion_rate"] = new_inclusion
+        candidate["score_details"] = score_details
+        candidate["_reverse_inclusion_rate"] = old_inclusion
+        # 复用 scorer 的共享纯函数重算总分（权重单一来源，不硬编码）
+        candidate["composite_score"] = RelationshipScorer.recompute_composite_score(
+            score_details, self.scorer.weights
+        )
+
+    def _post_score_correction(
+            self,
+            scored_rule: List[Dict[str, Any]],
+            scored_llm: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """① 评分后纠偏(按来源分别处理,doc 19 §3.2.2)
+
+        - LLM 候选:1:N → 翻转 from/to、改写 N:1 并重算;M:N → 对称保留 + 日志;
+        - 物理键规则候选:不执行方向翻转——1:N → 按 source 唯一修正为 1:1,
+          M:N → 按 source 不唯一修正为 N:1,均记录采样与约束冲突 warning;
+        - 逻辑键规则候选:1:N / M:N → 本次评分未复现 target 的逻辑键唯一性,
+          丢弃候选并告警。
+        """
+        corrected: List[Dict[str, Any]] = []
+
+        for candidate in scored_rule:
+            key_origin = candidate.get("key_origin")
+            cardinality = candidate.get("cardinality")
+            if key_origin == "physical":
+                if cardinality == "1:N":
+                    logger.warning(
+                        "物理键规则候选采样与约束冲突,按 source 唯一修正为 1:1: %s",
+                        self._format_candidate_debug(candidate),
+                    )
+                    candidate["cardinality"] = "1:1"
+                elif cardinality == "M:N":
+                    logger.warning(
+                        "物理键规则候选采样与约束冲突,按 source 不唯一修正为 N:1: %s",
+                        self._format_candidate_debug(candidate),
+                    )
+                    candidate["cardinality"] = "N:1"
+                corrected.append(candidate)
+            elif key_origin == "logical":
+                if cardinality in ("1:N", "M:N"):
+                    logger.warning(
+                        "逻辑键规则候选评分未复现 target 逻辑键唯一性(%s),丢弃: %s",
+                        cardinality, self._format_candidate_debug(candidate),
+                    )
+                    continue
+                corrected.append(candidate)
+            else:
+                corrected.append(candidate)
+
+        for candidate in scored_llm:
+            cardinality = candidate.get("cardinality")
+            if cardinality == "1:N":
+                logger.info(
+                    "LLM 候选数据判反(1:N),翻转并改写 N:1: %s",
+                    self._format_candidate_debug(candidate),
+                )
+                self._flip_candidate(candidate)
+                candidate["cardinality"] = "N:1"
+            elif cardinality == "M:N":
+                logger.info(
+                    "LLM 候选 M:N,按对称推断关联保留(方向由合并阶段字典序决定): %s",
+                    self._format_candidate_debug(candidate),
+                )
+            corrected.append(candidate)
+
+        return corrected
+
+    def _group_by_undirected_identity(
+            self,
+            candidates: List[Dict[str, Any]],
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """② 无向身份分组:所有评分后候选按无向身份进组(doc 19 §3.3)。
+
+        不依赖方向——不同 cardinality 的同一关系在各自方向规范化后可能变成
+        相反方向,先按无向身份分组才能执行组内 cardinality 决策。
+        """
+        groups: Dict[str, List[Dict[str, Any]]] = {}
+        for candidate in candidates:
+            src_info = candidate["source"].get("table_info", {})
+            tgt_info = candidate["target"].get("table_info", {})
+            uid = MetadataRepository.compute_undirected_identity(
+                source_schema=src_info.get("schema_name"),
+                source_table=src_info.get("table_name"),
+                source_columns=candidate["source_columns"],
+                target_schema=tgt_info.get("schema_name"),
+                target_table=tgt_info.get("table_name"),
+                target_columns=candidate["target_columns"],
+            )
+            groups.setdefault(uid, []).append(candidate)
+        return groups
+
+    def _tiebreak_key(self, candidate: Dict[str, Any]) -> Tuple:
+        """候选决胜键(doc 19 §3.3):1) composite_score 降序;2) 证据优先级;
+        3) 纠偏完成时(规范到最终方向之前)的未加盐有向签名升序;
+        4) score_details 固定维度元组升序兜底。返回升序 key(取最小者获胜)。
+        """
+        score_details = candidate.get("score_details") or {}
+        return (
+            -float(candidate.get("composite_score") or 0.0),
+            -self._evidence_rank(candidate),
+            candidate.get(
+                "_pre_normalize_signature",
+                CandidateGenerator._directed_unsigned_signature(candidate),
+            ),
+            tuple(float(score_details.get(dim, 0.0)) for dim in self._FIXED_SCORE_DIMS),
+        )
+
+    def _pick_winner(self, group: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """按候选决胜键选组内获胜者(返回升序 key 最小者)"""
+        return min(group, key=self._tiebreak_key)
+
+    def _decide_group_cardinality(
+            self,
+            group: List[Dict[str, Any]],
+    ) -> str:
+        """③ 组内 cardinality 决策(先于方向,doc 19 §3.3):
+        1. 两个方向都有物理键规则证据 → 1:1;
+        2. 只有一个方向有物理键规则证据 → 该物理候选修正后的 cardinality;
+        3. 无物理证据、两个方向都有有效逻辑键证据 → 1:1;
+        4. 只有一个方向有有效逻辑键证据 → 该逻辑候选的 cardinality;
+        5. 纯 LLM → 纠偏完成时(最终方向尚未确定)获胜候选的 cardinality;
+        6. 不得出现 1:N。
+        """
+        physical_dirs = {
+            self._candidate_dir(c)
+            for c in group
+            if c.get("candidate_origin") == "rule" and c.get("key_origin") == "physical"
+        }
+        if len(physical_dirs) >= 2:
+            return "1:1"
+        if len(physical_dirs) == 1:
+            physical_candidate = next(
+                c for c in group
+                if c.get("candidate_origin") == "rule" and c.get("key_origin") == "physical"
+            )
+            return physical_candidate.get("cardinality", "N:1")
+
+        logical_dirs = {
+            self._candidate_dir(c)
+            for c in group
+            if c.get("candidate_origin") == "rule" and c.get("key_origin") == "logical"
+        }
+        if len(logical_dirs) >= 2:
+            return "1:1"
+        if len(logical_dirs) == 1:
+            logical_candidate = next(
+                c for c in group
+                if c.get("candidate_origin") == "rule" and c.get("key_origin") == "logical"
+            )
+            return logical_candidate.get("cardinality", "N:1")
+
+        winner = self._pick_winner(group)
+        cardinality = winner.get("cardinality", "N:1")
+        if cardinality == "1:N":
+            # LLM 纠偏后不应出现 1:N,防御性兜底
+            logger.warning("纯 LLM 组出现 1:N 获胜候选,改写为 N:1: %s", self._format_candidate_debug(winner))
+            cardinality = "N:1"
+        return cardinality
+
+    def _lexicographic_direction(
+            self,
+            group: List[Dict[str, Any]],
+    ) -> Tuple[str, str]:
+        """字典序方向(doc 19 §3.3):端点 = (schema, table, sorted(columns)),
+        比较键 (casefold, 原始值) 逐级比较,较小的一端固定为 from。
+        """
+        sample = group[0]
+        src_info = sample["source"].get("table_info", {})
+        tgt_info = sample["target"].get("table_info", {})
+
+        def endpoint_key(info: dict, columns: List[str]) -> Tuple:
+            return (
+                (info.get("schema_name", "").casefold(), info.get("schema_name", "")),
+                (info.get("table_name", "").casefold(), info.get("table_name", "")),
+                tuple((col.casefold(), col) for col in sorted(columns)),
+            )
+
+        left = endpoint_key(src_info, sample["source_columns"])
+        right = endpoint_key(tgt_info, sample["target_columns"])
+        src_full, tgt_full = self._candidate_dir(sample)
+        if left <= right:
+            return src_full, tgt_full
+        return tgt_full, src_full
+
+    def _decide_group_direction(
+            self,
+            group: List[Dict[str, Any]],
+            final_cardinality: str,
+    ) -> Tuple[str, str]:
+        """④ 按最终 cardinality 决定唯一方向(doc 19 §3.3):
+        - N:1:有规则证据时使用最高优先级规则候选方向(引用方→键端);
+          纯 LLM 使用决定最终 cardinality 的获胜候选方向;
+        - 1:1:规则证据优先(物理 > 逻辑),两边键类型相同或纯 LLM → 字典序;
+        - M:N:字典序(对称推断关联)。
+        """
+        rule_candidates = [
+            c for c in group if c.get("candidate_origin") == "rule"
+        ]
+
+        if final_cardinality == "N:1":
+            if rule_candidates:
+                return self._candidate_dir(
+                    min(rule_candidates, key=lambda c: -self._evidence_rank(c))
+                )
+            return self._candidate_dir(self._pick_winner(group))
+
+        if final_cardinality == "1:1":
+            rule_dirs = {self._candidate_dir(c) for c in rule_candidates}
+            if len(rule_dirs) == 1:
+                return next(iter(rule_dirs))
+            physical_dirs = {
+                self._candidate_dir(c)
+                for c in rule_candidates
+                if c.get("key_origin") == "physical"
+            }
+            if len(physical_dirs) == 1:
+                return next(iter(physical_dirs))
+            # 两边键类型相同(双物理/双逻辑)或纯 LLM → 字典序
+            return self._lexicographic_direction(group)
+
+        # M:N:对称推断关联,不称隐式外键,方向仅为确定性输出约定
+        return self._lexicographic_direction(group)
+
+    def _normalize_to_direction(
+            self,
+            candidate: Dict[str, Any],
+            from_full: str,
+    ) -> None:
+        """⑤ 候选规范到最终方向:方向相反时翻转并取 reverse_inclusion_rate
+        重算 composite_score(复用同次采样集合,不新增 DB 查询)"""
+        src_full = self._candidate_dir(candidate)[0]
+        if src_full != from_full:
+            self._flip_candidate(candidate)
+
+    def _merge_group_fields(
+            self,
+            group: List[Dict[str, Any]],
+            winner: Dict[str, Any],
+            final_cardinality: str,
+            from_full: str,
+    ) -> Dict[str, Any]:
+        """⑥ 字段级合并(doc 19 §3.3):合并不是整对象覆盖,按字段拆分:
+        - 端点:最终方向(规范化后与 winner 一致);
+        - cardinality:组内决策结果;
+        - key_origin:支持最终方向的规则候选(物理键优先;仅合并阶段内部信息);
+        - candidate_origin:合并所有来源;
+        - score_details/composite_score:规范化到最终方向后取最高分(决胜键)。
+        """
+        origins = {c.get("candidate_origin") for c in group}
+        if "rule" in origins and "llm" in origins:
+            candidate_origin = "rule+llm"
+        elif origins == {"rule"}:
+            candidate_origin = "rule"
+        else:
+            candidate_origin = "llm"
+
+        key_origin = None
+        for candidate in group:
+            if candidate.get("candidate_origin") != "rule":
+                continue
+            pre_dir = candidate.get("_pre_normalize_dir")
+            if pre_dir is None or pre_dir[0] != from_full:
+                # 用规范前的方向判定"支持最终方向"
+                continue
+            if candidate.get("key_origin") == "physical":
+                key_origin = "physical"
+                break
+            if key_origin is None:
+                key_origin = candidate.get("key_origin")
+
+        merged = {
+            "source": winner["source"],
+            "target": winner["target"],
+            "source_columns": winner["source_columns"],
+            "target_columns": winner["target_columns"],
+            "cardinality": final_cardinality,
+            "composite_score": winner.get("composite_score"),
+            "score_details": winner.get("score_details"),
+            "candidate_origin": candidate_origin,
+            "_reverse_inclusion_rate": winner.get("_reverse_inclusion_rate"),
+        }
+        if key_origin is not None:
+            merged["key_origin"] = key_origin
+        return merged
+
+    def _merge_scored_candidates(
+            self,
+            scored_rule: List[Dict[str, Any]],
+            scored_llm: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """合并阶段主流程(七步,doc 19 §3.3):
+        ① 评分后纠偏(按来源) → ② 无向身份分组 → ③ 组内 cardinality 决策
+        → ④ 按最终 cardinality 决定唯一方向 → ⑤ 规范到最终方向 + 重算
+        → ⑥ 字段级合并 → ⑦ 生成最终有向 relationship_id
+        """
+        corrected = self._post_score_correction(scored_rule, scored_llm)
+        groups = self._group_by_undirected_identity(corrected)
+
+        merged_list: List[Dict[str, Any]] = []
+        for uid, group in groups.items():
+            # 缓存规范化前签名与方向(决胜键与 key_origin 归属判定用,doc 19 §3.3)
+            for candidate in group:
+                candidate["_pre_normalize_signature"] = (
+                    CandidateGenerator._directed_unsigned_signature(candidate)
+                )
+                candidate["_pre_normalize_dir"] = self._candidate_dir(candidate)
+
+            final_cardinality = self._decide_group_cardinality(group)
+            from_full, to_full = self._decide_group_direction(group, final_cardinality)
+
+            for candidate in group:
+                self._normalize_to_direction(candidate, from_full)
+
+            winner = self._pick_winner(group)
+            merged = self._merge_group_fields(
+                group, winner, final_cardinality, from_full
+            )
+            # ⑦ 组内 cardinality 与方向确定、字段级合并完成后生成最终有向 ID
+            src_info = merged["source"].get("table_info", {})
+            tgt_info = merged["target"].get("table_info", {})
+            merged["_relationship_id"] = MetadataRepository.compute_relationship_id(
+                source_schema=src_info.get("schema_name"),
+                source_table=src_info.get("table_name"),
+                source_columns=merged["source_columns"],
+                target_schema=tgt_info.get("schema_name"),
+                target_table=tgt_info.get("table_name"),
+                target_columns=merged["target_columns"],
+                rel_id_salt=self.rel_id_salt,
+            )
+            logger.debug(
+                "合并组 %s: %s 个候选 → %s,方向 %s->%s,来源 %s",
+                uid, len(group), final_cardinality, from_full, to_full,
+                merged.get("candidate_origin"),
+            )
+            merged_list.append(merged)
+
+        logger.info(
+            "合并阶段完成: %s 组 → %s 条(%s 条候选参与)",
+            len(groups), len(merged_list), len(corrected),
+        )
+        return merged_list
 
     @staticmethod
     def _format_candidate_debug(candidate: Dict[str, Any]) -> str:

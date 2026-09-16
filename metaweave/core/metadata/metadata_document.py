@@ -378,8 +378,6 @@ class MetadataDocument:
         }
         forbidden_statistic_keys = {
             "sample_count",
-            "null_rate",
-            "uniqueness",
             "mean",
             "avg_length",
             "min_length",

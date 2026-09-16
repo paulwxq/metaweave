@@ -31,8 +31,6 @@ def _as_v3(table_json: Dict) -> Dict:
                 statistics["sample_count"] * statistics["null_rate"]
             )
         statistics.pop("sample_count", None)
-        statistics.pop("null_rate", None)
-        statistics.pop("uniqueness", None)
     table_profile = data["table_profile"]
     table_profile.pop("column_statistics", None)
     table_profile.pop("logical_keys", None)

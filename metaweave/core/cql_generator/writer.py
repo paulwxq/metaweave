@@ -6,14 +6,15 @@
 import json
 import logging
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 from metaweave.core.cql_generator.models import (
     TableNode,
     ColumnNode,
     HASColumnRelation,
-    JOINOnRelation
+    JOINOnRelation,
+    RelationshipFilterStats,
 )
 
 logger = logging.getLogger("metaweave.cql_generator.writer")
@@ -118,6 +119,7 @@ class CypherWriter:
 	    n.schema   = t.schema,
 	    n.name     = t.name,
 	    n.comment  = t.comment,
+	    n.table_type = t.table_type,
 	    n.pk       = t.pk,
 	    n.uk       = t.uk,
     n.fk       = t.fk,
@@ -219,7 +221,7 @@ MERGE (t)-[:HAS_COLUMN]->(c);
 UNWIND {rels_json} AS j
 MATCH (src:Table {{full_name: j.src_full_name}})
 MATCH (dst:Table {{full_name: j.dst_full_name}})
-MERGE (src)-[r:JOIN_ON]->(dst)
+MERGE (src)-[r:JOIN_ON {{relationship_id: j.relationship_id}}]->(dst)
 SET r.cardinality     = j.cardinality,
     r.constraint_name = j.constraint_name,
     r.join_type       = coalesce(j.join_type, 'INNER JOIN'),
@@ -290,6 +292,7 @@ SET r.cardinality     = j.cardinality,
 	    n.schema   = t.schema,
 	    n.name     = t.name,
 	    n.comment  = t.comment,
+	    n.table_type = t.table_type,
 	    n.pk       = t.pk,
 	    n.uk       = t.uk,
     n.fk       = t.fk,
@@ -343,7 +346,7 @@ MERGE (t)-[:HAS_COLUMN]->(c);
 UNWIND {join_on_json} AS j
 MATCH (src:Table {{full_name: j.src_full_name}})
 MATCH (dst:Table {{full_name: j.dst_full_name}})
-MERGE (src)-[r:JOIN_ON]->(dst)
+MERGE (src)-[r:JOIN_ON {{relationship_id: j.relationship_id}}]->(dst)
 SET r.cardinality     = j.cardinality,
     r.constraint_name = j.constraint_name,
     r.join_type       = coalesce(j.join_type, 'INNER JOIN'),
@@ -368,7 +371,8 @@ SET r.cardinality     = j.cardinality,
         join_on_rels: List[JOINOnRelation],
         step_name: str,
         json_dir: Path,
-        rel_dir: Path
+        rel_dir: Path,
+        filter_stats: RelationshipFilterStats,
     ) -> Path:
         """生成 import_all.md 元数据文档（最小必需字段）
 
@@ -380,6 +384,8 @@ SET r.cardinality     = j.cardinality,
             step_name: 执行的步骤名称（"cql" 或 "cql_llm"）
             json_dir: JSON 输入目录
             rel_dir: 关系输入目录
+            filter_stats: 关系过滤统计（doc 18 §5，必传——否则 md 中
+                JOIN_ON 数与"最终 JOIN_ON 数"可能自相矛盾）
 
         Returns:
             元数据文档路径
@@ -397,6 +403,16 @@ SET r.cardinality     = j.cardinality,
         has_column_count = len(has_column_rels)
         join_on_count = len(join_on_rels)
         edges_total = has_column_count + join_on_count
+
+        # 最终 JOIN_ON 数必须等于 filter_stats.final_count。
+        # 用显式 ValueError(而非 assert——-O 运行会删除 assert,不能承担
+        # 产物正确性校验)
+        if join_on_count != filter_stats.final_count:
+            raise ValueError(
+                f"JOIN_ON 数与过滤统计不一致: {join_on_count} vs "
+                f"{filter_stats.final_count}"
+            )
+        stats = filter_stats
 
         # ✅ 获取 import_all.{db}.cypher 的行数（完善的容错处理）
         # 注意：此方法必须在 write_all() 之后调用，确保 Cypher 文件已生成
@@ -449,6 +465,17 @@ SET r.cardinality     = j.cardinality,
 | HAS_COLUMN | {has_column_count} |
 | JOIN_ON | {join_on_count} |
 | **边总数** | **{edges_total}** |
+
+### JOIN_ON 过滤统计
+
+| 统计项 | 数量 |
+|-------|------|
+| 候选关系数 | {stats.candidate_count} |
+| 通过阈值数 | {stats.threshold_passed_count} |
+| 被阈值过滤数 | {stats.threshold_filtered_count} |
+| 重复 relationship_id 组数 | {stats.duplicate_group_count} |
+| 去重丢弃数 | {stats.duplicate_discarded_count} |
+| 最终 JOIN_ON 数 | {stats.final_count} |
 
 ---
 

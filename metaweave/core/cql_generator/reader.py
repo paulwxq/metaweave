@@ -5,6 +5,8 @@
 
 import json
 import logging
+import math
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
 
@@ -12,10 +14,18 @@ from metaweave.core.cql_generator.models import (
     TableNode,
     ColumnNode,
     HASColumnRelation,
-    JOINOnRelation
+    JOINOnRelation,
+    RelationshipFilterStats,
 )
 
 logger = logging.getLogger("metaweave.cql_generator.reader")
+
+
+@dataclass
+class RawRelationshipEntry:
+    """reader 内部实现(doc 18 §5):原始关系 + 来源文件,供冲突报错使用,不外露"""
+    relationship: Dict[str, Any]
+    source_file: Path
 
 
 class JSONReader:
@@ -24,17 +34,26 @@ class JSONReader:
     负责读取 Step 2 和 Step 3 的 JSON 文件，并转换为内部数据模型。
     """
 
-    def __init__(self, json_dir: Path, rel_dir: Path, domain_resolver=None):
+    def __init__(
+            self,
+            json_dir: Path,
+            rel_dir: Path,
+            domain_resolver=None,
+            composite_score_threshold: float = 0.9,
+    ):
         """初始化读取器
 
         Args:
             json_dir: Step 2 JSON 目录（表/列画像）
             rel_dir: Step 3 JSON 目录（表间关系）
             domain_resolver: DomainResolver 实例，用于从 YAML 获取 table_domains
+            composite_score_threshold: CQL 置信度阈值（doc 18，由 generator
+                校验后透传；推断关系 composite_score >= 阈值才进入 CQL）
         """
         self.json_dir = Path(json_dir)
         self.rel_dir = Path(rel_dir)
         self.domain_resolver = domain_resolver
+        self.composite_score_threshold = composite_score_threshold
         self.database_name: str | None = None
 
         if not self.json_dir.exists():
@@ -46,12 +65,13 @@ class JSONReader:
         List[TableNode],
         List[ColumnNode],
         List[HASColumnRelation],
-        List[JOINOnRelation]
+        List[JOINOnRelation],
+        RelationshipFilterStats,
     ]:
         """读取所有数据
 
         Returns:
-            (tables, columns, has_column_rels, join_on_rels)
+            (tables, columns, has_column_rels, join_on_rels, filter_stats)
         """
         logger.info("开始读取 Step 2 和 Step 3 的 JSON 文件...")
 
@@ -59,7 +79,7 @@ class JSONReader:
         tables, columns, has_column_rels = self._read_table_profiles()
 
         # 读取 Step 3 表间关系
-        join_on_rels = self._read_relationships()
+        join_on_rels, filter_stats = self._read_relationships()
 
         # 注意：不再动态回填 logic_fk
         # logic_fk 保持 Step 2 画像中的初始值（通常为空列表）
@@ -72,7 +92,7 @@ class JSONReader:
             f"{len(join_on_rels)} 个关系"
         )
 
-        return tables, columns, has_column_rels, join_on_rels
+        return tables, columns, has_column_rels, join_on_rels, filter_stats
 
     def _read_table_profiles(self) -> Tuple[
         List[TableNode],
@@ -215,6 +235,7 @@ class JSONReader:
             name=name,
             database=self.database_name,
             comment=table_info.get("comment"),
+            table_type=table_info.get("table_type", "table"),
             pk=pk,
             uk=uk,
             fk=fk,
@@ -339,88 +360,240 @@ class JSONReader:
 
         return columns
 
-    def _read_relationships(self) -> List[JOINOnRelation]:
-        """读取 Step 3 表间关系"""
-        join_on_rels = []
+    def _read_relationships(
+            self,
+    ) -> Tuple[List[JOINOnRelation], RelationshipFilterStats]:
+        """读取 Step 3 表间关系(doc 18 八步流程)
 
-        # 查找关系 JSON 文件（如 {db}.relationships_global.json）
+        文件循环只读取并汇总原始关系(保留来源文件);随后统一:
+        ①校验 ID → ②校验结构 → ③校验分数 → ④同 ID 冲突检查 →
+        ⑤阈值过滤 → ⑥重复 ID 去重 → ⑦转换为 JOINOnRelation。
+        """
         rel_files = list(self.rel_dir.glob("*.relationships_*.json"))
         if not rel_files:
             logger.warning(f"未找到关系文件: {self.rel_dir}/*.relationships_*.json")
-            return []
+            return [], RelationshipFilterStats()
 
         logger.info(f"找到 {len(rel_files)} 个关系文件")
 
+        # ---- 第 1 步:读取全部文件,汇总原始关系(保留来源文件) ----
+        raw_entries: List[RawRelationshipEntry] = []
         for rel_file in rel_files:
             try:
                 with open(rel_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-
-                relationships = data.get("relationships", [])
-                logger.info(f"从 {rel_file.name} 读取 {len(relationships)} 个关系")
-
-                for rel in relationships:
-                    join_rel = self._extract_join_relation(rel)
-                    if join_rel:
-                        join_on_rels.append(join_rel)
-
             except Exception as e:
                 logger.error(f"读取关系文件失败: {rel_file}, 错误: {e}")
                 raise
+            relationships = data.get("relationships", [])
+            logger.info(f"从 {rel_file.name} 读取 {len(relationships)} 个关系")
+            for rel in relationships:
+                raw_entries.append(
+                    RawRelationshipEntry(relationship=rel, source_file=rel_file)
+                )
 
-        return join_on_rels
+        stats = RelationshipFilterStats(candidate_count=len(raw_entries))
+
+        def _fail(entry: RawRelationshipEntry, message: str) -> None:
+            rel_id = entry.relationship.get("relationship_id", "<缺失>")
+            raise ValueError(
+                f"关系数据校验失败 [{entry.source_file.name}] "
+                f"relationship_id={rel_id!r}: {message}"
+            )
+
+        # ---- 第 2 步:校验 relationship_id(所有关系,含 FK 直通) ----
+        for entry in raw_entries:
+            rel_id = entry.relationship.get("relationship_id")
+            if not isinstance(rel_id, str) or not rel_id.strip():
+                _fail(entry, "relationship_id 缺失 / null / 空串 / 纯空白 / 非字符串")
+            if rel_id != rel_id.strip():
+                _fail(entry, f"relationship_id 存在首尾空白: {rel_id!r}")
+
+        # ---- 第 3 步:校验关系结构(canonical_payload 构造之前) ----
+        for entry in raw_entries:
+            rel = entry.relationship
+            rel_type = rel.get("type")
+            if rel_type not in ("single_column", "composite"):
+                _fail(entry, f"type 必须严格为 single_column / composite,得到 {rel_type!r}")
+
+            for key in ("from_table", "to_table"):
+                info = rel.get(key)
+                if not isinstance(info, dict):
+                    _fail(entry, f"{key} 必须是对象,得到 {type(info).__name__}")
+                schema = info.get("schema")
+                table = info.get("table")
+                if not (isinstance(schema, str) and schema.strip()) or not (
+                        isinstance(table, str) and table.strip()
+                ):
+                    _fail(entry, f"{key}.schema / table 无效")
+
+            if rel_type == "single_column":
+                from_col = rel.get("from_column")
+                to_col = rel.get("to_column")
+                if not (isinstance(from_col, str) and from_col.strip()):
+                    _fail(entry, "from_column 必须是非空字符串(去空白后非空)")
+                if not (isinstance(to_col, str) and to_col.strip()):
+                    _fail(entry, "to_column 必须是非空字符串(去空白后非空)")
+                from_columns = [from_col]
+                to_columns = [to_col]
+            else:
+                from_columns = rel.get("from_columns")
+                to_columns = rel.get("to_columns")
+                if not isinstance(from_columns, list) or not from_columns:
+                    _fail(entry, "from_columns 必须是非空列表")
+                if not isinstance(to_columns, list) or not to_columns:
+                    _fail(entry, "to_columns 必须是非空列表")
+                for col in list(from_columns) + list(to_columns):
+                    if not (isinstance(col, str) and col.strip()):
+                        _fail(entry, f"字段列表元素必须是非空字符串(去空白后非空): {col!r}")
+
+            if len(from_columns) != len(to_columns):
+                _fail(entry, f"两侧字段数量不一致: {len(from_columns)} vs {len(to_columns)}")
+
+            cardinality = rel.get("cardinality")
+            if cardinality not in ("N:1", "1:1", "M:N"):
+                _fail(
+                    entry,
+                    f"cardinality 必须显式存在且 ∈ {{N:1, 1:1, M:N}},得到 "
+                    f"{cardinality!r}(1:N 违反 doc 19 输出契约)",
+                )
+
+            discovery_method = rel.get("discovery_method")
+            if not (isinstance(discovery_method, str) and discovery_method.strip()):
+                _fail(entry, "discovery_method 必须是非空字符串")
+
+        # ---- 第 4 步:校验推断关系分数(FK 直通豁免) ----
+        for entry in raw_entries:
+            rel = entry.relationship
+            if rel.get("discovery_method") == "foreign_key_constraint":
+                continue
+            score = rel.get("composite_score")
+            if isinstance(score, bool):
+                _fail(entry, f"composite_score 不允许布尔值: {score!r}")
+            if not isinstance(score, (int, float)):
+                _fail(entry, f"composite_score 缺失或类型非法: {score!r}")
+            if not math.isfinite(score):
+                _fail(entry, f"composite_score 必须有限: {score!r}")
+            if not (0.0 <= score <= 1.0):
+                _fail(entry, f"composite_score 越界: {score!r}")
+
+        # ---- 第 5 步:按 relationship_id 分组检查载荷冲突 ----
+        def _canonical_payload(entry: RawRelationshipEntry) -> tuple:
+            rel = entry.relationship
+            if rel.get("type") == "single_column":
+                from_columns = [rel["from_column"]]
+                to_columns = [rel["to_column"]]
+            else:
+                from_columns = rel["from_columns"]
+                to_columns = rel["to_columns"]
+            payload = (
+                rel.get("type"),
+                (rel["from_table"]["schema"], rel["from_table"]["table"]),
+                (rel["to_table"]["schema"], rel["to_table"]["table"]),
+                tuple(sorted(zip(from_columns, to_columns))),
+                rel.get("discovery_method"),
+                rel.get("cardinality"),
+                rel.get("constraint_name"),
+            )
+            # 推断关系的 composite_score 参与冲突比较;FK 分数不参与
+            if rel.get("discovery_method") != "foreign_key_constraint":
+                payload += (rel.get("composite_score"),)
+            return payload
+
+        groups: Dict[str, List[RawRelationshipEntry]] = {}
+        for entry in raw_entries:
+            rel_id = entry.relationship["relationship_id"]
+            groups.setdefault(rel_id, []).append(entry)
+
+        for rel_id, group in groups.items():
+            if len(group) < 2:
+                continue
+            base = _canonical_payload(group[0])
+            for other in group[1:]:
+                if _canonical_payload(other) != base:
+                    raise ValueError(
+                        f"关系数据冲突: relationship_id={rel_id!r} 在 "
+                        f"[{group[0].source_file.name}] 与 "
+                        f"[{other.source_file.name}] 载荷不一致"
+                        f"(防御哈希碰撞 / 目录混入不同批次产物)"
+                    )
+
+        # ---- 第 6 步:阈值过滤(FK 豁免) ----
+        threshold = self.composite_score_threshold
+        passed: List[RawRelationshipEntry] = []
+        for entry in raw_entries:
+            rel = entry.relationship
+            if rel.get("discovery_method") == "foreign_key_constraint":
+                passed.append(entry)
+                continue
+            if rel.get("composite_score") >= threshold:
+                passed.append(entry)
+        stats.threshold_passed_count = len(passed)
+        stats.threshold_filtered_count = len(raw_entries) - len(passed)
+
+        # ---- 第 7 步:重复 ID 去重(字典序排序,载荷已确认一致) ----
+        passed.sort(key=lambda e: e.relationship["relationship_id"])
+        id_counts: Dict[str, int] = {}
+        for entry in passed:
+            rel_id = entry.relationship["relationship_id"]
+            id_counts[rel_id] = id_counts.get(rel_id, 0) + 1
+        stats.duplicate_group_count = sum(1 for n in id_counts.values() if n > 1)
+
+        seen: set = set()
+        deduped: List[RawRelationshipEntry] = []
+        for entry in passed:
+            rel_id = entry.relationship["relationship_id"]
+            if rel_id in seen:
+                continue
+            seen.add(rel_id)
+            deduped.append(entry)
+        stats.duplicate_discarded_count = len(passed) - len(deduped)
+        stats.final_count = len(deduped)
+
+        # ---- 第 8 步:转换为 JOINOnRelation ----
+        join_on_rels = []
+        for entry in deduped:
+            join_rel = self._extract_join_relation(entry.relationship)
+            if join_rel:
+                join_on_rels.append(join_rel)
+
+        # 统计恒等式(doc 18 §5,以"先冲突检查、再过滤、再去重"为前提)
+        assert stats.candidate_count == (
+                stats.threshold_passed_count + stats.threshold_filtered_count
+        ), f"统计恒等式不成立: {stats}"
+        assert stats.final_count == (
+                stats.threshold_passed_count - stats.duplicate_discarded_count
+        ), f"统计恒等式不成立: {stats}"
+
+        return join_on_rels, stats
 
     def _extract_join_relation(self, rel: Dict[str, Any]) -> JOINOnRelation:
         """从关系 JSON 中提取 JOIN_ON 关系
-        
-        方向处理：根据 cardinality 决定是否翻转，确保箭头指向 1 侧
-        - 1:N → 翻转（箭头从 N 指向 1）
-        - N:1 → 不翻转（箭头已从 N 指向 1）
-        - 1:1 / M:N → 不翻转（对称关系）
+
+        方向处理（doc 19）：**纯消费，不翻转**。rel 产物方向已统一——
+        N:1 恒为引用方→键端，1:1 / M:N 为 rel 已确定的规范方向，
+        CQL 不再自行改变任何关系方向。
         """
         from_table = rel.get("from_table", {})
         to_table = rel.get("to_table", {})
-        raw_cardinality = rel.get("cardinality", "N:1")
-        
-        logger.debug(f"处理关系: {from_table.get('table')} -> {to_table.get('table')}, cardinality={raw_cardinality}")
-        
-        # 根据 cardinality 决定是否翻转
-        if raw_cardinality == "1:N":
-            # 翻转方向：to → from，基数变为 N:1
-            src_schema = to_table.get("schema", "")
-            src_table = to_table.get("table", "")
-            dst_schema = from_table.get("schema", "")
-            dst_table = from_table.get("table", "")
-            cardinality = "N:1"
-            
-            # 列也要翻转
-            rel_type = rel.get("type", "")
-            if rel_type == "single_column":
-                source_columns = [rel.get("to_column", "")]
-                target_columns = [rel.get("from_column", "")]
-            else:
-                source_columns = rel.get("to_columns", [])
-                target_columns = rel.get("from_columns", [])
-            
-            logger.debug(f"1:N 关系翻转: {src_table} -> {dst_table}, cardinality={cardinality}")
+        # cardinality 已由 _read_relationships 结构校验保证显式存在且合法
+        cardinality = rel["cardinality"]
+
+        logger.debug(f"处理关系: {from_table.get('table')} -> {to_table.get('table')}, cardinality={cardinality}")
+
+        src_schema = from_table.get("schema", "")
+        src_table = from_table.get("table", "")
+        dst_schema = to_table.get("schema", "")
+        dst_table = to_table.get("table", "")
+
+        rel_type = rel.get("type", "")
+        if rel_type == "single_column":
+            source_columns = [rel.get("from_column", "")]
+            target_columns = [rel.get("to_column", "")]
         else:
-            # N:1 / 1:1 / M:N 不翻转
-            src_schema = from_table.get("schema", "")
-            src_table = from_table.get("table", "")
-            dst_schema = to_table.get("schema", "")
-            dst_table = to_table.get("table", "")
-            cardinality = raw_cardinality
-            
-            rel_type = rel.get("type", "")
-            if rel_type == "single_column":
-                source_columns = [rel.get("from_column", "")]
-                target_columns = [rel.get("to_column", "")]
-            else:
-                source_columns = rel.get("from_columns", [])
-                target_columns = rel.get("to_columns", [])
-            
-            logger.debug(f"{raw_cardinality} 关系保持原向: {src_table} -> {dst_table}")
-        
+            source_columns = rel.get("from_columns", [])
+            target_columns = rel.get("to_columns", [])
+
         src_full_name = f"{src_schema}.{src_table}"
         dst_full_name = f"{dst_schema}.{dst_table}"
         
@@ -433,6 +606,7 @@ class JSONReader:
         logger.info(f"CQL 关系: ({src_full_name})-[:JOIN_ON]->({dst_full_name}), cardinality={cardinality}")
         
         return JOINOnRelation(
+            relationship_id=rel["relationship_id"],
             src_full_name=src_full_name,
             dst_full_name=dst_full_name,
             cardinality=cardinality,

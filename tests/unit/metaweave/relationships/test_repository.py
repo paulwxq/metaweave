@@ -258,3 +258,173 @@ class TestMetadataRepository:
 
         # 应该生成相同的 ID
         assert instance_id == static_id
+
+
+class TestDoc19Repository:
+    """doc 19 §3.2.3 / §3.3 的 repository 改造测试"""
+
+    def _repo(self, tables):
+        return MetadataRepository(Path("output/json"), logical_key_min_confidence=0.8)
+
+    def test_undirected_identity_ignores_direction(self):
+        """无向身份算法(doc 19 §3.3):反向对相同、不同指派不同"""
+        i1 = MetadataRepository.compute_undirected_identity(
+            "s", "A", ["a", "b"], "s", "B", ["x", "y"],
+        )
+        i2 = MetadataRepository.compute_undirected_identity(
+            "s", "B", ["y", "x"], "s", "A", ["b", "a"],
+        )
+        i3 = MetadataRepository.compute_undirected_identity(
+            "s", "A", ["a", "b"], "s", "B", ["y", "x"],
+        )
+        assert i1 == i2
+        assert i1 != i3
+
+    def test_undirected_identity_casefold_then_raw_tiebreak(self):
+        """比较键为 (casefold, 原始值):"Users" 与 users 仍能确定先后"""
+        i1 = MetadataRepository.compute_undirected_identity(
+            "s", "Users", ["id"], "s", "users", ["uid"],
+        )
+        i2 = MetadataRepository.compute_undirected_identity(
+            "s", "users", ["uid"], "s", "Users", ["id"],
+        )
+        assert i1 == i2
+
+    def test_fk_cardinality_fixed_n1_or_11(self):
+        """物理 FK 基数固定(doc 19 §3.2.3):target 画像缺失不影响结果;
+        source 唯一 → 1:1,否则 N:1;不得产出 1:N/M:N"""
+        repo = self._repo(None)
+        tables = {
+            "public.orders": {
+                "column_profiles": {"category_id": {"statistics": {}}},
+                "table_profile": {
+                    "physical_constraints": {
+                        "primary_key": None,
+                        "unique_constraints": [{"columns": ["category_id"]}],
+                    },
+                    "indexes": [],
+                    "unique_column_sets": [],
+                },
+            },
+        }
+        fk = {"source_columns": ["category_id"], "target_columns": ["id"]}
+        # target 表 public.categories 不在 tables 中 → 画像缺失,不影响结果
+        assert repo._infer_cardinality(
+            fk, tables, "public.orders", "public", "categories"
+        ) == "1:1"
+
+        fk2 = {"source_columns": ["product_id"], "target_columns": ["id"]}
+        assert repo._infer_cardinality(
+            fk2, tables, "public.orders", "public", "products"
+        ) == "N:1"
+
+    def test_is_columns_unique_non_partial_unique_index(self):
+        """非部分/非表达式/键列完全匹配的唯一索引判定唯一(doc 19 §3.2.3)"""
+        repo = self._repo(None)
+        tables = {
+            "public.user_profiles": {
+                "column_profiles": {"user_id": {"statistics": {}}},
+                "table_profile": {
+                    "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                    "indexes": [
+                        {"columns": ["user_id"], "is_unique": True, "condition": None,
+                         "key_expressions": ["user_id"]},
+                    ],
+                    "unique_column_sets": [],
+                },
+            },
+        }
+        assert repo._is_columns_unique(tables, "public.user_profiles", ["user_id"]) is True
+
+    def test_partial_or_expression_unique_index_not_counted(self):
+        """部分唯一索引与表达式索引不算独立证据(doc 19 §3.2.3)"""
+        repo = self._repo(None)
+        tables = {
+            "public.t": {
+                "column_profiles": {"email": {"statistics": {}}},
+                "table_profile": {
+                    "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                    "indexes": [
+                        {"columns": ["email"], "is_unique": True,
+                         "condition": "deleted_at IS NULL", "key_expressions": ["email"]},
+                        {"columns": ["email"], "is_unique": True, "condition": None,
+                         "key_expressions": ["lower(email)"]},
+                    ],
+                    "unique_column_sets": [],
+                },
+            },
+        }
+        assert repo._is_columns_unique(tables, "public.t", ["email"]) is False
+
+    def test_composite_uniqueness_uses_unique_column_sets_not_single_min(self):
+        """复合列回退用 unique_column_sets 组合级证据(无序集合比较);
+        禁止'各单列最小值'推断(doc 19 §3.2.3)"""
+        repo = self._repo(None)
+        tables = {
+            "public.fact": {
+                "column_profiles": {
+                    "a": {"statistics": {"uniqueness": 0.5}},
+                    "b": {"statistics": {"uniqueness": 0.5}},
+                },
+                "table_profile": {
+                    "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                    "indexes": [],
+                    "unique_column_sets": [
+                        {"columns": ["b", "a"], "confidence_score": 0.9},
+                    ],
+                },
+            },
+        }
+        # 组合唯一但各单列不唯一 → 仍判定唯一(不按单列最小值漏判)
+        assert repo._is_columns_unique(tables, "public.fact", ["a", "b"]) is True
+        # 无组合级证据 → 保守不唯一
+        assert repo._is_columns_unique(tables, "public.fact", ["a", "c"]) is False
+
+    def test_composite_uniqueness_respects_configured_confidence(self):
+        """逻辑键置信度阈值经配置传入(doc 19 §3.2.3),不硬编码 0.8"""
+        repo_high = MetadataRepository(
+            Path("output/json"), logical_key_min_confidence=0.95
+        )
+        tables = {
+            "public.fact": {
+                "column_profiles": {"a": {}, "b": {}},
+                "table_profile": {
+                    "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                    "indexes": [],
+                    "unique_column_sets": [
+                        {"columns": ["a", "b"], "confidence_score": 0.9},
+                    ],
+                },
+            },
+        }
+        assert repo_high._is_columns_unique(tables, "public.fact", ["a", "b"]) is False
+
+    def test_fk_kept_when_source_statistics_null_or_missing(self):
+        """源字段 statistics 缺失或为 null 时,FK 必须保留且保守 N:1
+        (doc 19 §3.2.3:画像缺失时保守视为不唯一,不得抛异常丢 FK)"""
+        repo = self._repo(None)
+        tables = {
+            "public.orders": {
+                "column_profiles": {"category_id": {"statistics": None}},
+                "table_profile": {
+                    "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                    "indexes": [],
+                    "unique_column_sets": [],
+                },
+            },
+            "public.orders_no_stats": {
+                "column_profiles": {"category_id": {}},
+                "table_profile": {
+                    "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                    "indexes": [],
+                    "unique_column_sets": [],
+                },
+            },
+        }
+        fk = {"source_columns": ["category_id"], "target_columns": ["id"]}
+        assert repo._infer_cardinality(
+            fk, tables, "public.orders", "public", "categories"
+        ) == "N:1"
+        assert repo._infer_cardinality(
+            fk, tables, "public.orders_no_stats", "public", "categories"
+        ) == "N:1"

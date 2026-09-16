@@ -377,7 +377,7 @@ output:
     - ddl
     - markdown
     - json
-  
+
   # DDL 选项
   ddl_options:
     include_comments: true
@@ -385,12 +385,18 @@ output:
     sample_records:
       enabled: true
       count: 5
-  
+
   # Markdown 选项
   markdown_options:
     include_sample_data: true
     sample_rows: 5
     include_statistics: true
+
+# Step 4: CQL 生成过滤配置（doc 18）
+cql_generation:
+  # 仅导入 composite_score >= 该阈值的推断关系；物理外键直通不受限。
+  # 缺失或字段缺失 → 默认 0.9（与 decision.high_confidence_threshold 语义对齐）。
+  composite_score_threshold: 0.9
 
 # Step 3: 关系发现配置
 relationships:

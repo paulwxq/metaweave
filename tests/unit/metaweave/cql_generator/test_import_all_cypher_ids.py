@@ -29,7 +29,7 @@ def test_import_all_includes_db_prefixed_ids_and_database_property(tmp_path):
         HASColumnRelation("public.dim_region", "public.dim_region.city_name"),
     ]
     join_on_rels = [
-        JOINOnRelation(src_full_name="public.dim_region", dst_full_name="public.dim_region", cardinality="1:1"),
+        JOINOnRelation(relationship_id="rel_test001", src_full_name="public.dim_region", dst_full_name="public.dim_region", cardinality="1:1"),
     ]
 
     output_files = writer.write_all(tables, columns, has_column_rels, join_on_rels)

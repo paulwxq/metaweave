@@ -670,6 +670,15 @@ def metadata_command(
             click.echo(f"✅ HAS_COLUMN 关系: {result.has_column_count} 个")
             click.echo(f"✅ JOIN_ON 关系: {result.relationships_count} 个")
             click.echo(f"✅ 边总数: {result.has_column_count + result.relationships_count} 个")
+            _fstats = result.filter_stats
+            click.echo(
+                f"🔍 JOIN_ON 过滤统计: 候选 {_fstats.candidate_count} | "
+                f"通过阈值 {_fstats.threshold_passed_count} | "
+                f"被过滤 {_fstats.threshold_filtered_count} | "
+                f"重复组 {_fstats.duplicate_group_count} | "
+                f"去重丢弃 {_fstats.duplicate_discarded_count} | "
+                f"最终 {_fstats.final_count}"
+            )
             click.echo(f"📁 输出文件: {len(result.output_files)} 个")
 
             for file_path in result.output_files:
@@ -718,6 +727,15 @@ def metadata_command(
             click.echo(f"✅ HAS_COLUMN 关系: {result.has_column_count} 个")
             click.echo(f"✅ JOIN_ON 关系: {result.relationships_count} 个")
             click.echo(f"✅ 边总数: {result.has_column_count + result.relationships_count} 个")
+            _fstats = result.filter_stats
+            click.echo(
+                f"🔍 JOIN_ON 过滤统计: 候选 {_fstats.candidate_count} | "
+                f"通过阈值 {_fstats.threshold_passed_count} | "
+                f"被过滤 {_fstats.threshold_filtered_count} | "
+                f"重复组 {_fstats.duplicate_group_count} | "
+                f"去重丢弃 {_fstats.duplicate_discarded_count} | "
+                f"最终 {_fstats.final_count}"
+            )
             click.echo(f"📁 输出文件: {len(result.output_files)} 个")
 
             for file_path in result.output_files:

@@ -333,9 +333,10 @@ class TestSetAssignment:
 
 
 class TestGenerateCandidatesRulePath:
-    """规则候选生成主流程（单列 + 复合共用同一管线）"""
+    """规则候选生成主流程（单列 + 复合共用同一管线，doc 19 方向规范化）"""
 
     def test_single_column_physical_key_candidate_generated(self):
+        """规则候选生成时即规范化方向（关联字段表 → 键表，doc 19 §3.2.1）"""
         fake = FakeNameSimilarityService()
         generator = CandidateGenerator(_candidate_matching_config(), fake)
 
@@ -353,15 +354,19 @@ class TestGenerateCandidatesRulePath:
                 "public", "dim_store", {"store_id": {"data_type": "integer"}}
             ),
         }
-        candidates = generator.generate_candidates(
+        rule_pool, llm_pool = generator.generate_candidates(
             tables, [("public.fact_sales", "public.dim_store")], set()
         )
+        assert llm_pool == []
         matches = [
-            c for c in candidates
+            c for c in rule_pool
             if c["source_columns"] == ["store_id"] and c["target_columns"] == ["store_id"]
             and c["candidate_origin"] == "rule" and c["key_origin"] == "physical"
         ]
         assert len(matches) == 1
+        # 方向规范化：关联字段表（dim_store）为 source，键表（fact_sales）为 target
+        assert matches[0]["source"]["table_info"]["table_name"] == "dim_store"
+        assert matches[0]["target"]["table_info"]["table_name"] == "fact_sales"
 
     def test_composite_key_candidate_generated(self):
         fake = FakeNameSimilarityService()
@@ -383,12 +388,15 @@ class TestGenerateCandidatesRulePath:
                 {"store_id": {"data_type": "integer"}, "date_day": {"data_type": "date"}},
             ),
         }
-        candidates = generator.generate_candidates(
+        rule_pool, _ = generator.generate_candidates(
             tables, [("public.fact_sales", "public.dim_store_calendar")], set()
         )
-        composite = [c for c in candidates if len(c["source_columns"]) == 2]
+        composite = [c for c in rule_pool if len(c["source_columns"]) == 2]
         assert len(composite) == 1
-        assert set(composite[0]["source_columns"]) == {"store_id", "date_day"}
+        # 键列在 target（键表侧），关联列在 source（关联字段表侧）
+        assert composite[0]["source"]["table_info"]["table_name"] == "dim_store_calendar"
+        assert composite[0]["target"]["table_info"]["table_name"] == "fact_sales"
+        assert set(composite[0]["target_columns"]) == {"store_id", "date_day"}
 
     def test_target_metric_column_never_becomes_candidate(self):
         fake = FakeNameSimilarityService()
@@ -409,14 +417,15 @@ class TestGenerateCandidatesRulePath:
                 {"amount": {"data_type": "numeric", "semantic_analysis": {"semantic_role": "metric"}}},
             ),
         }
-        candidates = generator.generate_candidates(
+        rule_pool, llm_pool = generator.generate_candidates(
             tables, [("public.fact_sales", "public.dim_amount")], set()
         )
-        assert candidates == []
+        assert rule_pool == []
+        assert llm_pool == []
 
 
 class TestMergeDedupAndFKExclusion:
-    """§8.4：合并去重测试"""
+    """doc 19 §3.1：分池出口（同向去重 + 最小键过滤 + FK 排除，评分前）"""
 
     def _two_table_setup(self):
         fake = FakeNameSimilarityService()
@@ -438,35 +447,49 @@ class TestMergeDedupAndFKExclusion:
         return generator, tables
 
     def test_candidate_matching_existing_fk_excluded(self):
+        """FK 排除保留在规则池评分前（双向检查，见 doc 19 §3.1）"""
         from metaweave.core.relationships.repository import MetadataRepository
 
         generator, tables = self._two_table_setup()
-        fk_id = MetadataRepository.compute_relationship_id(
+        # 规范化方向（dim_store -> fact_sales）与反向 FK 身份都应能排除候选
+        fwd_fk_id = MetadataRepository.compute_relationship_id(
+            "public", "dim_store", ["store_id"],
+            "public", "fact_sales", ["store_id"],
+            rel_id_salt="",
+        )
+        rev_fk_id = MetadataRepository.compute_relationship_id(
             "public", "fact_sales", ["store_id"],
             "public", "dim_store", ["store_id"],
             rel_id_salt="",
         )
-        candidates = generator.generate_candidates(
-            tables, [("public.fact_sales", "public.dim_store")], {fk_id}
+        rule_pool, _ = generator.generate_candidates(
+            tables, [("public.fact_sales", "public.dim_store")], {fwd_fk_id}
         )
-        assert candidates == []
+        assert rule_pool == []
+        rule_pool_rev, _ = generator.generate_candidates(
+            tables, [("public.fact_sales", "public.dim_store")], {rev_fk_id}
+        )
+        assert rule_pool_rev == []
 
-    def test_llm_candidate_merges_with_rule_candidate_as_rule_plus_llm(self):
+    def test_rule_and_llm_pools_kept_separate(self):
+        """跨来源合并不再发生在生成阶段（doc 19 §3.1：挪到评分后合并阶段）"""
         generator, tables = self._two_table_setup()
         llm_raw = [{
             "type": "single_column",
-            "from_table": {"schema": "public", "table": "fact_sales"},
+            "from_table": {"schema": "public", "table": "dim_store"},
             "from_column": "store_id",
-            "to_table": {"schema": "public", "table": "dim_store"},
+            "to_table": {"schema": "public", "table": "fact_sales"},
             "to_column": "store_id",
             "confidence": 0.7,
         }]
-        candidates = generator.generate_candidates(
+        rule_pool, llm_pool = generator.generate_candidates(
             tables, [("public.fact_sales", "public.dim_store")], set(),
             llm_raw_candidates=llm_raw,
         )
-        assert len(candidates) == 1
-        assert candidates[0]["candidate_origin"] == "rule+llm"
+        assert len(rule_pool) == 1
+        assert rule_pool[0]["candidate_origin"] == "rule"
+        assert len(llm_pool) == 1
+        assert llm_pool[0]["candidate_origin"] == "llm"
 
     def test_llm_only_candidate_kept_with_llm_origin(self):
         fake = FakeNameSimilarityService()
@@ -483,12 +506,13 @@ class TestMergeDedupAndFKExclusion:
             "to_column": "area_code",
             "confidence": 0.8,
         }]
-        candidates = generator.generate_candidates(
+        rule_pool, llm_pool = generator.generate_candidates(
             tables, [("public.orders", "public.regions")], set(),
             llm_raw_candidates=llm_raw,
         )
-        assert len(candidates) == 1
-        assert candidates[0]["candidate_origin"] == "llm"
+        assert rule_pool == []
+        assert len(llm_pool) == 1
+        assert llm_pool[0]["candidate_origin"] == "llm"
 
     def test_llm_candidate_targeting_metric_column_dropped(self):
         generator, tables = self._two_table_setup()
@@ -503,29 +527,28 @@ class TestMergeDedupAndFKExclusion:
             "to_column": "store_id",
             "confidence": 0.9,
         }]
-        candidates = generator.generate_candidates(
+        _, llm_pool = generator.generate_candidates(
             tables, [("public.fact_sales", "public.dim_store")], set(),
             llm_raw_candidates=llm_raw,
         )
-        assert candidates == []
+        assert llm_pool == []
 
     def test_llm_candidate_with_ghost_source_column_dropped(self):
         """LLM 编造的源列不在源表 column_profiles 中时，入池前丢弃，避免评分阶段对幽灵列发 SQL"""
         generator, tables = self._two_table_setup()
         llm_raw = [{
             "type": "single_column",
-            "from_table": {"schema": "public", "table": "fact_sales"},
+            "from_table": {"schema": "public", "table": "dim_store"},
             "from_column": "not_a_real_column",
-            "to_table": {"schema": "public", "table": "dim_store"},
+            "to_table": {"schema": "public", "table": "fact_sales"},
             "to_column": "store_id",
             "confidence": 0.9,
         }]
-        candidates = generator.generate_candidates(
+        _, llm_pool = generator.generate_candidates(
             tables, [("public.fact_sales", "public.dim_store")], set(),
             llm_raw_candidates=llm_raw,
         )
-        # 规则路径仍可能产出 store_id→store_id；幽灵 LLM 候选不得入池
-        for c in candidates:
+        for c in llm_pool:
             assert "not_a_real_column" not in c["source_columns"]
 
     def test_llm_candidates_truncated_by_top_k_confidence_desc(self):
@@ -560,14 +583,14 @@ class TestMergeDedupAndFKExclusion:
                 "confidence": 0.9,
             },
         ]
-        candidates = generator.generate_candidates(
+        _, llm_pool = generator.generate_candidates(
             tables, [("public.orders", "public.regions")], set(),
             llm_raw_candidates=llm_raw, llm_top_k=1,
         )
-        assert len(candidates) == 1
-        assert candidates[0]["source_columns"] == ["cust_code"]
-        assert candidates[0]["target_columns"] == ["code"]
-        assert candidates[0]["candidate_origin"] == "llm"
+        assert len(llm_pool) == 1
+        assert llm_pool[0]["source_columns"] == ["cust_code"]
+        assert llm_pool[0]["target_columns"] == ["code"]
+        assert llm_pool[0]["candidate_origin"] == "llm"
 
     def test_truncate_llm_top_k_rejects_non_positive(self):
         with pytest.raises(ValueError, match="正整数"):
@@ -576,7 +599,7 @@ class TestMergeDedupAndFKExclusion:
             CandidateGenerator._truncate_llm_top_k([{}], -1)
 
     def test_superkey_composite_dropped_when_single_key_exists(self):
-        """最小键过滤：单列键已成立时，复合 superkey 候选被丢弃"""
+        """最小键过滤：单列键已成立时，复合 superkey 候选被丢弃（规则池内自过滤）"""
         fake = FakeNameSimilarityService()
         generator = CandidateGenerator(_candidate_matching_config(), fake)
 
@@ -596,12 +619,15 @@ class TestMergeDedupAndFKExclusion:
                 {"id": {"data_type": "integer"}, "tenant_id": {"data_type": "integer"}},
             ),
         }
-        candidates = generator.generate_candidates(
+        rule_pool, _ = generator.generate_candidates(
             tables, [("public.fact_sales", "public.dim_target")], set()
         )
-        # 只应保留单列候选（id -> id），复合 (id, tenant_id) 候选作为 superkey 被丢弃
-        assert len(candidates) == 1
-        assert candidates[0]["source_columns"] == ["id"]
+        # 只应保留单列候选（规范化后 dim_target.id -> fact_sales.id），
+        # 复合 (id, tenant_id) 候选作为 superkey 被丢弃
+        assert len(rule_pool) == 1
+        assert rule_pool[0]["source_columns"] == ["id"]
+        assert rule_pool[0]["source"]["table_info"]["table_name"] == "dim_target"
+        assert rule_pool[0]["target"]["table_info"]["table_name"] == "fact_sales"
 
     def test_reversed_column_pair_order_merges_to_same_relationship(self):
         """(A.id->B.id, A.code->B.code) 与 (A.code->B.code, A.id->B.id) 应合并为同一关系"""
@@ -624,8 +650,8 @@ class TestMergeDedupAndFKExclusion:
             "source_columns": ["code", "id"], "target_columns": ["code", "id"],
             "candidate_origin": "rule", "key_origin": "physical",
         }
-        merged = generator._merge_and_dedup([candidate_1, candidate_2], [], set())
-        assert len(merged) == 1
+        deduped = generator._dedup_rule_pool([candidate_1, candidate_2])
+        assert len(deduped) == 1
 
     def test_different_field_assignment_not_merged(self):
         """(A.id->B.id, A.code->B.code) 与 (A.id->B.code, A.code->B.id) 是不同关系"""
@@ -648,5 +674,193 @@ class TestMergeDedupAndFKExclusion:
             "source_columns": ["id", "code"], "target_columns": ["code", "id"],
             "candidate_origin": "rule", "key_origin": "physical",
         }
-        merged = generator._merge_and_dedup([candidate_1, candidate_2], [], set())
-        assert len(merged) == 2
+        deduped = generator._dedup_rule_pool([candidate_1, candidate_2])
+        assert len(deduped) == 2
+
+    def test_rule_pool_key_origin_physical_preferred_over_logical(self):
+        """规则池同向去重:key_origin 按 physical > logical 保留,与遍历顺序无关
+        (doc 19 §3.1.1)"""
+        generator, _ = self._two_table_setup()
+
+        table_a = _table("public", "t_a", {"id": {"data_type": "integer"}})
+        table_b = _table("public", "t_b", {"id": {"data_type": "integer"}})
+
+        logical_first = {
+            "source": table_a, "target": table_b,
+            "source_columns": ["id"], "target_columns": ["id"],
+            "candidate_origin": "rule", "key_origin": "logical",
+        }
+        physical_second = {
+            "source": table_a, "target": table_b,
+            "source_columns": ["id"], "target_columns": ["id"],
+            "candidate_origin": "rule", "key_origin": "physical",
+        }
+        deduped = generator._dedup_rule_pool([logical_first, physical_second])
+        assert len(deduped) == 1
+        assert deduped[0]["key_origin"] == "physical"
+
+        deduped_rev = generator._dedup_rule_pool([physical_second, logical_first])
+        assert len(deduped_rev) == 1
+        assert deduped_rev[0]["key_origin"] == "physical"
+
+    def test_llm_dedup_before_top_k(self):
+        """LLM 去重先于 top_k(doc 19 §3.1.1):top_k=2 下 A(0.9)/A(0.8)/B(0.7)
+        截断结果为 A、B,重复 A 不占名额"""
+        fake = FakeNameSimilarityService()
+        generator = CandidateGenerator(_candidate_matching_config(), fake)
+        tables = {
+            "public.orders": _table("public", "orders", {"code": {"data_type": "varchar"}}),
+            "public.regions": _table("public", "regions", {"code": {"data_type": "varchar"}}),
+        }
+        llm_raw = [
+            {"type": "single_column", "from_table": {"schema": "public", "table": "orders"},
+             "from_column": "code", "to_table": {"schema": "public", "table": "regions"},
+             "to_column": "code", "confidence": 0.9},
+            {"type": "single_column", "from_table": {"schema": "public", "table": "orders"},
+             "from_column": "code", "to_table": {"schema": "public", "table": "regions"},
+             "to_column": "code", "confidence": 0.8},
+        ]
+        _, llm_pool = generator.generate_candidates(
+            tables, [("public.orders", "public.regions")], set(),
+            llm_raw_candidates=llm_raw, llm_top_k=2,
+        )
+        assert len(llm_pool) == 1  # 去重后只剩 A
+
+        # A/A/B 场景:B 不得被重复 A 挤出 top_k
+        llm_raw_with_b = llm_raw + [
+            {"type": "single_column", "from_table": {"schema": "public", "table": "orders"},
+             "from_column": "code2", "to_table": {"schema": "public", "table": "regions"},
+             "to_column": "code2", "confidence": 0.7},
+        ]
+        tables["public.orders"]["column_profiles"]["code2"] = {"data_type": "varchar"}
+        tables["public.regions"]["column_profiles"]["code2"] = {"data_type": "varchar"}
+        _, llm_pool2 = generator.generate_candidates(
+            tables, [("public.orders", "public.regions")], set(),
+            llm_raw_candidates=llm_raw_with_b, llm_top_k=2,
+        )
+        assert len(llm_pool2) == 2
+        assert {c["source_columns"][0] for c in llm_pool2} == {"code", "code2"}
+
+    def test_llm_top_k_tie_order_and_salt_independent(self):
+        """top_k 并列按未加盐规范身份升序:与输入顺序、rel_id_salt 无关
+        (doc 19 §3.1.1)"""
+        fake = FakeNameSimilarityService()
+        tables = {
+            "public.orders": _table(
+                "public", "orders",
+                {"alpha": {"data_type": "varchar"}, "beta": {"data_type": "varchar"}},
+            ),
+            "public.regions": _table(
+                "public", "regions",
+                {"x": {"data_type": "varchar"}, "y": {"data_type": "varchar"}},
+            ),
+        }
+
+        def make_raw():
+            return [
+                {"type": "single_column",
+                 "from_table": {"schema": "public", "table": "orders"},
+                 "from_column": "alpha", "to_table": {"schema": "public", "table": "regions"},
+                 "to_column": "x", "confidence": 0.5},
+                {"type": "single_column",
+                 "from_table": {"schema": "public", "table": "orders"},
+                 "from_column": "beta", "to_table": {"schema": "public", "table": "regions"},
+                 "to_column": "y", "confidence": 0.5},
+            ]
+
+        gen1 = CandidateGenerator(_candidate_matching_config(), fake, rel_id_salt="salt-a")
+        gen2 = CandidateGenerator(_candidate_matching_config(), fake, rel_id_salt="salt-b")
+        _, pool1 = gen1.generate_candidates(
+            tables, [("public.orders", "public.regions")], set(),
+            llm_raw_candidates=make_raw(), llm_top_k=1,
+        )
+        _, pool2 = gen2.generate_candidates(
+            tables, [("public.orders", "public.regions")], set(),
+            llm_raw_candidates=list(reversed(make_raw())), llm_top_k=1,
+        )
+        assert pool1[0]["source_columns"] == pool2[0]["source_columns"]
+        # 并列时按签名升序:alpha=x 签名 < beta=y 签名
+        assert pool1[0]["source_columns"] == ["alpha"]
+
+    def test_rule_single_suppresses_llm_composite_only(self):
+        """最小键过滤单向(doc 19 §3.1.1):规则单列抑制 LLM 复合;
+        LLM 单列不抑制规则复合(规则池先行自过滤)"""
+        fake = FakeNameSimilarityService()
+        generator = CandidateGenerator(_candidate_matching_config(), fake)
+        tables = {
+            "public.fact": _table(
+                "public", "fact",
+                {"id": {"data_type": "integer"}, "tenant_id": {"data_type": "integer"}},
+                table_profile={
+                    "physical_constraints": {
+                        "primary_key": {"columns": ["id"]},
+                        "unique_constraints": [{"columns": ["id", "tenant_id"]}],
+                    }
+                },
+            ),
+            "public.dim": _table(
+                "public", "dim",
+                {"id": {"data_type": "integer"}, "tenant_id": {"data_type": "integer"}},
+            ),
+        }
+        llm_raw = [
+            {"type": "composite",
+             "from_table": {"schema": "public", "table": "dim"},
+             "from_columns": ["id", "tenant_id"],
+             "to_table": {"schema": "public", "table": "fact"},
+             "to_columns": ["id", "tenant_id"],
+             "confidence": 0.9},
+            {"type": "single_column",
+             "from_table": {"schema": "public", "table": "dim"},
+             "from_column": "id",
+             "to_table": {"schema": "public", "table": "fact"},
+             "to_column": "id",
+             "confidence": 0.8},
+        ]
+        rule_pool, llm_pool = generator.generate_candidates(
+            tables, [("public.fact", "public.dim")], set(),
+            llm_raw_candidates=llm_raw,
+        )
+        # 规则池:单列保留,复合 superkey 被池内自过滤
+        assert len(rule_pool) == 1
+        assert rule_pool[0]["source_columns"] == ["id"]
+        # LLM 池:复合 superkey 于"规则单列 ∪ LLM 单列"→ 被丢弃;单列保留
+        assert len(llm_pool) == 1
+        assert llm_pool[0]["source_columns"] == ["id"]
+
+    def test_llm_single_does_not_suppress_rule_composite(self):
+        """LLM 单列不抑制规则复合(doc 19 §3.1.1:单向抑制)"""
+        fake = FakeNameSimilarityService()
+        generator = CandidateGenerator(_candidate_matching_config(), fake)
+        tables = {
+            "public.fact": _table(
+                "public", "fact",
+                {"id": {"data_type": "integer"}, "tenant_id": {"data_type": "integer"}},
+                table_profile={
+                    "physical_constraints": {
+                        "primary_key": {"columns": ["id", "tenant_id"]},
+                        "unique_constraints": [],
+                    }
+                },
+            ),
+            "public.dim": _table(
+                "public", "dim",
+                {"id": {"data_type": "integer"}, "tenant_id": {"data_type": "integer"}},
+            ),
+        }
+        llm_raw = [{
+            "type": "single_column",
+            "from_table": {"schema": "public", "table": "dim"},
+            "from_column": "id",
+            "to_table": {"schema": "public", "table": "fact"},
+            "to_column": "id",
+            "confidence": 0.9,
+        }]
+        rule_pool, llm_pool = generator.generate_candidates(
+            tables, [("public.fact", "public.dim")], set(),
+            llm_raw_candidates=llm_raw,
+        )
+        # 规则池只有复合键(无单列键),复合候选保留——不被 LLM 单列抑制
+        assert len(rule_pool) == 1
+        assert rule_pool[0]["source_columns"] == ["id", "tenant_id"]
+        assert len(llm_pool) == 1

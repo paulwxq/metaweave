@@ -69,6 +69,19 @@ class RelationshipScorer:
         logger.info(f"  - comment_fallback_score={self.comment_fallback_score}")
         logger.debug(f"  - weights总和={sum(self.weights.values()):.4f}")
 
+    @staticmethod
+    def recompute_composite_score(
+            score_details: Dict[str, float],
+            weights: Dict[str, float],
+    ) -> float:
+        """按权重重算总分（共享纯函数，权重单一来源，见 doc 19 §3.2.2）
+
+        合并阶段在方向翻转后调用：更新 score_details["inclusion_rate"] 后，
+        用本函数重新加权求和。合并阶段禁止硬编码权重，必须复用本函数或
+        传入与评分阶段相同的 weights。
+        """
+        return sum(score_details[dim] * weights[dim] for dim in score_details)
+
     def score_candidates(
             self,
             candidates: List[Dict[str, Any]],
@@ -92,8 +105,8 @@ class RelationshipScorer:
                 source_columns = candidate["source_columns"]
                 target_columns = candidate["target_columns"]
 
-                # 计算5个维度评分和基数
-                score_details, cardinality = self._calculate_scores(
+                # 计算5个维度评分和基数（附带反向 inclusion 供合并阶段翻转重算）
+                score_details, cardinality, reverse_inclusion_rate = self._calculate_scores(
                     source_table, source_columns,
                     target_table, target_columns
                 )
@@ -125,10 +138,9 @@ class RelationshipScorer:
                     logger.error(error_msg)
                     raise ValueError(error_msg)
 
-                # 计算加权求和
-                composite_score = sum(
-                    score_details[dim] * self.weights[dim]
-                    for dim in score_details
+                # 计算加权求和（共享纯函数，合并阶段重算总分复用同一来源）
+                composite_score = self.recompute_composite_score(
+                    score_details, self.weights
                 )
 
                 # 验证权重总和为1.0（允许浮点误差）
@@ -143,6 +155,10 @@ class RelationshipScorer:
                 candidate["composite_score"] = composite_score
                 candidate["score_details"] = score_details
                 candidate["cardinality"] = cardinality
+                # 内部返回信息（不进 score_details 与产物）：翻转方向后的
+                # inclusion_rate = |交集| / |target_values|，供合并阶段
+                # 翻转重算（见 doc 19 §3.2.2，不新增 DB 查询）
+                candidate["_reverse_inclusion_rate"] = reverse_inclusion_rate
 
                 source_info = source_table.get("table_info", {})
                 target_info = target_table.get("table_info", {})
@@ -176,7 +192,7 @@ class RelationshipScorer:
             source_columns: List[str],
             target_table: dict,
             target_columns: List[str]
-    ) -> Tuple[Dict[str, float], str]:
+    ) -> Tuple[Dict[str, float], str, float]:
         """计算5个维度评分和关系基数
 
         Args:
@@ -186,7 +202,9 @@ class RelationshipScorer:
             target_columns: 目标列列表
 
         Returns:
-            (score_details, cardinality): 评分明细字典（5个维度）和基数类型
+            (score_details, cardinality, reverse_inclusion_rate):
+            reverse_inclusion_rate = |交集| / |target_values|，为翻转方向后的
+            inclusion_rate（内部返回信息，见 doc 19 §3.2.2）
         """
         source_info = source_table.get("table_info", {})
         target_info = target_table.get("table_info", {})
@@ -205,7 +223,7 @@ class RelationshipScorer:
         )
 
         # 1 & 2: inclusion_rate, jaccard_index + 唯一性和JOIN倍率（用于基数计算）
-        inclusion_rate, jaccard_index, source_uniqueness, target_uniqueness, join_multiplicity = \
+        inclusion_rate, reverse_inclusion_rate, jaccard_index, source_uniqueness, target_uniqueness, join_multiplicity = \
             self._sample_and_calculate_inclusion(
                 source_schema, source_table_name, source_columns,
                 target_schema, target_table_name, target_columns
@@ -249,7 +267,7 @@ class RelationshipScorer:
             "comment_similarity": comment_similarity,
             "type_compatibility": type_compatibility,
             "jaccard_index": jaccard_index,
-        }, cardinality
+        }, cardinality, reverse_inclusion_rate
 
     def _sample_and_calculate_inclusion(
             self,
@@ -259,7 +277,7 @@ class RelationshipScorer:
             target_schema: str,
             target_table: str,
             target_columns: List[str]
-    ) -> Tuple[float, float, float, float, float]:
+    ) -> Tuple[float, float, float, float, float, float]:
         """从数据库采样并计算评分指标和基数计算所需的统计值
 
         Args:
@@ -271,7 +289,9 @@ class RelationshipScorer:
             target_columns: 目标列列表
 
         Returns:
-            (inclusion_rate, jaccard_index, source_uniqueness, target_uniqueness, join_multiplicity)
+            (inclusion_rate, reverse_inclusion_rate, jaccard_index,
+             source_uniqueness, target_uniqueness, join_multiplicity)
+            reverse_inclusion_rate = |交集| / |target_values|（见 doc 19 §3.2.2）
         """
         try:
             # 采样源表（只取需要的列）
@@ -296,14 +316,14 @@ class RelationshipScorer:
 
             if not source_rows or not target_rows:
                 logger.warning(f"采样数据为空: {source_schema}.{source_table} 或 {target_schema}.{target_table}")
-                return 0.0, 0.0, 0.0, 0.0, 1.0
+                return 0.0, 0.0, 0.0, 0.0, 0.0, 1.0
 
             # 提取值集合（组合多列为元组）- 返回值集合和有效行数
             source_values, source_valid_count = self._extract_value_set(source_rows, source_columns)
             target_values, target_valid_count = self._extract_value_set(target_rows, target_columns)
 
             if not source_values or not target_values:
-                return 0.0, 0.0, 0.0, 0.0, 1.0
+                return 0.0, 0.0, 0.0, 0.0, 0.0, 1.0
 
             # 计算交集
             intersection = source_values & target_values
@@ -311,6 +331,9 @@ class RelationshipScorer:
 
             # inclusion_rate = |source ∩ target| / |source|
             inclusion_rate = len(intersection) / len(source_values) if source_values else 0.0
+            # reverse_inclusion_rate = |source ∩ target| / |target|（翻转方向的
+            # inclusion_rate，采样时同步计算，翻转重算时直接取用，不新增查询）
+            reverse_inclusion_rate = len(intersection) / len(target_values) if target_values else 0.0
 
             # jaccard_index = |source ∩ target| / |source ∪ target|
             jaccard_index = len(intersection) / len(union) if union else 0.0
@@ -347,11 +370,11 @@ class RelationshipScorer:
                 f"join_mult={join_multiplicity:.3f}, source_sample={len(source_rows)}, source_valid={source_valid_count}"
             )
 
-            return inclusion_rate, jaccard_index, source_uniqueness, target_uniqueness, join_multiplicity
+            return inclusion_rate, reverse_inclusion_rate, jaccard_index, source_uniqueness, target_uniqueness, join_multiplicity
 
         except Exception as e:
             logger.error(f"数据库采样失败: {e}")
-            return 0.0, 0.0, 0.0, 0.0, 1.0
+            return 0.0, 0.0, 0.0, 0.0, 0.0, 1.0
 
     def _execute_join_count(
             self,

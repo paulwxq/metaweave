@@ -178,7 +178,14 @@ class DecisionEngine:
         return accepted, suppressed
 
     def _has_independent_constraint(self, candidate: Dict[str, Any]) -> bool:
-        """检查源列是否有独立约束（单列 PK / 单列 UK / 非 partial 单列唯一索引）
+        """检查键端（target）是否有独立约束（单列 PK / 单列 UK / 非 partial
+        单列唯一索引），见 doc 19 §3.4。
+
+        方向规范化后键端恒在 target：N:1 / 规则主导 1:1 检查 target；
+        **M:N 无键端概念，不应用该例外**（恒 False）；
+        纯 LLM 1:1 检查最终方向的 target——但这是物理约束验证，并不证明其
+        业务方向正确。`key_origin` 可作一致性防御校验（规则物理键候选的
+        target 端必有 PK/UK），不作主判定。
 
         v3 JSON 已移除列级 `structure_flags`，统一改为读取表级
         `table_profile.physical_constraints`（主键/唯一约束）以及
@@ -191,36 +198,63 @@ class DecisionEngine:
         Returns:
             是否有独立约束
         """
-        source_table = candidate["source"]
-        source_columns = candidate["source_columns"]
-
-        if len(source_columns) != 1:
+        if candidate.get("cardinality") == "M:N":
+            # M:N 无键端概念，不应用例外
             return False
 
-        source_col_name = source_columns[0]
-        table_profile = source_table.get("table_profile", {})
+        target_table = candidate["target"]
+        target_columns = candidate["target_columns"]
+
+        if len(target_columns) != 1:
+            return False
+
+        target_col_name = target_columns[0]
+        table_profile = target_table.get("table_profile") or {}
         physical = table_profile.get("physical_constraints", {})
+
+        found = False
 
         # 检查单列主键
         pk = physical.get("primary_key")
-        if pk and list(pk.get("columns", [])) == [source_col_name]:
-            return True
+        if pk and list(pk.get("columns", [])) == [target_col_name]:
+            found = True
 
         # 检查单列唯一约束
-        for uk in physical.get("unique_constraints", []):
-            if list(uk.get("columns", [])) == [source_col_name]:
-                return True
+        if not found:
+            for uk in physical.get("unique_constraints", []):
+                if list(uk.get("columns", [])) == [target_col_name]:
+                    found = True
+                    break
 
-        # 检查非 partial 的单列唯一索引
-        for index in table_profile.get("indexes", []):
-            if (
-                    index.get("is_unique")
-                    and not index.get("condition")
-                    and list(index.get("columns", [])) == [source_col_name]
-            ):
-                return True
+        # 检查非 partial 的单列唯一索引（口径与 repository._is_columns_unique
+        # 一致：is_unique 且 condition 为空、key_expressions == columns
+        # （排除表达式索引的键改写）、columns == [target_col]）
+        if not found:
+            for index in table_profile.get("indexes", []) or []:
+                if not index.get("is_unique"):
+                    continue
+                if index.get("condition"):
+                    continue
+                key_expressions = index.get("key_expressions") or []
+                index_columns = index.get("columns") or []
+                if key_expressions and key_expressions != index_columns:
+                    continue  # 表达式索引（如 email + lower(name)），键列不直接匹配
+                if list(index_columns) == [target_col_name]:
+                    found = True
+                    break
 
-        return False
+        # 防御性校验（不作主判定，见 doc 19 §3.4）
+        if (
+                not found
+                and candidate.get("candidate_origin") == "rule"
+                and candidate.get("key_origin") == "physical"
+        ):
+            logger.warning(
+                "规则物理键候选的 target 端未检出物理约束（防御性校验失败）: %s",
+                self._format_candidate(candidate),
+            )
+
+        return found
 
     def _candidate_to_relation(self, candidate: Dict[str, Any]) -> Relation:
         """将候选转换为Relation对象

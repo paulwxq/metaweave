@@ -31,6 +31,9 @@ class TableNode:
 
     # 可选属性
     comment: Optional[str] = None
+    # 数据库对象类型:table / view / materialized_view
+    # （JSON 侧字段名为 table_type,后续统一更名为 object_type 时同步）
+    table_type: str = "table"
 
     # 约束和索引
     pk: List[str] = field(default_factory=list)  # 物理主键
@@ -59,6 +62,7 @@ class TableNode:
             "schema": self.schema,
             "name": self.name,
             "comment": self.comment or "",
+            "table_type": self.table_type,
             "pk": self.pk,
             "uk": self.uk,
             "fk": self.fk,
@@ -154,12 +158,15 @@ class JOINOnRelation:
 
     表示 Table -> Table 的关联关系。
     """
+    # 关系身份（doc 18：JOIN_ON 边的身份属性，来自 rel 产物的 relationship_id）
+    relationship_id: str
+
     # 源表和目标表
     src_full_name: str
     dst_full_name: str
 
     # 关系属性
-    cardinality: str  # N:1, 1:N, 1:1, M:N
+    cardinality: str  # N:1, 1:1, M:N
     join_type: str = "INNER JOIN"
     on: str = ""  # 连接表达式
 
@@ -172,13 +179,14 @@ class JOINOnRelation:
 
     def to_cypher_dict(self) -> Dict[str, Any]:
         """转换为 Cypher 参数字典
-        
+
         注意：
         - src_full_name 和 dst_full_name 不包含在返回字典中
         - 它们会在写入时临时添加，仅用于 MATCH 语句
         - 边属性中使用 source_table 和 target_table 存储表名
         """
         return {
+            "relationship_id": self.relationship_id,
             "source_table": self.src_full_name,
             "target_table": self.dst_full_name,
             "cardinality": self.cardinality,
@@ -191,6 +199,22 @@ class JOINOnRelation:
 
 
 @dataclass
+class RelationshipFilterStats:
+    """CQL 关系过滤与去重统计（doc 18 §5）
+
+    全部字段默认 0：生成失败路径、测试替身、其他直接构造结果对象的调用方
+    都获得稳定结构。
+    """
+
+    candidate_count: int = 0              # 候选关系数 = 全部条目
+    threshold_passed_count: int = 0       # 通过阈值数 = FK 直通豁免 + 达标推断
+    threshold_filtered_count: int = 0     # 被阈值过滤数 = 不达标推断
+    duplicate_group_count: int = 0        # 重复 relationship_id 组数
+    duplicate_discarded_count: int = 0    # 重复 ID 去重丢弃数
+    final_count: int = 0                  # 最终 JOIN_ON 数
+
+
+@dataclass
 class CQLGenerationResult:
     """CQL 生成结果"""
     success: bool
@@ -200,6 +224,9 @@ class CQLGenerationResult:
     has_column_count: int = 0
     relationships_count: int = 0
     errors: List[str] = field(default_factory=list)
+    filter_stats: RelationshipFilterStats = field(
+        default_factory=RelationshipFilterStats
+    )
 
     def __str__(self) -> str:
         status = "成功" if self.success else "失败"

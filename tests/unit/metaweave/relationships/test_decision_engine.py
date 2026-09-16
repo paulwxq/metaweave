@@ -190,13 +190,25 @@ class TestDecisionEngine:
         assert below_threshold[0]["source_columns"] == ["store_id"]
 
     def test_has_independent_constraint(self):
-        """测试独立约束检测（v3：读取表级 physical_constraints / indexes）"""
+        """测试独立约束检测（doc 19 §3.4：检查键端 target；M:N 不应用例外）
+
+        方向规范化后键端恒在 target——"单列为物理主键/唯一约束/唯一索引时保留"
+        的例外检查引用侧(source)不再正确（如 orders.category_id → categories
+        .category_id 中 categories 是键端）。
+        """
         config = {"decision": {}}
         engine = DecisionEngine(config)
 
-        # 有单列主键约束的候选
+        # 有单列主键约束的键端(target)
         candidate_with_pk = {
             "source": {
+                "table_profile": {
+                    "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                    "indexes": []
+                }
+            },
+            "source_columns": ["category_id"],
+            "target": {
                 "table_profile": {
                     "physical_constraints": {
                         "primary_key": {"columns": ["store_id"]},
@@ -205,14 +217,22 @@ class TestDecisionEngine:
                     "indexes": []
                 }
             },
-            "source_columns": ["store_id"]
+            "target_columns": ["store_id"],
+            "cardinality": "N:1",
         }
 
         assert engine._has_independent_constraint(candidate_with_pk) is True
 
-        # 有单列唯一约束的候选
+        # 有单列唯一约束的键端(target)
         candidate_with_uk = {
             "source": {
+                "table_profile": {
+                    "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                    "indexes": []
+                }
+            },
+            "source_columns": ["store_code"],
+            "target": {
                 "table_profile": {
                     "physical_constraints": {
                         "primary_key": None,
@@ -221,14 +241,22 @@ class TestDecisionEngine:
                     "indexes": []
                 }
             },
-            "source_columns": ["store_code"]
+            "target_columns": ["store_code"],
+            "cardinality": "N:1",
         }
 
         assert engine._has_independent_constraint(candidate_with_uk) is True
 
-        # 有非 partial 单列唯一索引的候选
+        # 有非 partial 单列唯一索引的键端(target)
         candidate_with_unique_index = {
             "source": {
+                "table_profile": {
+                    "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                    "indexes": []
+                }
+            },
+            "source_columns": ["email"],
+            "target": {
                 "table_profile": {
                     "physical_constraints": {"primary_key": None, "unique_constraints": []},
                     "indexes": [
@@ -236,7 +264,8 @@ class TestDecisionEngine:
                     ]
                 }
             },
-            "source_columns": ["email"]
+            "target_columns": ["email"],
+            "cardinality": "N:1",
         }
 
         assert engine._has_independent_constraint(candidate_with_unique_index) is True
@@ -246,17 +275,49 @@ class TestDecisionEngine:
             "source": {
                 "table_profile": {
                     "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                    "indexes": []
+                }
+            },
+            "source_columns": ["email"],
+            "target": {
+                "table_profile": {
+                    "physical_constraints": {"primary_key": None, "unique_constraints": []},
                     "indexes": [
                         {"columns": ["email"], "is_unique": True, "condition": "deleted_at IS NULL"}
                     ]
                 }
             },
-            "source_columns": ["email"]
+            "target_columns": ["email"],
+            "cardinality": "N:1",
         }
 
         assert engine._has_independent_constraint(candidate_with_partial_index) is False
 
-        # 没有约束的候选
+        # 表达式唯一索引（键改写）不算单列独立约束，与 repository 口径一致
+        candidate_with_expression_index = {
+            "source": {
+                "table_profile": {
+                    "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                    "indexes": []
+                }
+            },
+            "source_columns": ["email"],
+            "target": {
+                "table_profile": {
+                    "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                    "indexes": [
+                        {"columns": ["email"], "key_expressions": ["email", "lower(name)"],
+                         "is_unique": True, "condition": None}
+                    ]
+                }
+            },
+            "target_columns": ["email"],
+            "cardinality": "N:1",
+        }
+
+        assert engine._has_independent_constraint(candidate_with_expression_index) is False
+
+        # 没有约束的键端(target)
         candidate_no_constraint = {
             "source": {
                 "table_profile": {
@@ -264,10 +325,23 @@ class TestDecisionEngine:
                     "indexes": []
                 }
             },
-            "source_columns": ["some_col"]
+            "source_columns": ["some_col"],
+            "target": {
+                "table_profile": {
+                    "physical_constraints": {"primary_key": None, "unique_constraints": []},
+                    "indexes": []
+                }
+            },
+            "target_columns": ["some_col"],
+            "cardinality": "N:1",
         }
 
         assert engine._has_independent_constraint(candidate_no_constraint) is False
+
+        # M:N 无键端概念，不应用例外——即使 target 有物理 PK 也恒 False
+        candidate_mn_with_pk_target = dict(candidate_with_pk)
+        candidate_mn_with_pk_target["cardinality"] = "M:N"
+        assert engine._has_independent_constraint(candidate_mn_with_pk_target) is False
 
     def test_relation_id_with_salt(self):
         """测试推断关系ID生成支持盐值"""

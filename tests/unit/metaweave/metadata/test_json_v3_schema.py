@@ -132,7 +132,16 @@ def test_v3_formatter_emits_compact_schema(tmp_path):
         "min": "1",
         "max": "2",
         "value_distribution": {"1": 1, "2": 1},
+        "null_rate": 0.0,
+        "uniqueness": 1.0,
     }
+    assert data["column_profiles"]["amount"]["statistics"]["null_rate"] == 0.5
+    assert data["column_profiles"]["amount"]["statistics"]["uniqueness"] == 0.5
+    document = MetadataDocument.from_dict(data)
+    assert document.column_uniqueness("order_id") == 1.0
+    assert document.column_null_rate("order_id") == 0.0
+    assert document.column_uniqueness("amount") == 0.5
+    assert document.column_null_rate("amount") == 0.5
     assert data["column_profiles"]["amount"]["data_type"] == "numeric(12,2)"
 
     table_profile = data["table_profile"]

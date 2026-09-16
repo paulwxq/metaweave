@@ -23,15 +23,25 @@ class MetadataRepository:
     3. 生成确定性relationship_id
     """
 
-    def __init__(self, json_dir: Path, rel_id_salt: str = ""):
+    HIGH_UNIQUENESS = 0.95  # 单列统计唯一性阈值（与 scorer 使用相同阈值）
+
+    def __init__(
+            self,
+            json_dir: Path,
+            rel_id_salt: str = "",
+            logical_key_min_confidence: float = 0.8,
+    ):
         """初始化元数据仓库
 
         Args:
             json_dir: JSON文件目录（Step 2输出）
             rel_id_salt: relationship_id哈希盐（用于命名空间隔离）
+            logical_key_min_confidence: 逻辑键最低置信度（与规则候选生成同口径，
+                见 doc 19 §3.2.3，不得硬编码固定值）
         """
         self.json_dir = Path(json_dir)
         self.rel_id_salt = rel_id_salt
+        self.logical_key_min_confidence = logical_key_min_confidence
 
         if not self.json_dir.exists():
             raise FileNotFoundError(f"JSON目录不存在: {self.json_dir}")
@@ -203,6 +213,61 @@ class MetadataRepository:
         hash_digest = hashlib.md5(signature.encode("utf-8")).hexdigest()
         return f"rel_{hash_digest[:12]}"
 
+    @staticmethod
+    def compute_undirected_identity(
+            source_schema: str,
+            source_table: str,
+            source_columns: List[str],
+            target_schema: str,
+            target_table: str,
+            target_columns: List[str],
+    ) -> str:
+        """无向身份（评分后合并分组键，忽略方向，见 doc 19 §3.3）
+
+        精确算法：
+        1. 比较两个表端点（比较键为 (casefold, 原始值) 元组，先忽略大小写、
+           相同时以原始字符串兜底），字典序较小的表为规范左端；
+        2. 若当前关系方向与规范方向相反，同时交换表端与两侧列；
+        3. 在规范方向下对 (left_column, right_column) 配对整体排序；
+        4. 用规范表端点与排序后的配对列表生成无向身份。
+
+        禁止分别排序左右字段列表（会把不同的复合指派错误合并）。
+        `A(a,b)→B(x,y)` 与 `B(y,x)→A(b,a)` 生成相同无向身份；
+        `A(a,b)→B(y,x)` 是另一条身份。
+
+        注意：不含 rel_id_salt——盐只用于最终 relationship_id，不得参与
+        候选分组与业务选择。
+        """
+        if len(source_columns) != len(target_columns):
+            raise ValueError(
+                "compute_undirected_identity: source_columns 与 target_columns "
+                "长度必须一致"
+            )
+
+        left_key = (
+            (source_schema.casefold(), source_schema),
+            (source_table.casefold(), source_table),
+        )
+        right_key = (
+            (target_schema.casefold(), target_schema),
+            (target_table.casefold(), target_table),
+        )
+
+        if left_key <= right_key:
+            left_schema, left_table = source_schema, source_table
+            right_schema, right_table = target_schema, target_table
+            left_columns, right_columns = list(source_columns), list(target_columns)
+        else:
+            left_schema, left_table = target_schema, target_table
+            right_schema, right_table = source_schema, source_table
+            left_columns, right_columns = list(target_columns), list(source_columns)
+
+        pairs = sorted(f"{s}={t}" for s, t in zip(left_columns, right_columns))
+        return (
+            f"{left_schema}.{left_table}<->{right_schema}.{right_table}:"
+            f"[{','.join(pairs)}]"
+        )
+
     def _generate_relation_id(
             self,
             source_schema: str,
@@ -273,15 +338,11 @@ class MetadataRepository:
             target_schema: str,
             target_table: str
     ) -> str:
-        """推断外键关系的基数
+        """推断外键关系的基数（物理 FK 固定为 1:1 / N:1，见 doc 19 §3.2.3）
 
-        优先级：物理约束 > 统计值
-
-        判断逻辑：
-        - 源列唯一 + 目标列唯一 → 1:1
-        - 源列唯一 + 目标列不唯一 → 1:N
-        - 源列不唯一 + 目标列唯一 → N:1
-        - 双方都不唯一 → M:N
+        - target 端由数据库被引用约束保证唯一（PostgreSQL 允许建立外键，
+          本身代表目标列满足被引用约束），不再依赖 JSON 画像验证；
+        - source 端唯一 → 1:1；source 不唯一或无法判断 → N:1（保守）。
 
         Args:
             fk: 外键信息
@@ -291,29 +352,17 @@ class MetadataRepository:
             target_table: 目标表名
 
         Returns:
-            基数（1:1 | 1:N | N:1 | M:N）
+            基数（1:1 | N:1）
         """
         source_columns = fk["source_columns"]
         target_columns = fk.get("target_columns", fk.get("referenced_columns", []))
-        target_full_name = f"{target_schema}.{target_table}"
 
-        # 判断源列和目标列的唯一性
         source_is_unique = self._is_columns_unique(tables, source_full_name, source_columns)
-        target_is_unique = self._is_columns_unique(tables, target_full_name, target_columns)
-
-        # 判断基数
-        if source_is_unique and target_is_unique:
-            cardinality = "1:1"
-        elif source_is_unique and not target_is_unique:
-            cardinality = "1:N"
-        elif not source_is_unique and target_is_unique:
-            cardinality = "N:1"
-        else:
-            cardinality = "M:N"
+        cardinality = "1:1" if source_is_unique else "N:1"
 
         logger.debug(
-            f"外键基数推断: {source_full_name}{source_columns} -> {target_full_name}{target_columns}, "
-            f"source_unique={source_is_unique}, target_unique={target_is_unique}, cardinality={cardinality}"
+            f"外键基数推断: {source_full_name}{source_columns} -> {target_schema}.{target_table}{target_columns}, "
+            f"source_unique={source_is_unique}, cardinality={cardinality}"
         )
 
         return cardinality
@@ -324,9 +373,14 @@ class MetadataRepository:
             full_name: str,
             columns: List[str]
     ) -> bool:
-        """判断列（单列或复合列）是否唯一
+        """判断列组合（单列或复合列）是否唯一（见 doc 19 §3.2.3）
 
-        优先级：物理约束 > 统计值
+        优先级：物理约束（PK/UK）> 非部分/非表达式唯一索引 >
+        组合级统计证据（单列 statistics 现算 / 复合列 unique_column_sets）。
+
+        复合唯一性证据采用无序字段集合比较（长度相同且规范化字段集合相同），
+        该规则仅用于唯一性判断——关系身份、FK 列映射及无向身份仍必须保留
+        列的位置对应关系。
 
         Args:
             tables: 所有表元数据
@@ -342,66 +396,75 @@ class MetadataRepository:
             logger.warning(f"表元数据不存在: {full_name}")
             return False
 
-        profiles = table.get("column_profiles", {})
-        table_profile = table.get("table_profile", {})
-
-        # === 1. 检查物理约束（优先，统一读取表级 physical_constraints） ===
-
+        profiles = table.get("column_profiles") or {}
+        table_profile = table.get("table_profile") or {}
         physical = table_profile.get("physical_constraints", {})
 
-        # 单列情况：判断该列是否为单列主键或单列唯一约束
+        col_set = set(columns)
+
+        # 1. 主键（单列/复合，无序集合比较）
+        pk = physical.get("primary_key")
+        if pk and len(pk.get("columns", [])) == len(columns) and set(pk.get("columns", [])) == col_set:
+            logger.debug(f"{full_name}.{columns}: 主键，判定为唯一")
+            return True
+
+        # 2. 唯一约束（单列/复合，无序集合比较）
+        for uk in physical.get("unique_constraints", []):
+            if len(uk.get("columns", [])) == len(columns) and set(uk.get("columns", [])) == col_set:
+                logger.debug(f"{full_name}.{columns}: 唯一约束，判定为唯一")
+                return True
+
+        # 3. 非部分、非表达式、键列完全匹配的唯一索引（无序集合比较）
+        for index in table_profile.get("indexes", []) or []:
+            if not index.get("is_unique"):
+                continue
+            if index.get("condition"):
+                continue  # 部分唯一索引不算独立证据
+            key_expressions = index.get("key_expressions") or []
+            index_columns = index.get("columns") or []
+            if key_expressions and key_expressions != index_columns:
+                continue  # 表达式索引（键改写），键列不直接匹配
+            if len(index_columns) == len(columns) and set(index_columns) == col_set:
+                logger.debug(f"{full_name}.{columns}: 非部分唯一索引，判定为唯一")
+                return True
+
+        # 4. 统计证据（单列与复合口径不同，见 doc 19 §3.2.3）
         if len(columns) == 1:
             col_name = columns[0]
+            col_profile = profiles.get(col_name) or {}
+            # v3 契约允许 statistics 缺失或为 null——缺失即无法证明唯一，
+            # 保守返回不唯一，绝不抛异常让整条 FK 被丢弃
+            stats = col_profile.get("statistics") or {}
+            uniqueness = stats.get("uniqueness")
+            # v3 JSON 的 statistics 只保留原始计数，uniqueness 按
+            # unique_count / profiling.sample_count 现算（与契约层同口径）
+            if uniqueness is None:
+                profiling = table.get("profiling") or {}
+                sample_count = profiling.get("sample_count")
+                if sample_count and "unique_count" in stats:
+                    uniqueness = int(stats["unique_count"]) / int(sample_count)
 
-            pk = physical.get("primary_key")
-            if pk and list(pk.get("columns", [])) == [col_name]:
-                logger.debug(f"{full_name}.{col_name}: 单列主键，判定为唯一")
-                return True
-
-            for uk in physical.get("unique_constraints", []):
-                if list(uk.get("columns", [])) == [col_name]:
-                    logger.debug(f"{full_name}.{col_name}: 单列唯一约束，判定为唯一")
-                    return True
-
-        # 复合列情况：检查复合主键/唯一约束
-        else:
-            # 检查复合主键
-            pk = physical.get("primary_key")
-            if pk and set(pk.get("columns", [])) == set(columns):
-                logger.debug(f"{full_name}.{columns}: 复合主键，判定为唯一")
-                return True
-
-            # 检查复合唯一约束
-            for uk in physical.get("unique_constraints", []):
-                if set(uk.get("columns", [])) == set(columns):
-                    logger.debug(f"{full_name}.{columns}: 复合唯一约束，判定为唯一")
-                    return True
-
-        # === 2. Fallback 到统计值 ===
-
-        HIGH_UNIQUENESS = 0.95  # 与 scorer 使用相同阈值
-
-        if len(columns) == 1:
-            col_name = columns[0]
-            col_profile = profiles.get(col_name, {})
-            stats = col_profile.get("statistics", {})
-            uniqueness = stats.get("uniqueness", 0.0)
-
-            if uniqueness >= HIGH_UNIQUENESS:
-                logger.debug(f"{full_name}.{col_name}: 统计值 uniqueness={uniqueness:.3f} >= {HIGH_UNIQUENESS}，判定为唯一")
+            if uniqueness is not None and uniqueness >= self.HIGH_UNIQUENESS:
+                logger.debug(
+                    f"{full_name}.{col_name}: 统计值 uniqueness={uniqueness:.3f} "
+                    f">= {self.HIGH_UNIQUENESS}，判定为唯一"
+                )
                 return True
         else:
-            # 复合列：取最小唯一性（保守估计）
-            min_uniqueness = 1.0
-            for col_name in columns:
-                col_profile = profiles.get(col_name, {})
-                stats = col_profile.get("statistics", {})
-                uniqueness = stats.get("uniqueness", 0.0)
-                min_uniqueness = min(min_uniqueness, uniqueness)
-
-            if min_uniqueness >= HIGH_UNIQUENESS:
-                logger.debug(f"{full_name}.{columns}: 组合统计值 min_uniqueness={min_uniqueness:.3f} >= {HIGH_UNIQUENESS}，判定为唯一")
-                return True
+            # 复合列：unique_column_sets 组合级证据（禁止"各单列 uniqueness
+            # 最小值"推断——(a,b) 组合唯一但各列不唯一时会漏判；反之各列样本
+            # 唯一也不能严格证明组合在全表唯一）
+            for lk in table_profile.get("unique_column_sets", []) or []:
+                lk_columns = lk.get("columns", [])
+                if len(lk_columns) != len(columns):
+                    continue
+                if set(lk_columns) != col_set:
+                    continue
+                if lk.get("confidence_score", 0.0) >= self.logical_key_min_confidence:
+                    logger.debug(
+                        f"{full_name}.{columns}: unique_column_sets 逻辑键证据，判定为唯一"
+                    )
+                    return True
 
         logger.debug(f"{full_name}.{columns}: 未满足唯一条件")
         return False

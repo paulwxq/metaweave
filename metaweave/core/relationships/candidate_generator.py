@@ -1,4 +1,4 @@
-"""候选关系生成器（doc 15 统一改造版）
+"""候选关系生成器（doc 15 统一改造 + doc 19 方向统一与分池出口）
 
 统一管线（单列 + 复合键共用一条路径）：
 ① 源侧：统一收集键集（PK / 唯一约束 / 逻辑键，1~N 列）
@@ -8,9 +8,13 @@
                否则放弃
                → 类型兼容 ≥ type_threshold → 进候选集，否则放弃
 ④ 集合指派（复合键）：每源列独立过闸得候选集 → 穷举指派（非贪心，找出全部合法指派）
-⑤ LLM 候选合并入池（可选）→ 池内统一去重（含最小键过滤）→ 排除与物理 FK 重复的候选
+⑤ 规则候选生成时即规范化方向（关联字段表 → 键表，doc 19 §3.2.1）
+⑥ 规则池与 LLM 池各自独立出口：同向去重（规则池 key_origin physical > logical；
+   LLM 池去重先于 top_k）→ 最小键过滤（单向：规则单列抑制 LLM 复合）→
+   FK 排除（双向），全部在评分前完成（doc 19 §3.1）
 
-详见 docs/update/15_rel与rel_llm候选生成统一改造设计.md。
+详见 docs/update/15_rel与rel_llm候选生成统一改造设计.md 与
+docs/update/19_rel方向统一与评分后合并设计.md。
 """
 
 import logging
@@ -97,8 +101,13 @@ class CandidateGenerator:
             fk_relationship_ids: Set[str],
             llm_raw_candidates: Optional[List[Dict[str, Any]]] = None,
             llm_top_k: int = 50,
-    ) -> List[Dict[str, Any]]:
-        """生成并整理最终候选关系列表（规则 + LLM 合并去重，FK 排除）
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """生成规则池与 LLM 池（独立出口，doc 19 §3.1）
+
+        两池各自完成：同向去重（规则池 key_origin physical > logical；
+        LLM 池去重先于 top_k）→ 最小键过滤（单向：规则单列抑制 LLM 复合）
+        → FK 排除（双向），全部在评分前完成。跨来源合并挪到评分后
+        （pipeline 合并阶段）。
 
         Args:
             tables: 表元数据字典 {full_name: json_data}
@@ -108,8 +117,21 @@ class CandidateGenerator:
             llm_top_k: LLM 候选按 confidence 排序后全局保留的前 K 个
 
         Returns:
-            池内去重、排除 FK 重复后的候选列表，可直接送入评分器
+            (rule_pool, llm_pool)：分别可直接送入评分器的候选列表
         """
+        rule_pool = self._build_rule_pool(tables, table_pairs, fk_relationship_ids)
+        llm_pool = self._build_llm_pool(
+            llm_raw_candidates or [], tables, llm_top_k, rule_pool, fk_relationship_ids
+        )
+        return rule_pool, llm_pool
+
+    def _build_rule_pool(
+            self,
+            tables: Dict[str, dict],
+            table_pairs: List[Tuple[str, str]],
+            fk_relationship_ids: Set[str],
+    ) -> List[Dict[str, Any]]:
+        """规则池：生成（方向已规范化）→ 池内同向去重 → 最小键过滤 → FK 排除"""
         rule_candidates = self._generate_rule_candidates(tables, table_pairs)
         physical_n = sum(1 for c in rule_candidates if c.get("key_origin") == "physical")
         logical_n = sum(1 for c in rule_candidates if c.get("key_origin") == "logical")
@@ -118,17 +140,41 @@ class CandidateGenerator:
             len(rule_candidates), physical_n, logical_n,
         )
 
-        llm_candidates: List[Dict[str, Any]] = []
-        if llm_raw_candidates:
-            converted = self._ingest_llm_candidates(llm_raw_candidates, tables)
-            llm_candidates = self._truncate_llm_top_k(converted, llm_top_k)
-            logger.info(
-                "LLM 候选入池: 原始 %s 个 → 合法化 %s 个 → top_k(%s) 截断后 %s 个",
-                len(llm_raw_candidates), len(converted), llm_top_k, len(llm_candidates),
-            )
+        deduped = self._dedup_rule_pool(rule_candidates)
+        filtered = self._filter_superkeys(deduped)
+        final = self._exclude_fk_duplicates(filtered, fk_relationship_ids)
+        logger.info(
+            "规则池最终: 生成 %s → 去重 %s → 最小键过滤 %s → FK 排除 %s 个",
+            len(rule_candidates), len(deduped), len(filtered), len(final),
+        )
+        return final
 
-        merged = self._merge_and_dedup(rule_candidates, llm_candidates, fk_relationship_ids)
-        return merged
+    def _build_llm_pool(
+            self,
+            llm_raw_candidates: List[Dict[str, Any]],
+            tables: Dict[str, dict],
+            llm_top_k: int,
+            rule_pool: List[Dict[str, Any]],
+            fk_relationship_ids: Set[str],
+    ) -> List[Dict[str, Any]]:
+        """LLM 池：合法化 → 同向去重（同身份保留最高 confidence）→
+        排序（confidence 降序、未加盐签名升序）→ top_k 截断 →
+        最小键过滤（LLM 池单列 ∪ 规则池单列判定，单向）→ FK 排除（双向）"""
+        if not llm_raw_candidates:
+            return []
+
+        converted = self._ingest_llm_candidates(llm_raw_candidates, tables)
+        deduped = self._dedup_llm_pool(converted)
+        truncated = self._truncate_llm_top_k(deduped, llm_top_k)
+        filtered = self._filter_superkeys_llm_pool(truncated, rule_pool)
+        final = self._exclude_fk_duplicates(filtered, fk_relationship_ids)
+        logger.info(
+            "LLM 池最终: 原始 %s → 合法化 %s → 去重 %s → top_k(%s) %s → "
+            "最小键过滤 %s → FK 排除 %s 个",
+            len(llm_raw_candidates), len(converted), len(deduped),
+            llm_top_k, len(truncated), len(filtered), len(final),
+        )
+        return final
 
     # ------------------------------------------------------------------
     # ① 源侧：统一收集键集
@@ -359,10 +405,12 @@ class CandidateGenerator:
             assignments = self._find_all_assignments(qualifying_sets)
             for assignment in assignments:
                 candidates.append({
-                    "source": source_table,
-                    "target": target_table,
-                    "source_columns": list(source_columns),
-                    "target_columns": assignment,
+                    # doc 19 §3.2.1：生成时即规范化方向（关联字段表 → 键表）。
+                    # 原搜索起点是键表（source_table），规范化后键侧在 target。
+                    "source": target_table,
+                    "target": source_table,
+                    "source_columns": assignment,
+                    "target_columns": list(source_columns),
                     "candidate_origin": "rule",
                     "key_origin": origin,  # "physical" | "logical"，供 inference_method 映射使用
                 })
@@ -442,7 +490,9 @@ class CandidateGenerator:
             llm_candidates: List[Dict[str, Any]],
             top_k: Optional[int],
     ) -> List[Dict[str, Any]]:
-        """按 confidence 降序全局截断前 top_k 个；并列按原始返回顺序稳定截断（见 3.9）
+        """按 confidence 降序截断前 top_k 个；并列按未加盐有向规范签名升序
+        （见 doc 19 §3.1.1，不依赖 LLM 返回顺序；rel_id_salt 不得参与候选
+        排序与业务选择）
 
         top_k 必须是 ≥1 的正整数。0 / 负数不是"不限量"：关闭 LLM 候选请用
         `llm_candidates.enabled: false`。
@@ -452,18 +502,40 @@ class CandidateGenerator:
                 f"llm_top_k 必须是正整数（≥1），检测到: {top_k!r}。"
                 f"关闭 LLM 候选请设置 llm_candidates.enabled: false。"
             )
-        if len(llm_candidates) <= top_k:
-            return llm_candidates
 
-        indexed = list(enumerate(llm_candidates))
-        indexed.sort(key=lambda pair: (-float(pair[1].get("confidence", 0.5)), pair[0]))
-        return [c for _, c in indexed[:top_k]]
+        def sort_key(candidate: Dict[str, Any]) -> Tuple[float, str]:
+            return (
+                -float(candidate.get("confidence", 0.5)),
+                CandidateGenerator._directed_unsigned_signature(candidate),
+            )
+
+        # 始终排序再截断:候选数不超过 top_k 时也排序,保证评分顺序与产物
+        # 顺序不依赖 LLM 返回顺序(doc 19 §3.1.1)
+        return sorted(llm_candidates, key=sort_key)[:top_k]
 
     # ------------------------------------------------------------------
-    # 池内统一去重 + 最小键过滤 + 来源合并 + FK 排除
+    # 分池出口：同向去重 + 最小键过滤 + FK 排除（评分前，doc 19 §3.1/3.1.1）
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _directed_unsigned_signature(candidate: Dict[str, Any]) -> str:
+        """未哈希、未加盐的有向规范签名（业务选择用，不含 rel_id_salt）。
+
+        用于池内同向去重、LLM top_k 并列排序（doc 19 §3.1.1）。禁止分别排序
+        左右字段列表——按 (source_col=target_col) 配对整体排序。
+        """
+        src_info = candidate["source"].get("table_info", {})
+        tgt_info = candidate["target"].get("table_info", {})
+        pairs = sorted(
+            f"{s}={t}" for s, t in zip(candidate["source_columns"], candidate["target_columns"])
+        )
+        return (
+            f"{src_info.get('schema_name')}.{src_info.get('table_name')}->"
+            f"{tgt_info.get('schema_name')}.{tgt_info.get('table_name')}:[{','.join(pairs)}]"
+        )
 
     def _candidate_relationship_id(self, candidate: Dict[str, Any]) -> str:
+        """含盐有向身份：与 repository 的 FK 身份集合口径一致，仅用于 FK 排除"""
         src_info = candidate["source"].get("table_info", {})
         tgt_info = candidate["target"].get("table_info", {})
         return MetadataRepository.compute_relationship_id(
@@ -495,63 +567,90 @@ class CandidateGenerator:
         info = table.get("table_info", {})
         return f"{info.get('schema_name')}.{info.get('table_name')}"
 
-    def _merge_and_dedup(
+    def _dedup_rule_pool(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """规则池同向去重（doc 19 §3.1.1）：同一有向身份重复时 key_origin 按
+        physical > logical 保留，不得由候选遍历顺序决定；相同来源的重复项直接
+        去重。key_origin 决定 3.2.2 的纠偏策略（物理键约束修正 vs 逻辑键失效
+        丢弃），保留错误可能让本应存在的关系被删除。
+        """
+        best: Dict[str, Dict[str, Any]] = {}
+        for candidate in candidates:
+            sig = self._directed_unsigned_signature(candidate)
+            existing = best.get(sig)
+            if existing is None:
+                best[sig] = candidate
+                continue
+            if (
+                    existing.get("key_origin") == "logical"
+                    and candidate.get("key_origin") == "physical"
+            ):
+                best[sig] = candidate
+        return list(best.values())
+
+    def _dedup_llm_pool(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """LLM 池同向去重（doc 19 §3.1.1）：同一身份保留最高 confidence 的一条，
+        且先于 top_k 执行——重复候选不得占用 top_k 名额。
+        """
+        best: Dict[str, Dict[str, Any]] = {}
+        for candidate in candidates:
+            sig = self._directed_unsigned_signature(candidate)
+            existing = best.get(sig)
+            if existing is None or float(candidate.get("confidence", 0.5)) > float(
+                    existing.get("confidence", 0.5)
+            ):
+                best[sig] = candidate
+        return list(best.values())
+
+    def _exclude_fk_duplicates(
             self,
-            rule_candidates: List[Dict[str, Any]],
-            llm_candidates: List[Dict[str, Any]],
+            candidates: List[Dict[str, Any]],
             fk_relationship_ids: Set[str],
     ) -> List[Dict[str, Any]]:
-        """池内统一去重（按完整列对应对）+ 最小键过滤 + 来源合并 + FK 排除
-
-        （见 3.1 第⑦⑧⑨步 / 3.8 / 3.9）
+        """FK 排除（双向，评分前，doc 19 §3.1）：正向或反向身份命中物理 FK
+        集合即排除。两池各自调用，FK 身份集合全局。
         """
-        pool: Dict[str, Dict[str, Any]] = {}
-        order: List[str] = []
-
-        for candidate in rule_candidates + llm_candidates:
-            rel_id = self._candidate_relationship_id(candidate)
-            existing = pool.get(rel_id)
-            if existing is not None:
-                if existing["candidate_origin"] != candidate["candidate_origin"]:
-                    existing["candidate_origin"] = "rule+llm"
-                continue
-            candidate["_relationship_id"] = rel_id
-            pool[rel_id] = candidate
-            order.append(rel_id)
-
-        deduped = [pool[rid] for rid in order]
-        n_after_id_dedup = len(deduped)
-
-        deduped = self._filter_superkeys(deduped)
-        n_superkey_dropped = n_after_id_dedup - len(deduped)
-
         final = []
-        for candidate in deduped:
-            fwd = candidate["_relationship_id"]
-            if fwd in fk_relationship_ids:
+        for candidate in candidates:
+            if self._candidate_relationship_id(candidate) in fk_relationship_ids:
                 continue
-            rev = self._reverse_relationship_id(candidate)
-            if rev in fk_relationship_ids:
+            if self._reverse_relationship_id(candidate) in fk_relationship_ids:
                 continue
             final.append(candidate)
-
-        n_fk_excluded = len(deduped) - len(final)
-        origin_rule = sum(1 for c in final if c.get("candidate_origin") == "rule")
-        origin_llm = sum(1 for c in final if c.get("candidate_origin") == "llm")
-        origin_both = sum(1 for c in final if c.get("candidate_origin") == "rule+llm")
-        logger.info(
-            "候选池最终: %s 个（入池 %s → 去重后 %s → 最小键丢弃 %s → FK排除 %s；"
-            "origin: rule=%s, llm=%s, rule+llm=%s）",
-            len(final),
-            len(rule_candidates) + len(llm_candidates),
-            n_after_id_dedup,
-            n_superkey_dropped,
-            n_fk_excluded,
-            origin_rule,
-            origin_llm,
-            origin_both,
-        )
         return final
+
+    def _filter_superkeys_llm_pool(
+            self,
+            llm_candidates: List[Dict[str, Any]],
+            rule_pool: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """LLM 池最小键过滤（单向，doc 19 §3.1.1）：superkey 判定用
+        "LLM 池单列 ∪ 规则池单列"并集——规则单列抑制 LLM 复合（规则单列键侧
+        是 PK/UK/逻辑键约束事实，LLM 复合是猜测，丢弃无损）、LLM 池内单列
+        抑制 LLM 池内复合；**LLM 单列不抑制规则复合**（规则池已先行自过滤）。
+        """
+        single_map: Set[Tuple[str, str, str, str]] = set()
+        for candidate in list(rule_pool) + list(llm_candidates):
+            if len(candidate["source_columns"]) == 1:
+                single_map.add((
+                    self._full_name(candidate["source"]),
+                    self._full_name(candidate["target"]),
+                    candidate["source_columns"][0],
+                    candidate["target_columns"][0],
+                ))
+
+        result = []
+        for candidate in llm_candidates:
+            if len(candidate["source_columns"]) > 1:
+                src_full = self._full_name(candidate["source"])
+                tgt_full = self._full_name(candidate["target"])
+                is_superkey = any(
+                    (src_full, tgt_full, sc, tc) in single_map
+                    for sc, tc in zip(candidate["source_columns"], candidate["target_columns"])
+                )
+                if is_superkey:
+                    continue
+            result.append(candidate)
+        return result
 
     def _filter_superkeys(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """最小键过滤：同池内若单列键 col→X 的候选已存在，复合键 (col, other)→(X, Y)

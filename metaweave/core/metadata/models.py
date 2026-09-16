@@ -250,7 +250,9 @@ class TableMetadata:
                     "inference_basis": list(profile.inference_basis),
                 },
             }
-            compact_statistics = self._compact_v3_statistics(column.statistics)
+            compact_statistics = self._compact_v3_statistics(
+                column.statistics, effective_sample_count
+            )
             if compact_statistics:
                 column_data["statistics"] = compact_statistics
             data["column_profiles"][name] = column_data
@@ -264,14 +266,24 @@ class TableMetadata:
     @staticmethod
     def _compact_v3_statistics(
         statistics: Optional[Dict[str, Any]],
+        sample_count: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """只保留 v3 标准产物需要的不可派生统计事实。"""
+        """保留计数类统计，并写入 uniqueness / null_rate（四位小数）。"""
         if not statistics:
             return {}
-        retained = {}
+        retained: Dict[str, Any] = {}
         for key in ("null_count", "unique_count", "min", "max", "value_distribution"):
             if key in statistics and statistics[key] is not None:
                 retained[key] = statistics[key]
+        if sample_count not in (None, 0):
+            if "null_count" in retained:
+                retained["null_rate"] = round(
+                    int(retained["null_count"]) / sample_count, 4
+                )
+            if "unique_count" in retained:
+                retained["uniqueness"] = round(
+                    int(retained["unique_count"]) / sample_count, 4
+                )
         return retained
 
     def to_json(self, indent: int = 2) -> str:

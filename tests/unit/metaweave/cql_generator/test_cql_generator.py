@@ -11,7 +11,7 @@ import yaml
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from metaweave.core.cql_generator.generator import CQLGenerator
-from metaweave.core.cql_generator.models import CQLGenerationResult
+from metaweave.core.cql_generator.models import RelationshipFilterStats, CQLGenerationResult
 
 
 @pytest.fixture
@@ -104,7 +104,7 @@ class TestCQLGenerator:
         """测试：generate() 方法正确传递 step_name 参数"""
         # 模拟 JSONReader
         mock_reader = MagicMock()
-        mock_reader.read_all.return_value = ([], [], [], [])
+        mock_reader.read_all.return_value = ([], [], [], [], RelationshipFilterStats())
         mock_reader_class.return_value = mock_reader
 
         # 模拟 CypherWriter
@@ -133,7 +133,7 @@ class TestCQLGenerator:
         """测试：元数据生成失败时异常被添加到 result.errors"""
         # 模拟 JSONReader
         mock_reader = MagicMock()
-        mock_reader.read_all.return_value = ([], [], [], [])
+        mock_reader.read_all.return_value = ([], [], [], [], RelationshipFilterStats())
         mock_reader_class.return_value = mock_reader
 
         # 模拟 CypherWriter：write_metadata 抛出异常
@@ -190,6 +190,7 @@ class TestCQLGenerator:
         ]
         join_on_rels = [
             JOINOnRelation(
+                relationship_id="rel_test001",
                 src_full_name="public.table1",
                 dst_full_name="public.table2",
                 cardinality="N:1"
@@ -198,7 +199,7 @@ class TestCQLGenerator:
 
         # 模拟 JSONReader
         mock_reader = MagicMock()
-        mock_reader.read_all.return_value = (tables, columns, has_column_rels, join_on_rels)
+        mock_reader.read_all.return_value = (tables, columns, has_column_rels, join_on_rels, RelationshipFilterStats())
         mock_reader_class.return_value = mock_reader
 
         # 模拟 CypherWriter

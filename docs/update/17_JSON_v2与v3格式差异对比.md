@@ -13,8 +13,10 @@
   (`MetadataDocument.from_dict` 强校验);
 3. **v3.0 实际产物**:当前 `output/json/*.json` 全库字段枚举。
 
-v2 → v3 的本质一句话:**列级"加工过的信息"(结构标志、角色详情、预计算统计)全部
-从落盘产物中移除,只保留原始事实(表级约束/索引/原始计数);需要加工值时由契约层
+v2 → v3 的本质一句话:**列级"加工过的信息"大部分从落盘产物中移除(结构标志、
+角色详情、长度/均值类预计算统计),只保留原始事实(表级约束/索引/原始计数)与
+下游必需的 `uniqueness` / `null_rate` 两个现算指标(rel 与 CQL 直接消费,由
+生成端在序列化时按 `unique_count` / `null_count` 现算);需要加工值时由契约层
 (**`MetadataDocument`**)方法按需现算。契约化强校验,旧字段混入直接报错(零兼容)。**
 
 ## 2. 顶层结构
@@ -121,28 +123,32 @@ semantic_analysis(内部:semantic_role / semantic_confidence / inference_basis)
 
 
 
-### 5.2 v3.0 允许的键(实际产物全库并集,只有原始计数)
+### 5.2 v3.0 允许的键(实际产物全库并集,原始计数 + 两个现算指标)
 
 ```text
-null_count, unique_count, min, max, value_distribution
+null_count, unique_count, min, max, value_distribution,
+uniqueness, null_rate
 ```
+
+`uniqueness` / `null_rate` 由生成端在序列化时按 `unique_count` / `null_count`
+现算(下游 rel 与 CQL 直接消费,见 §11/§13);统计不足(如 BYTEA 无计数)时键
+缺失,消费方按"缺失"处理,不与 0 混淆。
 
 
 
 ### 5.3 v3.0 禁止的键(混入即报错,`forbidden_statistic_keys`)
 
 ```text
-sample_count, null_rate, uniqueness,
-mean, avg_length, min_length, max_length, median_length, length_std
+sample_count, mean, avg_length, min_length, max_length, median_length, length_std
 ```
 
 
 
-### 5.4 v3 替代方式
+### 5.4 v3 补充方式
 
-契约层按需现算:`column_uniqueness()`(按 `unique_count`)、`column_null_rate()`
-(按 `null_count`)、`column_statistics()`;统计不足时返回 `None`(与"缺数据"和"0"
-区分,消费方据此判断)。
+契约层按需现算:`column_uniqueness()`(优先读落盘的 `uniqueness`,缺失时按
+`unique_count` 现算)、`column_null_rate()`(同)、`column_statistics()`;
+统计不足时返回 `None`(与"缺数据"和"0"区分,消费方据此判断)。
 
 ## 6. table_profile
 
@@ -230,8 +236,8 @@ build_json_llm_input()(LLM 白名单输入构造)
 
 | 消费方                                              | 依赖的 v2 字段                                        | v3 状态                                                                                                                           |
 | ------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| rel / rel_llm(候选生成、决策器、writer、repository)        | 列级 `structure_flags`、`statistics.uniqueness`     | **已适配**(doc 15 改造:改读表级 constraints/indexes;最小键过滤与唯一性判定走表级)                                                                      |
-| **CQL reader**                                   | `statistics.uniqueness` / `statistics.null_rate` | **未适配**——v3 下恒取默认 0.0,生成的 Cypher 节点属性 uniqueness/null_rate 全为 0(静默数据错误);修复方向:改调契约层 `column_uniqueness()` / `column_null_rate()` |
+| rel / rel_llm(候选生成、决策器、writer、repository)        | 列级 `structure_flags`、`statistics.uniqueness`     | **已适配**(doc 15 改造:改读表级 constraints/indexes;最小键过滤与唯一性判定走表级;repository 的单列统计回退优先读落盘 `uniqueness`,缺失时按 `unique_count` 现算) |
+| CQL reader                                   | `statistics.uniqueness` / `statistics.null_rate` | **正常**——v3 产物保留这两个现算指标(生成端按 `unique_count` / `null_count` 现算,见 §5.2),Cypher 节点属性取值真实 |
 | CQL 其它读取(pk/uk/fk 列集、indexes、unique_column_sets) | —                                                | 已是 v3 兼容字段,无影响                                                                                                                  |
 
 
@@ -254,8 +260,6 @@ build_json_llm_input()(LLM 白名单输入构造)
 | `column_profiles[col].structure_flags`(11 标志)    | 删除(forbidden),表级 constraints/indexes 替代 |
 | `column_profiles[col].role_specific_info`(9 类详情) | 删除(forbidden)                           |
 | `statistics.sample_count`                        | 删除(forbidden)                           |
-| `statistics.null_rate`                           | 删除(forbidden),按 null_count 现算           |
-| `statistics.uniqueness`                          | 删除(forbidden),按 unique_count 现算         |
 | `statistics.mean`                                | 删除(forbidden)                           |
 | `statistics.avg_length`                          | 删除(forbidden)                           |
 | `statistics.min_length`                          | 删除(forbidden)                           |
@@ -291,7 +295,7 @@ build_json_llm_input()(LLM 白名单输入构造)
 | `metadata_version`                                                              | `"2.0"`        | `"3.0"`(契约校验必须)           |
 | `indexes[].key_expressions`                                                     | 可选(None 时 pop) | **必填数组**(无值时以 columns 兜底) |
 | `indexes[].included_columns`                                                    | 可选(None 时 pop) | **必填数组**(无值时写空数组)         |
-| `statistics.null_count` / `unique_count` / `min` / `max` / `value_distribution` | 有(与预计算指标混合)    | 有(**唯一允许的统计键**)           |
+| `statistics.null_count` / `unique_count` / `min` / `max` / `value_distribution` / `uniqueness` / `null_rate` | 有(与预计算指标混合)    | 有(**允许的统计键**,uniqueness/null_rate 由生成端按计数现算) |
 
 
 
@@ -338,8 +342,8 @@ v3 中的状态。
 | `column_profiles[col].comment`                                     | ✓ 存在    | 正常                                  |
 | `column_profiles[col].semantic_analysis.semantic_role`             | ✓ 存在    | 正常                                  |
 | `column_profiles[col].structure_flags`                             | ✗ v3 删除 | **无影响**(`reader.py:298` 读出后未使用,死代码) |
-| `column_profiles[col].statistics.uniqueness`                       | ✗ v3 删除 | **功能缺口**:Cypher 列节点属性恒 0.0          |
-| `column_profiles[col].statistics.null_rate`                        | ✗ v3 删除 | **功能缺口**:Cypher 列节点属性恒 0.0          |
+| `column_profiles[col].statistics.uniqueness`                       | ✓ 存在    | 正常(生成端按 `unique_count` 现算;统计不足时键缺失) |
+| `column_profiles[col].statistics.null_rate`                        | ✓ 存在    | 正常(生成端按 `null_count` 现算;统计不足时键缺失)   |
 
 
 
@@ -361,9 +365,8 @@ v3 中的状态。
 
 ### 13.3 CQL 修复清单
 
-1. `statistics.uniqueness` / `null_rate` → 改为按 `unique_count` / `null_count`
-  现算(推荐调用契约层 `MetadataDocument.column_uniqueness()` /
-   `column_null_rate()`,统计不足时区分 `None` 与 0);
+1. `statistics.uniqueness` / `null_rate` → 已由生成端现算并落盘,reader 直接
+   读取;统计不足时键缺失,读取端按缺失处理(区别于 0);
 2. 顺带删除 `reader.py:298` 的 `structure_flags` 死读;
 3. 其余字段无需改动(全部 v3 兼容)。
 
